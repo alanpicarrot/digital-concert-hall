@@ -1,0 +1,131 @@
+erDiagram
+    USERS ||--o{ ORDERS : places
+    USERS ||--o{ USER_ROLES : has
+    USERS {
+        int user_id PK
+        varchar username
+        varchar email
+        varchar password_hash
+        varchar full_name
+        timestamp created_at
+        timestamp updated_at
+        int points
+        varchar status
+    }
+    
+    USER_ROLES {
+        int user_role_id PK
+        int user_id FK
+        int role_id FK
+    }
+    
+    ROLES {
+        int role_id PK
+        varchar role_name
+        text description
+    }
+
+    CONCERTS ||--|{ PERFORMANCES : has
+    CONCERTS ||--o{ CONCERT_ARTISTS : features
+    CONCERTS {
+        int concert_id PK
+        varchar title
+        text description
+        text program_details
+        varchar poster_url
+        varchar status
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    PERFORMANCES ||--o{ TICKETS : offers
+    PERFORMANCES {
+        int performance_id PK
+        int concert_id FK
+        datetime start_time
+        datetime end_time
+        varchar venue
+        varchar status
+        varchar livestream_url
+        varchar recording_url
+    }
+
+    ARTISTS ||--o{ CONCERT_ARTISTS : performs_in
+    ARTISTS {
+        int artist_id PK
+        varchar name
+        text biography
+        varchar image_url
+        varchar status
+    }
+    
+    CONCERT_ARTISTS {
+        int concert_artist_id PK
+        int concert_id FK
+        int artist_id FK
+        varchar role
+    }
+    
+    TICKET_TYPES ||--o{ TICKETS : defines
+    TICKET_TYPES {
+        int ticket_type_id PK
+        varchar name
+        text description
+        decimal price
+    }
+    
+    TICKETS {
+        int ticket_id PK
+        int performance_id FK
+        int ticket_type_id FK
+        int total_quantity
+        int available_quantity
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    ORDERS ||--o{ ORDER_ITEMS : contains
+    ORDERS {
+        int order_id PK
+        int user_id FK
+        datetime order_date
+        decimal total_amount
+        varchar status
+        varchar payment_method
+        varchar payment_status
+    }
+    
+    ORDER_ITEMS {
+        int order_item_id PK
+        int order_id FK
+        int ticket_id FK
+        int quantity
+        decimal unit_price
+        decimal subtotal
+    }
+    
+    DISCOUNTS ||--o{ ORDER_DISCOUNTS : applied_to
+    DISCOUNTS {
+        int discount_id PK
+        varchar code
+        varchar type
+        decimal value
+        datetime start_date
+        datetime end_date
+        varchar status
+    }
+    
+    ORDER_DISCOUNTS {
+        int order_discount_id PK
+        int order_id FK
+        int discount_id FK
+        decimal amount
+    }
+    
+    USER_VIEWING_HISTORY {
+        int history_id PK
+        int user_id FK
+        int performance_id FK
+        datetime view_date
+        int viewing_duration
+    }

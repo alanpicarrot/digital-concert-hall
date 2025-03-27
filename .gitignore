@@ -1,0 +1,128 @@
+# 依賴套件
+node_modules/
+**/node_modules/
+/.pnp
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# 編譯和建置產物
+/build/
+**/build/
+/dist/
+**/dist/
+/backend/target/
+/backend/bin/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+
+# 測試覆蓋率報告
+/coverage
+**/coverage
+/.nyc_output
+
+# IDE 和編輯器檔案
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.metadata/
+.settings/
+.classpath
+.project
+*.iml
+*.ipr
+*.iws
+*.launch
+*~
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# 環境檔案
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.production
+
+# 日誌檔案
+logs/
+*.log
+**/*.log
+
+# 臨時檔案
+*.tmp
+*.bak
+*.swp
+*~.nib
+.sass-cache/
+*.css.map
+*.js.map
+
+# 快取檔案
+.eslintcache
+.cache/
+.parcel-cache/
+.babel-cache/
+.npm/
+.gradle/
+
+# 數據庫檔案
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+
+# 系統檔案
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 前端特定
+.eslintcache
+.stylelintcache
+/frontend-client/node_modules
+/frontend-admin/node_modules
+/frontend-client/build
+/frontend-admin/build
+/frontend-client/.cache
+/frontend-admin/.cache
+
+# 後端特定
+/backend/target/
+/backend/logs/
+/backend/bin/
+/backend/tmp/
+/backend/.factorypath
+/backend/.apt_generated/
+/backend/.apt_generated_tests/
+/backend/spring-configuration-metadata.json
+
+# 套件檔案
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+
+# 其他
+.next/
+.nuxt/
+.out/
+.output/
+dist/
+dumps/
+.temp/
