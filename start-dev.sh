@@ -50,7 +50,7 @@ FRONTEND_ADMIN_PID=$!
 cd ..
 
 echo "所有服務已啟動:"
-echo "- 後端: http://localhost:8080"
+echo "- 後端: http://localhost:8081"
 echo "- 用戶前台: http://localhost:3000"
 echo "- 管理員後台: http://localhost:3001"
 

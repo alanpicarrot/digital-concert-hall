@@ -6,17 +6,17 @@ const TicketTypesPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // 表單狀態
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formMode, setFormMode] = useState('create'); // 'create' or 'edit'
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
   const [currentTicketType, setCurrentTicketType] = useState({
     name: '',
     description: '',
-    price: 0,
-    category: 'STANDARD' // 預設類別
+    priceMultiplier: 1.0,
+    colorCode: '#4f46e5'
   });
-
-  // 載入票種資料
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // 加載所有票種
   const loadTicketTypes = async () => {
     try {
       setLoading(true);
@@ -24,115 +24,142 @@ const TicketTypesPage = () => {
       setTicketTypes(response.data);
       setError(null);
     } catch (err) {
-      console.error('Failed to load ticket types:', err);
-      setError('載入票種資料失敗');
+      setError('無法加載票種列表：' + (err.response?.data?.message || err.message));
+      console.error('加載票種失敗:', err);
     } finally {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
     loadTicketTypes();
   }, []);
-
-  // 處理表單提交
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      if (formMode === 'create') {
-        await TicketTypeService.createTicketType(currentTicketType);
-      } else {
-        await TicketTypeService.updateTicketType(currentTicketType.id, currentTicketType);
-      }
-      
-      setIsModalOpen(false);
-      loadTicketTypes(); // 重新載入票種列表
-    } catch (err) {
-      console.error('Error saving ticket type:', err);
-      setError('儲存票種資料失敗');
-    }
-  };
-
-  // 處理表單輸入變更
+  
+  // 處理模態框輸入變更
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCurrentTicketType({
       ...currentTicketType,
-      [name]: name === 'price' ? parseFloat(value) : value
+      [name]: value
     });
   };
-
-  // 開啟新增表單
-  const openCreateForm = () => {
+  
+  // 新增/編輯票種
+  const handleSaveTicketType = async () => {
+    try {
+      if (!currentTicketType.name) {
+        alert('請填寫票種名稱');
+        return;
+      }
+      
+      if (isEditing) {
+        await TicketTypeService.updateTicketType(currentTicketType.id, currentTicketType);
+      } else {
+        await TicketTypeService.createTicketType(currentTicketType);
+      }
+      
+      // 重新加載數據
+      loadTicketTypes();
+      
+      // 關閉模態框
+      setShowModal(false);
+      
+      // 重置表單
+      setCurrentTicketType({
+        name: '',
+        description: '',
+        priceMultiplier: 1.0,
+        colorCode: '#4f46e5'
+      });
+      
+      setIsEditing(false);
+    } catch (err) {
+      alert('保存失敗: ' + (err.response?.data?.message || err.message));
+      console.error('保存票種失敗:', err);
+    }
+  };
+  
+  // 編輯票種
+  const handleEditTicketType = (ticketType) => {
+    setIsEditing(true);
     setCurrentTicketType({
-      name: '',
-      description: '',
-      price: 0,
-      category: 'STANDARD'
+      id: ticketType.id,
+      name: ticketType.name,
+      description: ticketType.description || '',
+      priceMultiplier: ticketType.priceMultiplier,
+      colorCode: ticketType.colorCode || '#4f46e5'
     });
-    setFormMode('create');
-    setIsModalOpen(true);
+    setShowModal(true);
   };
-
-  // 開啟編輯表單
-  const openEditForm = (ticketType) => {
-    setCurrentTicketType({...ticketType});
-    setFormMode('edit');
-    setIsModalOpen(true);
-  };
-
+  
   // 刪除票種
-  const handleDelete = async (id) => {
-    if (window.confirm('確定要刪除此票種嗎？此操作無法恢復！')) {
+  const handleDeleteTicketType = async (id) => {
+    if (window.confirm('確定要刪除此票種嗎？此操作無法撤銷，且可能會影響已經引用此票種的票券。')) {
       try {
         await TicketTypeService.deleteTicketType(id);
-        loadTicketTypes(); // 重新載入票種列表
+        loadTicketTypes();
       } catch (err) {
-        console.error('Error deleting ticket type:', err);
-        setError('刪除票種失敗');
+        alert('刪除失敗: ' + (err.response?.data?.message || err.message));
+        console.error('刪除票種失敗:', err);
       }
     }
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">票種管理</h1>
-        <button 
-          onClick={openCreateForm}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
+        <h1 className="text-3xl font-bold">票種管理</h1>
+        <button
+          onClick={() => {
+            setIsEditing(false);
+            setCurrentTicketType({
+              name: '',
+              description: '',
+              priceMultiplier: 1.0,
+              colorCode: '#4f46e5'
+            });
+            setShowModal(true);
+          }}
+          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
         >
           新增票種
         </button>
       </div>
 
+      {/* 錯誤訊息 */}
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
           <p>{error}</p>
         </div>
       )}
 
+      {/* 正在加載 */}
       {loading ? (
-        <div className="text-center py-10">
-          <p className="text-gray-500">載入中...</p>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
         </div>
       ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  票種名稱
+                  ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  名稱
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   描述
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  價格
+                  價格倍數
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  類別
+                  顏色標示
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  創建日期
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   操作
@@ -140,153 +167,175 @@ const TicketTypesPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {ticketTypes.length > 0 ? (
+              {ticketTypes.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                    暫無票種，請添加
+                  </td>
+                </tr>
+              ) : (
                 ticketTypes.map((ticketType) => (
                   <tr key={ticketType.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {ticketType.id}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{ticketType.name}</div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {ticketType.name}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500">{ticketType.description}</div>
+                      <div className="text-sm text-gray-500 truncate max-w-xs">
+                        {ticketType.description || '無描述'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {ticketType.priceMultiplier}x
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">${ticketType.price}</div>
+                      <div className="flex items-center">
+                        <div 
+                          className="h-6 w-6 rounded-full mr-2" 
+                          style={{ backgroundColor: ticketType.colorCode }}
+                        ></div>
+                        <span className="text-sm text-gray-500">{ticketType.colorCode}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        ticketType.category === 'PREMIUM' 
-                          ? 'bg-purple-100 text-purple-800' 
-                          : ticketType.category === 'VIP' 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-green-100 text-green-800'
-                      }`}>
-                        {ticketType.category}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(ticketType.createdAt).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => openEditForm(ticketType)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      >
-                        編輯
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(ticketType.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        刪除
-                      </button>
+                      <div className="flex justify-end space-x-2">
+                        {/* 編輯按鈕 */}
+                        <button
+                          onClick={() => handleEditTicketType(ticketType)}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 px-2 py-1 rounded"
+                        >
+                          編輯
+                        </button>
+                        
+                        {/* 刪除按鈕 */}
+                        <button
+                          onClick={() => handleDeleteTicketType(ticketType.id)}
+                          className="text-red-600 hover:text-red-900 bg-red-50 px-2 py-1 rounded"
+                        >
+                          刪除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
-                    尚無票種資料
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* 票種編輯/新增 Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center justify-center">
-          <div className="fixed inset-0 transition-opacity">
-            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-          </div>
-          
-          <div className="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all w-full max-w-lg mx-4">
-            <div className="bg-gray-50 px-4 py-3 border-b">
-              <h3 className="text-lg font-medium text-gray-900">
-                {formMode === 'create' ? '新增票種' : '編輯票種'}
-              </h3>
+      {/* 新增/編輯票種模態框 */}
+      {showModal && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="p-4">
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-                    票種名稱
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={currentTicketType.name}
-                    onChange={handleInputChange}
-                    required
-                    className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
-                    描述
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={currentTicketType.description}
-                    onChange={handleInputChange}
-                    className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    rows="3"
-                  ></textarea>
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="price">
-                    價格
-                  </label>
-                  <input
-                    type="number"
-                    id="price"
-                    name="price"
-                    min="0"
-                    step="0.01"
-                    value={currentTicketType.price}
-                    onChange={handleInputChange}
-                    required
-                    className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="category">
-                    類別
-                  </label>
-                  <select
-                    id="category"
-                    name="category"
-                    value={currentTicketType.category}
-                    onChange={handleInputChange}
-                    className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                  >
-                    <option value="STANDARD">標準</option>
-                    <option value="PREMIUM">精選</option>
-                    <option value="VIP">貴賓</option>
-                  </select>
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  {isEditing ? '編輯票種' : '新增票種'}
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                      名稱 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      id="name"
+                      value={currentTicketType.name}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                      描述
+                    </label>
+                    <textarea
+                      name="description"
+                      id="description"
+                      value={currentTicketType.description}
+                      onChange={handleInputChange}
+                      rows="3"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label htmlFor="priceMultiplier" className="block text-sm font-medium text-gray-700">
+                      價格倍數 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="priceMultiplier"
+                      id="priceMultiplier"
+                      value={currentTicketType.priceMultiplier}
+                      onChange={handleInputChange}
+                      step="0.1"
+                      min="0.1"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                      required
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      價格倍數將與票券基本價格相乘，例如：基本價格1000 x 倍數1.5 = 最終價格1500
+                    </p>
+                  </div>
+                  <div>
+                    <label htmlFor="colorCode" className="block text-sm font-medium text-gray-700">
+                      顏色代碼 <span className="text-red-500">*</span>
+                    </label>
+                    <div className="mt-1 flex items-center">
+                      <input
+                        type="color"
+                        name="colorCode"
+                        id="colorCode"
+                        value={currentTicketType.colorCode}
+                        onChange={handleInputChange}
+                        className="h-8 w-8 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                      />
+                      <input
+                        type="text"
+                        name="colorCode"
+                        value={currentTicketType.colorCode}
+                        onChange={handleInputChange}
+                        className="ml-2 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      此顏色將用於前台展示票種類型
+                    </p>
+                  </div>
                 </div>
               </div>
-              
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
-                  type="submit"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  type="button"
+                  onClick={handleSaveTicketType}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 sm:ml-3 sm:w-auto sm:text-sm"
                 >
-                  儲存
+                  {isEditing ? '更新' : '創建'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowModal(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   取消
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

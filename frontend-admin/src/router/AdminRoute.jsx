@@ -9,6 +9,11 @@ const AdminRoute = ({ children }) => {
   const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
 
+  // 開發模式下輸出用戶資訊，方便調試
+  if (user) {
+    console.log('當前用戶信息:', user);
+  }
+
   // 如果認證狀態還在加載中，顯示載入指示器
   if (loading) {
     return (
@@ -18,12 +23,20 @@ const AdminRoute = ({ children }) => {
     );
   }
 
-  // 如果用戶未登入或不是管理員，重定向到登入頁面
-  if (!isAuthenticated || !user.roles.includes('ADMIN')) {
+  // 如果用戶未登入，重定向到登入頁面
+  if (!isAuthenticated) {
+    console.log('未登入，重定向到登入頁面');
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
-  // 如果用戶已登入且是管理員，渲染子路由
+  // 檢查用戶角色
+  if (user && Array.isArray(user.roles) && !user.roles.includes('ROLE_ADMIN')) {
+    console.log('非管理員角色，重定向到登入頁面', user.roles);
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+  }
+
+  // 如果用戶已登入且權限正確，渲染子路由
+  console.log('用戶已通過權限驗證，渲染子路由');
   return children;
 };
 

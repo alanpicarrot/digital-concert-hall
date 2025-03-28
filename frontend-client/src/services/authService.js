@@ -1,8 +1,16 @@
 import axios from 'axios';
 
 // 建立 axios 實例
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+
+// 打印環境變量幫助排查問題
+console.log('Environment variables:', {
+  REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+  API_URL: API_URL
+});
+
 const axiosInstance = axios.create({
-  baseURL: '', // 使用空字符串來允許從 package.json 中的 proxy 配置生效
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -32,7 +40,9 @@ const logout = () => {
   
   // 嘗試調用後端登出 API
   try {
-    axiosInstance.post('/api/auth/logout').catch(err => {
+    // 檢查是否需要添加 /api 前綴
+    const endpoint = API_URL.includes('/api') ? '/auth/logout' : '/api/auth/logout';
+    axiosInstance.post(endpoint).catch(err => {
       console.log('登出 API 調用失敗，但本地存儲已清除', err);
       // 已經先清除了本地存儲，所以不需要額外處理
     });
@@ -92,7 +102,9 @@ const register = async (username, email, password, firstName, lastName) => {
   });
   
   // 確保 Content-Type 正確設置
-  return axiosInstance.post('/api/auth/register', requestData, {
+  // 檢查是否需要添加 /api 前綴
+  const endpoint = API_URL.includes('/api') ? '/auth/register' : '/api/auth/register';
+  return axiosInstance.post(endpoint, requestData, {
     headers: {
       'Content-Type': 'application/json'
     }
@@ -101,9 +113,13 @@ const register = async (username, email, password, firstName, lastName) => {
 
 // 登入函數
 const login = async (username, password) => {
-  console.log('Sending login request to /api/auth/login with:', { username, password: '[REDACTED]' });
+  console.log('Sending login request with:', { username, password: '[REDACTED]' });
   
-  const response = await axiosInstance.post('/api/auth/login', {
+  // 檢查是否需要添加 /api 前綴
+  const endpoint = API_URL.includes('/api') ? '/auth/login' : '/api/auth/login';
+  console.log('Login endpoint:', endpoint);
+  
+  const response = await axiosInstance.post(endpoint, {
     username,
     password,
   });
@@ -124,22 +140,26 @@ const getCurrentUser = () => {
 
 // 重設密碼請求
 const forgotPassword = (email) => {
-  return axiosInstance.post('/api/auth/forgot-password', { email });
+  const endpoint = API_URL.includes('/api') ? '/auth/forgot-password' : '/api/auth/forgot-password';
+  return axiosInstance.post(endpoint, { email });
 };
 
 // 重設密碼
 const resetPassword = (token, password) => {
-  return axiosInstance.post('/api/auth/reset-password', { token, password });
+  const endpoint = API_URL.includes('/api') ? '/auth/reset-password' : '/api/auth/reset-password';
+  return axiosInstance.post(endpoint, { token, password });
 };
 
 // 更新用戶信息
 const updateProfile = (userData) => {
-  return axiosInstance.put('/api/users/me', userData);
+  const endpoint = API_URL.includes('/api') ? '/users/me' : '/api/users/me';
+  return axiosInstance.put(endpoint, userData);
 };
 
 // 更新密碼
 const updatePassword = (currentPassword, newPassword) => {
-  return axiosInstance.put('/api/users/me/password', {
+  const endpoint = API_URL.includes('/api') ? '/users/me/password' : '/api/users/me/password';
+  return axiosInstance.put(endpoint, {
     currentPassword,
     newPassword,
   });

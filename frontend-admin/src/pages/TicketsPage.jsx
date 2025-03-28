@@ -1,240 +1,392 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import TicketService from '../services/admin/ticketService';
+import PerformanceService from '../services/admin/performanceService';
 import TicketTypeService from '../services/admin/ticketTypeService';
-import performanceService from '../services/admin/performanceService';
+import ConcertService from '../services/admin/concertService';
 
 const TicketsPage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const performanceIdFromUrl = queryParams.get('performanceId');
+
   const [tickets, setTickets] = useState([]);
   const [performances, setPerformances] = useState([]);
+  const [concerts, setConcerts] = useState([]);
   const [ticketTypes, setTicketTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedPerformance, setSelectedPerformance] = useState('');
+  const [selectedPerformanceId, setSelectedPerformanceId] = useState(performanceIdFromUrl || '');
+  const [selectedConcertId, setSelectedConcertId] = useState('');
   
-  // 表單狀態
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formMode, setFormMode] = useState('create'); // 'create' or 'edit' or 'inventory'
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
   const [currentTicket, setCurrentTicket] = useState({
-    performanceId: '',
+    performanceId: performanceIdFromUrl || '',
     ticketTypeId: '',
-    seatSection: '',
-    rowNumber: '',
-    seatNumber: '',
-    status: 'AVAILABLE',
-    totalQuantity: 0,
-    availableQuantity: 0
+    price: 0,
+    totalQuantity: 100,
+    availableQuantity: 100,
+    description: '',
+    status: 'active'
   });
-
-  // 載入票券資料
-  const loadTickets = async (performanceId = '') => {
-    try {
-      setLoading(true);
-      let response;
-      
-      if (performanceId) {
-        response = await TicketService.getTicketsByPerformanceId(performanceId);
-      } else {
-        response = await TicketService.getAllTickets();
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // 加載所有音樂會
+  useEffect(() => {
+    const loadConcerts = async () => {
+      try {
+        const response = await ConcertService.getAllConcerts();
+        setConcerts(response.data);
+      } catch (err) {
+        console.error('加載音樂會失敗:', err);
+      }
+    };
+    
+    loadConcerts();
+  }, []);
+  
+  // 加載所有票種
+  useEffect(() => {
+    const loadTicketTypes = async () => {
+      try {
+        const response = await TicketTypeService.getAllTicketTypes();
+        setTicketTypes(response.data);
+      } catch (err) {
+        console.error('加載票種失敗:', err);
+      }
+    };
+    
+    loadTicketTypes();
+  }, []);
+  
+  // 當選擇的音樂會ID變更時，加載對應的演出場次
+  useEffect(() => {
+    const loadPerformancesByConcert = async () => {
+      if (!selectedConcertId) {
+        setPerformances([]);
+        return;
       }
       
-      setTickets(response.data);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load tickets:', err);
-      setError('載入票券資料失敗');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 載入初始資料
-  useEffect(() => {
-    const fetchInitialData = async () => {
       try {
-        setLoading(true);
+        const response = await PerformanceService.getPerformancesByConcertId(selectedConcertId);
+        setPerformances(response.data);
         
-        // 載入演出場次資料
-        const performancesResponse = await performanceService.getAllPerformances();
-        setPerformances(performancesResponse.data);
-        
-        // 載入票種資料
-        const ticketTypesResponse = await TicketTypeService.getAllTicketTypes();
-        setTicketTypes(ticketTypesResponse.data);
-        
-        // 載入所有票券
-        await loadTickets();
+        // 如果URL中有performanceId，且該performanceId屬於當前選擇的音樂會，則保持選中狀態
+        if (performanceIdFromUrl) {
+          const performanceExists = response.data.some(p => p.id === parseInt(performanceIdFromUrl));
+          if (!performanceExists) {
+            setSelectedPerformanceId('');
+            navigate('/tickets');
+          }
+        }
       } catch (err) {
-        console.error('Error loading initial data:', err);
-        setError('載入初始資料失敗');
-      } finally {
+        console.error('加載演出場次失敗:', err);
+      }
+    };
+    
+    loadPerformancesByConcert();
+  }, [selectedConcertId, performanceIdFromUrl, navigate]);
+  
+  // 當URL中的performanceId變更或初始化時，查找該演出所屬的音樂會ID
+  useEffect(() => {
+    const findConcertIdByPerformance = async () => {
+      if (!performanceIdFromUrl) return;
+      
+      try {
+        const response = await PerformanceService.getPerformanceById(performanceIdFromUrl);
+        setSelectedConcertId(response.data.concertId.toString());
+        setSelectedPerformanceId(performanceIdFromUrl);
+        loadTickets(performanceIdFromUrl);
+      } catch (err) {
+        console.error('獲取演出場次詳情失敗:', err);
         setLoading(false);
       }
     };
     
-    fetchInitialData();
-  }, []);
-
-  // 處理演出場次選擇變更
+    findConcertIdByPerformance();
+  }, [performanceIdFromUrl]);
+  
+  // 當選擇的演出場次ID變更時，更新URL並加載對應的票券
   const handlePerformanceChange = (e) => {
     const performanceId = e.target.value;
-    setSelectedPerformance(performanceId);
+    setSelectedPerformanceId(performanceId);
     
     if (performanceId) {
+      navigate(`/tickets?performanceId=${performanceId}`);
       loadTickets(performanceId);
     } else {
-      loadTickets();
+      navigate('/tickets');
+      setTickets([]);
     }
   };
-
-  // 處理表單提交
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  
+  // 加載票券
+  const loadTickets = async (performanceId) => {
+    if (!performanceId) return;
     
     try {
-      if (formMode === 'create') {
-        await TicketService.createTicket(currentTicket);
-      } else if (formMode === 'edit') {
-        await TicketService.updateTicket(currentTicket.id, currentTicket);
-      } else if (formMode === 'inventory') {
-        await TicketService.updateTicketInventory(
-          currentTicket.id, 
-          currentTicket.totalQuantity, 
-          currentTicket.availableQuantity
-        );
-      }
-      
-      setIsModalOpen(false);
-      loadTickets(selectedPerformance);
+      setLoading(true);
+      const response = await TicketService.getTicketsByPerformanceId(performanceId);
+      setTickets(response.data);
+      setError(null);
     } catch (err) {
-      console.error('Error saving ticket:', err);
-      setError('儲存票券資料失敗');
+      setError('無法加載票券：' + (err.response?.data?.message || err.message));
+      console.error('加載票券失敗:', err);
+    } finally {
+      setLoading(false);
     }
   };
-
-  // 處理表單輸入變更
+  
+  // 處理模態框輸入變更
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setCurrentTicket({
       ...currentTicket,
-      [name]: ['totalQuantity', 'availableQuantity'].includes(name) 
-        ? parseInt(value, 10) 
+      [name]: name === 'price' || name === 'totalQuantity' || name === 'availableQuantity' 
+        ? parseInt(value) 
         : value
     });
   };
-
-  // 開啟新增表單
-  const openCreateForm = () => {
+  
+  // 新增/編輯票券
+  const handleSaveTicket = async () => {
+    try {
+      if (!currentTicket.performanceId) {
+        alert('請選擇演出場次');
+        return;
+      }
+      
+      if (!currentTicket.ticketTypeId) {
+        alert('請選擇票種');
+        return;
+      }
+      
+      if (isEditing) {
+        await TicketService.updateTicket(currentTicket.id, currentTicket);
+      } else {
+        await TicketService.createTicket(currentTicket);
+      }
+      
+      // 重新加載數據
+      loadTickets(currentTicket.performanceId);
+      
+      // 關閉模態框
+      setShowModal(false);
+      
+      // 重置表單
+      setCurrentTicket({
+        performanceId: selectedPerformanceId,
+        ticketTypeId: '',
+        price: 0,
+        totalQuantity: 100,
+        availableQuantity: 100,
+        description: '',
+        status: 'active'
+      });
+      
+      setIsEditing(false);
+    } catch (err) {
+      alert('保存失敗: ' + (err.response?.data?.message || err.message));
+      console.error('保存票券失敗:', err);
+    }
+  };
+  
+  // 編輯票券
+  const handleEditTicket = (ticket) => {
+    setIsEditing(true);
     setCurrentTicket({
-      performanceId: selectedPerformance || '',
-      ticketTypeId: '',
-      seatSection: '',
-      rowNumber: '',
-      seatNumber: '',
-      status: 'AVAILABLE',
-      totalQuantity: 0,
-      availableQuantity: 0
+      id: ticket.id,
+      performanceId: ticket.performanceId.toString(),
+      ticketTypeId: ticket.ticketTypeId.toString(),
+      price: ticket.price,
+      totalQuantity: ticket.totalQuantity,
+      availableQuantity: ticket.availableQuantity,
+      description: ticket.description || '',
+      status: ticket.status
     });
-    setFormMode('create');
-    setIsModalOpen(true);
+    setShowModal(true);
   };
-
-  // 開啟編輯表單
-  const openEditForm = (ticket) => {
-    setCurrentTicket({...ticket});
-    setFormMode('edit');
-    setIsModalOpen(true);
-  };
-
-  // 開啟庫存管理表單
-  const openInventoryForm = (ticket) => {
-    setCurrentTicket({...ticket});
-    setFormMode('inventory');
-    setIsModalOpen(true);
-  };
-
+  
   // 刪除票券
-  const handleDelete = async (id) => {
-    if (window.confirm('確定要刪除此票券嗎？此操作無法恢復！')) {
+  const handleDeleteTicket = async (id) => {
+    if (window.confirm('確定要刪除此票券嗎？此操作無法撤銷，且可能會影響已經購買此票券的訂單。')) {
       try {
         await TicketService.deleteTicket(id);
-        loadTickets(selectedPerformance);
+        loadTickets(selectedPerformanceId);
       } catch (err) {
-        console.error('Error deleting ticket:', err);
-        setError('刪除票券失敗');
+        alert('刪除失敗: ' + (err.response?.data?.message || err.message));
+        console.error('刪除票券失敗:', err);
       }
     }
   };
-
+  
+  // 更新票券庫存
+  const handleInventoryChange = async (id, totalQuantity, availableQuantity) => {
+    try {
+      await TicketService.updateTicketInventory(id, totalQuantity, availableQuantity);
+      loadTickets(selectedPerformanceId);
+    } catch (err) {
+      alert('更新庫存失敗: ' + (err.response?.data?.message || err.message));
+      console.error('更新票券庫存失敗:', err);
+    }
+  };
+  
   // 獲取票種名稱
   const getTicketTypeName = (ticketTypeId) => {
-    const ticketType = ticketTypes.find(type => type.id === ticketTypeId);
+    const ticketType = ticketTypes.find(t => t.id === parseInt(ticketTypeId));
     return ticketType ? ticketType.name : '未知票種';
   };
-
-  // 獲取演出名稱
-  const getPerformanceName = (performanceId) => {
-    const performance = performances.find(perf => perf.id === performanceId);
-    return performance ? performance.title : '未知演出';
+  
+  // 獲取演出場次信息
+  const getPerformanceInfo = (performanceId) => {
+    const performance = performances.find(p => p.id === parseInt(performanceId));
+    if (!performance) return '未知演出場次';
+    
+    // 格式化日期時間
+    const dateTime = new Date(performance.performanceDateTime);
+    return dateTime.toLocaleString();
+  };
+  
+  // 獲取音樂會標題
+  const getConcertTitle = (concertId) => {
+    const concert = concerts.find(c => c.id === parseInt(concertId));
+    return concert ? concert.title : '未知音樂會';
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">票券管理</h1>
-        <button 
-          onClick={openCreateForm}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded"
+        <h1 className="text-3xl font-bold">票券管理</h1>
+        <button
+          onClick={() => {
+            setIsEditing(false);
+            setCurrentTicket({
+              performanceId: selectedPerformanceId,
+              ticketTypeId: '',
+              price: 0,
+              totalQuantity: 100,
+              availableQuantity: 100,
+              description: '',
+              status: 'active'
+            });
+            setShowModal(true);
+          }}
+          className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700"
+          disabled={!selectedPerformanceId}
         >
           新增票券
         </button>
       </div>
 
+      {/* 音樂會和演出場次選擇器 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label htmlFor="concertId" className="block text-sm font-medium text-gray-700 mb-2">
+            選擇音樂會
+          </label>
+          <select
+            id="concertId"
+            value={selectedConcertId}
+            onChange={(e) => setSelectedConcertId(e.target.value)}
+            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+          >
+            <option value="">-- 請選擇音樂會 --</option>
+            {concerts.map((concert) => (
+              <option key={concert.id} value={concert.id}>
+                {concert.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="performanceId" className="block text-sm font-medium text-gray-700 mb-2">
+            選擇演出場次
+          </label>
+          <select
+            id="performanceId"
+            value={selectedPerformanceId}
+            onChange={handlePerformanceChange}
+            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+            disabled={!selectedConcertId || performances.length === 0}
+          >
+            <option value="">-- 請選擇演出場次 --</option>
+            {performances.map((performance) => (
+              <option key={performance.id} value={performance.id}>
+                {new Date(performance.performanceDateTime).toLocaleString()}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* 錯誤訊息 */}
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
           <p>{error}</p>
         </div>
       )}
 
-      <div className="mb-6">
-        <label htmlFor="performance" className="block text-sm font-medium text-gray-700 mb-2">
-          選擇演出場次
-        </label>
-        <select
-          id="performance"
-          name="performance"
-          value={selectedPerformance}
-          onChange={handlePerformanceChange}
-          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-        >
-          <option value="">所有場次</option>
-          {performances.map(performance => (
-            <option key={performance.id} value={performance.id}>
-              {performance.title} - {new Date(performance.startTime).toLocaleString()}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {loading ? (
-        <div className="text-center py-10">
-          <p className="text-gray-500">載入中...</p>
+      {/* 引導訊息 */}
+      {!selectedConcertId && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                請先選擇一個音樂會，以查看其演出場次。
+              </p>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="overflow-x-auto bg-white rounded-lg shadow">
+      )}
+
+      {selectedConcertId && !selectedPerformanceId && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                請選擇一個演出場次，以管理其票券。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 正在加載 */}
+      {loading && selectedPerformanceId ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+        </div>
+      ) : selectedPerformanceId ? (
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  演出場次
+                  ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   票種
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  座位資訊
+                  價格
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  庫存
+                  總庫存
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  可用庫存
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   狀態
@@ -245,256 +397,257 @@ const TicketsPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {tickets.length > 0 ? (
+              {tickets.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                    暫無票券，請添加
+                  </td>
+                </tr>
+              ) : (
                 tickets.map((ticket) => (
                   <tr key={ticket.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{getPerformanceName(ticket.performanceId)}</div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {ticket.id}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{getTicketTypeName(ticket.ticketTypeId)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {ticket.seatSection} {ticket.rowNumber && `${ticket.rowNumber}排`} {ticket.seatNumber && `${ticket.seatNumber}號`}
+                      <div className="text-sm font-medium text-gray-900">
+                        {getTicketTypeName(ticket.ticketTypeId)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {ticket.description || '無描述'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {ticket.availableQuantity} / {ticket.totalQuantity}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      NT$ {ticket.price}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {ticket.totalQuantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        ticket.status === 'AVAILABLE' 
-                          ? 'bg-green-100 text-green-800' 
-                          : ticket.status === 'RESERVED' 
-                            ? 'bg-yellow-100 text-yellow-800' 
-                            : 'bg-red-100 text-red-800'
+                      <div className={`text-sm font-medium ${
+                        ticket.availableQuantity <= 0 ? 'text-red-600' :
+                        ticket.availableQuantity < 10 ? 'text-yellow-600' :
+                        'text-green-600'
                       }`}>
-                        {ticket.status === 'AVAILABLE' ? '可售' : 
-                         ticket.status === 'RESERVED' ? '已預訂' : '已售出'}
+                        {ticket.availableQuantity}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {ticket.availableQuantity === 0 ? '(已售罄)' : 
+                         ticket.availableQuantity < 10 ? '(即將售罄)' : ''}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                          ${
+                            ticket.status === 'active'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                      >
+                        {ticket.status === 'active' ? '上架中' : '未上架'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button 
-                        onClick={() => openInventoryForm(ticket)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        庫存
-                      </button>
-                      <button 
-                        onClick={() => openEditForm(ticket)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
-                      >
-                        編輯
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(ticket.id)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        刪除
-                      </button>
+                      <div className="flex justify-end space-x-2">
+                        {/* 編輯按鈕 */}
+                        <button
+                          onClick={() => handleEditTicket(ticket)}
+                          className="text-blue-600 hover:text-blue-900 bg-blue-50 px-2 py-1 rounded"
+                        >
+                          編輯
+                        </button>
+                        
+                        {/* 快速調整庫存按鈕 */}
+                        <button
+                          onClick={() => {
+                            const newAvailable = prompt(
+                              `請輸入新的可用庫存數量（目前為 ${ticket.availableQuantity}）：`,
+                              ticket.availableQuantity
+                            );
+                            
+                            if (newAvailable !== null) {
+                              const numAvailable = parseInt(newAvailable);
+                              if (!isNaN(numAvailable) && numAvailable >= 0) {
+                                handleInventoryChange(ticket.id, null, numAvailable);
+                              } else {
+                                alert('請輸入有效的數字');
+                              }
+                            }
+                          }}
+                          className="text-green-600 hover:text-green-900 bg-green-50 px-2 py-1 rounded"
+                        >
+                          庫存
+                        </button>
+                        
+                        {/* 刪除按鈕 */}
+                        <button
+                          onClick={() => handleDeleteTicket(ticket.id)}
+                          className="text-red-600 hover:text-red-900 bg-red-50 px-2 py-1 rounded"
+                        >
+                          刪除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">
-                    尚無票券資料
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
-      {/* 票券編輯/新增/庫存管理 Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 overflow-y-auto z-50 flex items-center justify-center">
-          <div className="fixed inset-0 transition-opacity">
-            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-          </div>
-          
-          <div className="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all w-full max-w-lg mx-4">
-            <div className="bg-gray-50 px-4 py-3 border-b">
-              <h3 className="text-lg font-medium text-gray-900">
-                {formMode === 'create' 
-                  ? '新增票券' 
-                  : formMode === 'edit' 
-                    ? '編輯票券' 
-                    : '管理票券庫存'}
-              </h3>
+      {/* 新增/編輯票券模態框 */}
+      {showModal && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            
-            <form onSubmit={handleSubmit}>
-              <div className="p-4">
-                {formMode !== 'inventory' && (
-                  <>
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="performanceId">
-                        演出場次
-                      </label>
-                      <select
-                        id="performanceId"
-                        name="performanceId"
-                        value={currentTicket.performanceId}
-                        onChange={handleInputChange}
-                        required
-                        className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                      >
-                        <option value="">請選擇演出場次</option>
-                        {performances.map(performance => (
-                          <option key={performance.id} value={performance.id}>
-                            {performance.title} - {new Date(performance.startTime).toLocaleString()}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="ticketTypeId">
-                        票種
-                      </label>
-                      <select
-                        id="ticketTypeId"
-                        name="ticketTypeId"
-                        value={currentTicket.ticketTypeId}
-                        onChange={handleInputChange}
-                        required
-                        className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                      >
-                        <option value="">請選擇票種</option>
-                        {ticketTypes.map(ticketType => (
-                          <option key={ticketType.id} value={ticketType.id}>
-                            {ticketType.name} - ${ticketType.price}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="seatSection">
-                        座位區域
-                      </label>
-                      <input
-                        type="text"
-                        id="seatSection"
-                        name="seatSection"
-                        value={currentTicket.seatSection}
-                        onChange={handleInputChange}
-                        required
-                        className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                        placeholder="例如: A區, 一樓中央區, 貴賓區"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="rowNumber">
-                          排號 (選填)
-                        </label>
-                        <input
-                          type="text"
-                          id="rowNumber"
-                          name="rowNumber"
-                          value={currentTicket.rowNumber}
-                          onChange={handleInputChange}
-                          className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                          placeholder="例如: 5, A"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="seatNumber">
-                          座號 (選填)
-                        </label>
-                        <input
-                          type="text"
-                          id="seatNumber"
-                          name="seatNumber"
-                          value={currentTicket.seatNumber}
-                          onChange={handleInputChange}
-                          className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                          placeholder="例如: 12, B5"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="status">
-                        狀態
-                      </label>
-                      <select
-                        id="status"
-                        name="status"
-                        value={currentTicket.status}
-                        onChange={handleInputChange}
-                        className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                      >
-                        <option value="AVAILABLE">可售</option>
-                        <option value="RESERVED">已預訂</option>
-                        <option value="SOLD">已售出</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
+
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                  {isEditing ? '編輯票券' : '新增票券'}
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="totalQuantity">
-                      總庫存量
+                    <label htmlFor="modal-performanceId" className="block text-sm font-medium text-gray-700">
+                      演出場次 <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="number"
-                      id="totalQuantity"
-                      name="totalQuantity"
-                      min="0"
-                      value={currentTicket.totalQuantity}
+                    <select
+                      name="performanceId"
+                      id="modal-performanceId"
+                      value={currentTicket.performanceId}
                       onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                       required
-                      className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                    />
+                      disabled={isEditing}
+                    >
+                      <option value="">-- 請選擇演出場次 --</option>
+                      {performances.map((performance) => (
+                        <option key={performance.id} value={performance.id}>
+                          {new Date(performance.performanceDateTime).toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
-                    <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="availableQuantity">
-                      可售庫存量
+                    <label htmlFor="ticketTypeId" className="block text-sm font-medium text-gray-700">
+                      票種 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="ticketTypeId"
+                      id="ticketTypeId"
+                      value={currentTicket.ticketTypeId}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                      required
+                    >
+                      <option value="">-- 請選擇票種 --</option>
+                      {ticketTypes.map((ticketType) => (
+                        <option key={ticketType.id} value={ticketType.id}>
+                          {ticketType.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                      票價(NT$) <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
-                      id="availableQuantity"
-                      name="availableQuantity"
-                      min="0"
-                      max={currentTicket.totalQuantity}
-                      value={currentTicket.availableQuantity}
+                      name="price"
+                      id="price"
+                      value={currentTicket.price}
                       onChange={handleInputChange}
+                      min="0"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
                       required
-                      className="appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                     />
-                    {currentTicket.availableQuantity > currentTicket.totalQuantity && (
-                      <p className="text-red-500 text-xs mt-1">可售庫存不能超過總庫存</p>
-                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="totalQuantity" className="block text-sm font-medium text-gray-700">
+                        總庫存 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="totalQuantity"
+                        id="totalQuantity"
+                        value={currentTicket.totalQuantity}
+                        onChange={handleInputChange}
+                        min="0"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="availableQuantity" className="block text-sm font-medium text-gray-700">
+                        可用庫存 <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="availableQuantity"
+                        id="availableQuantity"
+                        value={currentTicket.availableQuantity}
+                        onChange={handleInputChange}
+                        min="0"
+                        max={currentTicket.totalQuantity}
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                      描述
+                    </label>
+                    <textarea
+                      name="description"
+                      id="description"
+                      value={currentTicket.description}
+                      onChange={handleInputChange}
+                      rows="3"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                    ></textarea>
+                  </div>
+                  <div>
+                    <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                      狀態 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="status"
+                      id="status"
+                      value={currentTicket.status}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
+                      required
+                    >
+                      <option value="active">上架中</option>
+                      <option value="inactive">未上架</option>
+                    </select>
                   </div>
                 </div>
               </div>
-              
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
-                  type="submit"
-                  disabled={currentTicket.availableQuantity > currentTicket.totalQuantity}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                  type="button"
+                  onClick={handleSaveTicket}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:ml-3 sm:w-auto sm:text-sm"
                 >
-                  儲存
+                  {isEditing ? '更新' : '創建'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={() => setShowModal(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   取消
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

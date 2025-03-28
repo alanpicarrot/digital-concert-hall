@@ -29,7 +29,7 @@ public class AdminController {
     @Autowired
     private PasswordEncoder passwordEncoder;
     
-    @GetMapping("/init")
+    @GetMapping("/admin-init")
     public ResponseEntity<?> init() {
         // 確保角色存在
         createRoleIfNotExists(ERole.ROLE_USER);

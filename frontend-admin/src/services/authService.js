@@ -1,8 +1,28 @@
 import axios from 'axios';
 
 // 建立 axios 實例
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const API_BASE = `${API_URL}/api`; 
+
+// 打印環境變量和 API URL
+console.log('Environment variables:', {
+  REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+  API_URL: API_URL,
+  API_BASE: API_BASE
+});
+
+// 創建兩個 axios 實例
+// 1. 帶 /api 前綴的實例用於大部分請求
 const axiosInstance = axios.create({
-  baseURL: '', // 使用空字符串來允許從 package.json 中的 proxy 配置生效
+  baseURL: API_BASE,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// 2. 不帶 /api 前綴的實例用於直接訪問
+const axiosRootInstance = axios.create({
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -32,7 +52,7 @@ const logout = () => {
   
   // 嘗試調用後端登出 API
   try {
-    axiosInstance.post('/api/auth/logout').catch(err => {
+    axiosInstance.post('/auth/logout').catch(err => {
       console.log('登出 API 調用失敗，但本地存儲已清除', err);
     });
   } catch (error) {
@@ -52,9 +72,9 @@ axiosInstance.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       console.log('偵測到 401 未授權錯誤，清除管理員登入狀態');
       
-      // 如果收到401錯誤且不是在登入頁面，則登出用戶
+      // 如果收到401錯誤且不是在登入頁面或註冊頁面，則登出用戶
       const currentPath = window.location.pathname;
-      if (!currentPath.includes('/auth/login')) {
+      if (!currentPath.includes('/auth/login') && !currentPath.includes('/auth/register-admin')) {
         logout();
         
         // 顯示通知
@@ -69,17 +89,22 @@ axiosInstance.interceptors.response.use(
 );
 
 // 管理員登入函數
-const login = async (username, password) => {
-  console.log('Sending admin login request with:', { username, password: '[REDACTED]' });
+const login = async (usernameOrEmail, password) => {
+  console.log('Sending admin login request with:', { usernameOrEmail, password: '[REDACTED]' });
   
-  const response = await axiosInstance.post('/api/auth/admin/login', {
-    username,
+  // 檢查是否需要添加 /api 前綴
+  const endpoint = '/auth/login';
+  
+  // 嘗試使用作為用戶名登入
+  const response = await axiosInstance.post(endpoint, {
+    username: usernameOrEmail, // 將 email/username 作為 username 傳送
     password,
   });
   
-  if (response.data.accessToken) {
+  if (response.data && response.data.accessToken) {
     localStorage.setItem('adminToken', response.data.accessToken);
     localStorage.setItem('adminUser', JSON.stringify(response.data));
+    return response.data;
   }
   
   return response.data;

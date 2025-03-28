@@ -8,6 +8,7 @@ import PerformancesPage from '../pages/PerformancesPage';
 import TicketTypesPage from '../pages/TicketTypesPage';
 import TicketsPage from '../pages/TicketsPage';
 import LoginPage from '../pages/auth/LoginPage';
+import RegisterAdminPage from '../pages/auth/RegisterAdminPage';
 
 // 引入佈局元件
 import AdminLayout from '../layouts/AdminLayout';
@@ -32,6 +33,7 @@ const AdminRoutes = () => {
       {/* 登入頁面 */}
       <Route path="/auth" element={<AuthLayout />}>
         <Route path="login" element={<LoginPage />} />
+        <Route path="register-admin" element={<RegisterAdminPage />} />
       </Route>
       
       {/* 未匹配的路由重定向到登入頁面 */}

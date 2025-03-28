@@ -18,8 +18,31 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        System.out.println("loadUserByUsername called with: " + username);
+        
+        // 先嘗試以用戶名查找
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
+                .orElse(null);
+        
+        if (user != null) {
+            System.out.println("User found by username: " + username);
+        } else {
+            System.out.println("User not found by username, trying email: " + username);
+            // 如果找不到用戶，嘗試以電子郵件查找
+            try {
+                user = userRepository.findByEmail(username)
+                        .orElse(null);
+                if (user != null) {
+                    System.out.println("User found by email: " + username);
+                } else {
+                    System.out.println("User not found by email either: " + username);
+                    throw new UsernameNotFoundException("User Not Found with username or email: " + username);
+                }
+            } catch (Exception e) {
+                System.out.println("Exception when finding by email: " + e.getMessage());
+                throw new UsernameNotFoundException("User Not Found with username or email: " + username, e);
+            }
+        }
 
         return UserDetailsImpl.build(user);
     }

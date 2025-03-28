@@ -1,58 +1,77 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PerformanceService from '../services/admin/performanceService';
 import ConcertService from '../services/admin/concertService';
 
 const PerformancesPage = () => {
-  const [searchParams] = useSearchParams();
-  const concertId = searchParams.get('concertId');
-  
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const concertIdFromUrl = queryParams.get('concertId');
+
   const [performances, setPerformances] = useState([]);
   const [concerts, setConcerts] = useState([]);
-  const [selectedConcert, setSelectedConcert] = useState(concertId || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedConcertId, setSelectedConcertId] = useState(concertIdFromUrl || '');
   
-  // 模態框狀態
+  // Modal state
   const [showModal, setShowModal] = useState(false);
   const [currentPerformance, setCurrentPerformance] = useState({
-    concertId: concertId || '',
-    startTime: '',
-    endTime: '',
-    venue: '',
-    status: 'scheduled',
-    livestreamUrl: '',
-    recordingUrl: ''
+    concertId: concertIdFromUrl || '',
+    performanceDateTime: '',
+    duration: 120,
+    streamingUrl: '',
+    status: 'inactive'
   });
   const [isEditing, setIsEditing] = useState(false);
   
   // 加載所有音樂會
-  const loadConcerts = async () => {
-    try {
-      const response = await ConcertService.getAllConcerts();
-      setConcerts(response.data);
-      
-      // 如果沒有從 URL 參數獲取音樂會 ID，預設選擇第一個
-      if (!concertId && response.data.length > 0) {
-        setSelectedConcert(response.data[0].id.toString());
+  useEffect(() => {
+    const loadConcerts = async () => {
+      try {
+        const response = await ConcertService.getAllConcerts();
+        setConcerts(response.data);
+      } catch (err) {
+        console.error('加載音樂會失敗:', err);
+        setError('無法加載音樂會列表：' + (err.response?.data?.message || err.message));
       }
-    } catch (err) {
-      console.error('加載音樂會失敗:', err);
+    };
+    
+    loadConcerts();
+  }, []);
+  
+  // 當URL中的concertId變更或初始化時，加載對應演出場次
+  useEffect(() => {
+    if (concertIdFromUrl) {
+      setSelectedConcertId(concertIdFromUrl);
+      loadPerformances(concertIdFromUrl);
+    } else {
+      setLoading(false);
+    }
+  }, [concertIdFromUrl]);
+  
+  // 當選擇的音樂會ID變更時，更新URL並加載對應的演出場次
+  const handleConcertChange = (e) => {
+    const concertId = e.target.value;
+    setSelectedConcertId(concertId);
+    
+    if (concertId) {
+      navigate(`/performances?concertId=${concertId}`);
+      loadPerformances(concertId);
+    } else {
+      navigate('/performances');
+      setPerformances([]);
     }
   };
   
   // 加載演出場次
-  const loadPerformances = async () => {
+  const loadPerformances = async (concertId) => {
+    if (!concertId) return;
+    
     try {
       setLoading(true);
-      
-      let response;
-      if (selectedConcert) {
-        response = await PerformanceService.getPerformancesByConcertId(selectedConcert);
-      } else {
-        response = await PerformanceService.getAllPerformances();
-      }
-      
+      const response = await PerformanceService.getPerformancesByConcertId(concertId);
       setPerformances(response.data);
       setError(null);
     } catch (err) {
@@ -61,21 +80,6 @@ const PerformancesPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-  
-  useEffect(() => {
-    loadConcerts();
-  }, []);
-  
-  useEffect(() => {
-    if (selectedConcert || concerts.length > 0) {
-      loadPerformances();
-    }
-  }, [selectedConcert]);
-  
-  // 處理音樂會選擇變更
-  const handleConcertChange = (e) => {
-    setSelectedConcert(e.target.value);
   };
   
   // 處理模態框輸入變更
@@ -87,70 +91,38 @@ const PerformancesPage = () => {
     });
   };
   
-  // 處理日期時間輸入
-  const formatDateTimeForInput = (dateStr) => {
-    if (!dateStr) return '';
-    const date = new Date(dateStr);
-    return date.toISOString().slice(0, 16); // format: "YYYY-MM-DDThh:mm"
-  };
-  
   // 新增/編輯演出場次
   const handleSavePerformance = async () => {
     try {
-      // 驗證必填欄位
       if (!currentPerformance.concertId) {
         alert('請選擇音樂會');
         return;
       }
-      if (!currentPerformance.startTime) {
-        alert('請選擇開始時間');
-        return;
-      }
-      if (!currentPerformance.endTime) {
-        alert('請選擇結束時間');
-        return;
-      }
-      if (!currentPerformance.venue) {
-        alert('請填寫場地');
-        return;
-      }
       
-      // 驗證開始時間早於結束時間
-      const startTime = new Date(currentPerformance.startTime);
-      const endTime = new Date(currentPerformance.endTime);
-      if (startTime >= endTime) {
-        alert('開始時間必須早於結束時間');
+      if (!currentPerformance.performanceDateTime) {
+        alert('請選擇演出時間');
         return;
       }
-      
-      // 處理日期時間格式
-      const performanceData = {
-        ...currentPerformance,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString()
-      };
       
       if (isEditing) {
-        await PerformanceService.updatePerformance(currentPerformance.id, performanceData);
+        await PerformanceService.updatePerformance(currentPerformance.id, currentPerformance);
       } else {
-        await PerformanceService.createPerformance(performanceData);
+        await PerformanceService.createPerformance(currentPerformance);
       }
       
       // 重新加載數據
-      loadPerformances();
+      loadPerformances(currentPerformance.concertId);
       
       // 關閉模態框
       setShowModal(false);
       
       // 重置表單
       setCurrentPerformance({
-        concertId: selectedConcert,
-        startTime: '',
-        endTime: '',
-        venue: '',
-        status: 'scheduled',
-        livestreamUrl: '',
-        recordingUrl: ''
+        concertId: selectedConcertId,
+        performanceDateTime: '',
+        duration: 120,
+        streamingUrl: '',
+        status: 'inactive'
       });
       
       setIsEditing(false);
@@ -162,16 +134,18 @@ const PerformancesPage = () => {
   
   // 編輯演出場次
   const handleEditPerformance = (performance) => {
+    // 格式化日期時間為input datetime-local所需格式
+    const dateTime = new Date(performance.performanceDateTime);
+    const formattedDateTime = dateTime.toISOString().slice(0, 16);
+    
     setIsEditing(true);
     setCurrentPerformance({
       id: performance.id,
-      concertId: performance.concert.id,
-      startTime: formatDateTimeForInput(performance.startTime),
-      endTime: formatDateTimeForInput(performance.endTime),
-      venue: performance.venue,
-      status: performance.status,
-      livestreamUrl: performance.livestreamUrl || '',
-      recordingUrl: performance.recordingUrl || ''
+      concertId: performance.concertId,
+      performanceDateTime: formattedDateTime,
+      duration: performance.duration,
+      streamingUrl: performance.streamingUrl || '',
+      status: performance.status
     });
     setShowModal(true);
   };
@@ -181,7 +155,7 @@ const PerformancesPage = () => {
     if (window.confirm('確定要刪除此演出場次嗎？此操作無法撤銷。')) {
       try {
         await PerformanceService.deletePerformance(id);
-        loadPerformances();
+        loadPerformances(selectedConcertId);
       } catch (err) {
         alert('刪除失敗: ' + (err.response?.data?.message || err.message));
         console.error('刪除演出場次失敗:', err);
@@ -193,11 +167,17 @@ const PerformancesPage = () => {
   const handleStatusChange = async (id, status) => {
     try {
       await PerformanceService.updatePerformanceStatus(id, status);
-      loadPerformances();
+      loadPerformances(selectedConcertId);
     } catch (err) {
       alert('更改狀態失敗: ' + (err.response?.data?.message || err.message));
       console.error('更改演出場次狀態失敗:', err);
     }
+  };
+
+  // 獲取音樂會標題
+  const getConcertTitle = (concertId) => {
+    const concert = concerts.find(c => c.id === parseInt(concertId));
+    return concert ? concert.title : '未知音樂會';
   };
 
   return (
@@ -208,42 +188,39 @@ const PerformancesPage = () => {
           onClick={() => {
             setIsEditing(false);
             setCurrentPerformance({
-              concertId: selectedConcert,
-              startTime: '',
-              endTime: '',
-              venue: '',
-              status: 'scheduled',
-              livestreamUrl: '',
-              recordingUrl: ''
+              concertId: selectedConcertId,
+              performanceDateTime: '',
+              duration: 120,
+              streamingUrl: '',
+              status: 'inactive'
             });
             setShowModal(true);
           }}
-          className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          disabled={!selectedConcertId}
         >
           新增演出場次
         </button>
       </div>
 
-      {/* 篩選區域 */}
-      <div className="mb-6 bg-white p-4 rounded-md shadow">
-        <div className="flex items-center space-x-4">
-          <label htmlFor="concert-select" className="text-sm font-medium text-gray-700">
-            選擇音樂會:
-          </label>
-          <select
-            id="concert-select"
-            value={selectedConcert}
-            onChange={handleConcertChange}
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm rounded-md"
-          >
-            <option value="">所有音樂會</option>
-            {concerts.map(concert => (
-              <option key={concert.id} value={concert.id}>
-                {concert.title}
-              </option>
-            ))}
-          </select>
-        </div>
+      {/* 音樂會選擇器 */}
+      <div className="mb-6">
+        <label htmlFor="concertId" className="block text-sm font-medium text-gray-700 mb-2">
+          選擇音樂會
+        </label>
+        <select
+          id="concertId"
+          value={selectedConcertId}
+          onChange={handleConcertChange}
+          className="block w-full md:w-1/2 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+        >
+          <option value="">-- 請選擇音樂會 --</option>
+          {concerts.map((concert) => (
+            <option key={concert.id} value={concert.id}>
+              {concert.title}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* 錯誤訊息 */}
@@ -256,9 +233,9 @@ const PerformancesPage = () => {
       {/* 正在加載 */}
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
         </div>
-      ) : (
+      ) : selectedConcertId ? (
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -273,7 +250,7 @@ const PerformancesPage = () => {
                   日期時間
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  場地
+                  時長(分鐘)
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   狀態
@@ -287,7 +264,7 @@ const PerformancesPage = () => {
               {performances.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                    {selectedConcert ? '此音樂會暫無演出場次，請添加' : '暫無演出場次，請添加'}
+                    暫無演出場次，請添加
                   </td>
                 </tr>
               ) : (
@@ -298,39 +275,35 @@ const PerformancesPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {performance.concert.title}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {new Date(performance.startTime).toLocaleString()}
-                        <span className="mx-1">-</span>
-                        {new Date(performance.endTime).toLocaleTimeString()}
+                        {getConcertTitle(performance.concertId)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {performance.venue}
+                      {new Date(performance.performanceDateTime).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {performance.duration}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                           ${
-                            performance.status === 'scheduled'
-                              ? 'bg-blue-100 text-blue-800'
-                              : performance.status === 'live'
+                            performance.status === 'active'
                               ? 'bg-green-100 text-green-800'
-                              : performance.status === 'completed'
+                              : performance.status === 'upcoming'
+                              ? 'bg-blue-100 text-blue-800'
+                              : performance.status === 'past'
                               ? 'bg-gray-100 text-gray-800'
-                              : 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
                           }`}
                       >
-                        {performance.status === 'scheduled'
-                          ? '已排程'
-                          : performance.status === 'live'
-                          ? '直播中'
-                          : performance.status === 'completed'
-                          ? '已完成'
-                          : '已取消'}
+                        {performance.status === 'active'
+                          ? '上架中'
+                          : performance.status === 'upcoming'
+                          ? '即將推出'
+                          : performance.status === 'past'
+                          ? '已結束'
+                          : '未上架'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -341,19 +314,19 @@ const PerformancesPage = () => {
                           value={performance.status}
                           onChange={(e) => handleStatusChange(performance.id, e.target.value)}
                         >
-                          <option value="scheduled">已排程</option>
-                          <option value="live">直播中</option>
-                          <option value="completed">已完成</option>
-                          <option value="cancelled">已取消</option>
+                          <option value="active">上架中</option>
+                          <option value="inactive">未上架</option>
+                          <option value="upcoming">即將推出</option>
+                          <option value="past">已結束</option>
                         </select>
                         
                         {/* 查看票券按鈕 */}
-                        <Link
-                          to={`/tickets?performanceId=${performance.id}`}
+                        <button
+                          onClick={() => navigate(`/tickets?performanceId=${performance.id}`)}
                           className="text-teal-600 hover:text-teal-900 bg-teal-50 px-2 py-1 rounded"
                         >
                           票券
-                        </Link>
+                        </button>
                         
                         {/* 編輯按鈕 */}
                         <button
@@ -378,6 +351,21 @@ const PerformancesPage = () => {
             </tbody>
           </table>
         </div>
+      ) : (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                請先選擇一個音樂會，以查看或管理其演出場次。
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 新增/編輯演出場次模態框 */}
@@ -395,67 +383,65 @@ const PerformancesPage = () => {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="concertId" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="modal-concertId" className="block text-sm font-medium text-gray-700">
                       音樂會 <span className="text-red-500">*</span>
                     </label>
                     <select
                       name="concertId"
-                      id="concertId"
+                      id="modal-concertId"
                       value={currentPerformance.concertId}
                       onChange={handleInputChange}
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                       required
                     >
-                      <option value="">選擇音樂會</option>
-                      {concerts.map(concert => (
+                      <option value="">-- 請選擇音樂會 --</option>
+                      {concerts.map((concert) => (
                         <option key={concert.id} value={concert.id}>
                           {concert.title}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
-                        開始時間 <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        name="startTime"
-                        id="startTime"
-                        value={currentPerformance.startTime}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
-                        結束時間 <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="datetime-local"
-                        name="endTime"
-                        id="endTime"
-                        value={currentPerformance.endTime}
-                        onChange={handleInputChange}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                        required
-                      />
-                    </div>
-                  </div>
                   <div>
-                    <label htmlFor="venue" className="block text-sm font-medium text-gray-700">
-                      場地 <span className="text-red-500">*</span>
+                    <label htmlFor="performanceDateTime" className="block text-sm font-medium text-gray-700">
+                      演出日期時間 <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="text"
-                      name="venue"
-                      id="venue"
-                      value={currentPerformance.venue}
+                      type="datetime-local"
+                      name="performanceDateTime"
+                      id="performanceDateTime"
+                      value={currentPerformance.performanceDateTime}
                       onChange={handleInputChange}
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                       required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="duration" className="block text-sm font-medium text-gray-700">
+                      演出時長(分鐘) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="duration"
+                      id="duration"
+                      value={currentPerformance.duration}
+                      onChange={handleInputChange}
+                      min="1"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="streamingUrl" className="block text-sm font-medium text-gray-700">
+                      直播URL
+                    </label>
+                    <input
+                      type="text"
+                      name="streamingUrl"
+                      id="streamingUrl"
+                      value={currentPerformance.streamingUrl}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                     />
                   </div>
                   <div>
@@ -470,37 +456,11 @@ const PerformancesPage = () => {
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                       required
                     >
-                      <option value="scheduled">已排程</option>
-                      <option value="live">直播中</option>
-                      <option value="completed">已完成</option>
-                      <option value="cancelled">已取消</option>
+                      <option value="active">上架中</option>
+                      <option value="inactive">未上架</option>
+                      <option value="upcoming">即將推出</option>
+                      <option value="past">已結束</option>
                     </select>
-                  </div>
-                  <div>
-                    <label htmlFor="livestreamUrl" className="block text-sm font-medium text-gray-700">
-                      直播URL
-                    </label>
-                    <input
-                      type="text"
-                      name="livestreamUrl"
-                      id="livestreamUrl"
-                      value={currentPerformance.livestreamUrl}
-                      onChange={handleInputChange}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="recordingUrl" className="block text-sm font-medium text-gray-700">
-                      錄播URL
-                    </label>
-                    <input
-                      type="text"
-                      name="recordingUrl"
-                      id="recordingUrl"
-                      value={currentPerformance.recordingUrl}
-                      onChange={handleInputChange}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
-                    />
                   </div>
                 </div>
               </div>
@@ -508,7 +468,7 @@ const PerformancesPage = () => {
                 <button
                   type="button"
                   onClick={handleSavePerformance}
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-teal-600 text-base font-medium text-white hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   {isEditing ? '更新' : '創建'}
                 </button>

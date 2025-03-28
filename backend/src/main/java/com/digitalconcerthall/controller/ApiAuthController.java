@@ -8,9 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.digitalconcerthall.dto.request.ForgotPasswordRequest;
 import com.digitalconcerthall.dto.request.LoginRequest;
-import com.digitalconcerthall.dto.request.PasswordResetRequest;
 import com.digitalconcerthall.dto.request.SignupRequest;
 import com.digitalconcerthall.dto.response.JwtResponse;
 import com.digitalconcerthall.dto.response.MessageResponse;
@@ -18,10 +16,14 @@ import com.digitalconcerthall.service.AuthService;
 
 import jakarta.validation.Valid;
 
+/**
+ * 這是一個專門處理 /api/auth/* 路徑請求的控制器
+ * 它與 AuthController 功能相同，但處理不同的路徑前綴
+ */
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/auth")
-public class AuthController {
+@RequestMapping("/api/auth")
+public class ApiAuthController {
     
     @Autowired
     private AuthService authService;
@@ -29,35 +31,33 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
         try {
-            // 打印接收到的登入請求信息
-            System.out.println("Received login request for: " + loginRequest.getUsername());
-            
-            // 如果前端傳來的是 usernameOrEmail 參數，比如在 Request Body 中
-            // 我們已經在 UserDetailsServiceImpl 中做了處理，可以使用電子郵件或用戶名登入
+            System.out.println("API 路徑收到登入請求: " + loginRequest.getUsername());
             
             JwtResponse jwtResponse = authService.authenticateUser(loginRequest);
             return ResponseEntity.ok(jwtResponse);
         } catch (Exception e) {
-            System.out.println("Authentication error in controller: " + e.getMessage());
-            return ResponseEntity.status(401).body(new MessageResponse("Authentication failed: " + e.getMessage()));
+            System.out.println("API 路徑登入失敗: " + e.getMessage());
+            if (e.getMessage().contains("Bad credentials")) {
+                return ResponseEntity.status(401)
+                        .body(new MessageResponse("登入失敗: 用戶名或密碼錯誤"));
+            }
+            return ResponseEntity.status(500)
+                    .body(new MessageResponse("登入失敗: " + e.getMessage()));
         }
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
-        // 調試信息
-        System.out.println("Received signup request: " + signUpRequest);
+        System.out.println("API 路徑收到註冊請求: " + signUpRequest.getUsername());
         
         MessageResponse response = authService.registerUser(signUpRequest);
         return ResponseEntity.ok(response);
     }
     
-    // 新增: 無需認證的管理員註冊端點
     @PostMapping("/register-admin")
     public ResponseEntity<?> registerAdmin(@Valid @RequestBody SignupRequest signUpRequest) {
-        System.out.println("Received admin signup request: " + signUpRequest);
+        System.out.println("API 路徑收到管理員註冊請求: " + signUpRequest.getUsername());
         
-        // 使用現有的註冊服務，但確保為管理員角色
         MessageResponse response = authService.registerAdminUser(signUpRequest);
         return ResponseEntity.ok(response);
     }
@@ -65,18 +65,6 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logoutUser() {
         MessageResponse response = authService.logoutUser();
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        MessageResponse response = authService.requestPasswordReset(request.getEmail());
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
-        MessageResponse response = authService.resetPassword(request.getToken(), request.getPassword());
         return ResponseEntity.ok(response);
     }
 }

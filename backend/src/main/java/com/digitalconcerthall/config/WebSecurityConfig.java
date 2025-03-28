@@ -79,7 +79,8 @@ public class WebSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
             
         http.authorizeHttpRequests(auth -> 
-                auth.requestMatchers("/auth/**", "/debug/**", "/setup/**", "/test/all", "/placeholder/**", "/api/placeholder/**").permitAll()
+                auth.requestMatchers("/api/auth/**", "/api/debug/**", "/api/setup/**", "/api/test/**", "/api/direct/**", "/api/placeholder/**").permitAll()
+                    .requestMatchers("/auth/**", "/debug/**", "/setup/**", "/test/**", "/direct/**", "/placeholder/**").permitAll() // 同時支持帶和不帶 /api 前綴的路徑
                     .requestMatchers("/h2-console/**").permitAll()
                     .anyRequest().authenticated()
             );

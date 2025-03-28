@@ -6,18 +6,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 簡單的測試控制器，用於檢查系統是否正常運行
+ * 處理 /api/test/* 路徑的測試控制器
+ * 與 TestController 功能相同，但處理不同的路徑前綴
  */
 @RestController
-@RequestMapping("/test")
-public class TestController {
+@RequestMapping("/api/test")
+public class ApiTestController {
 
     /**
      * 簡單的測試端點，不需要認證即可訪問
      */
     @GetMapping("/ping")
     public ResponseEntity<?> ping() {
-        return ResponseEntity.ok("pong - 測試成功!");
+        return ResponseEntity.ok("pong - API 測試成功!");
     }
     
     /**
@@ -27,7 +28,7 @@ public class TestController {
     public ResponseEntity<?> init() {
         try {
             // 簡單返回成功消息
-            return ResponseEntity.ok("測試初始化成功");
+            return ResponseEntity.ok("API 測試初始化成功");
         } catch (Exception e) {
             return ResponseEntity.status(500).body("初始化錯誤: " + e.getMessage());
         }

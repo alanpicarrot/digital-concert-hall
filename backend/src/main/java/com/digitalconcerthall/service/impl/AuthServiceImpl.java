@@ -53,22 +53,30 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+        System.out.println("Attempting to authenticate user: " + loginRequest.getUsername());
+        try {
+            // 嘗試登入認證
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateJwtToken(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            String jwt = jwtUtils.generateJwtToken(authentication);
 
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(item -> item.getAuthority())
+                    .collect(Collectors.toList());
 
-        return new JwtResponse(jwt,
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                roles);
+            System.out.println("Authentication successful for user: " + userDetails.getUsername());
+            return new JwtResponse(jwt,
+                    userDetails.getId(),
+                    userDetails.getUsername(),
+                    userDetails.getEmail(),
+                    roles);
+        } catch (Exception e) {
+            System.out.println("Authentication failed: " + e.getMessage());
+            throw e;
+        }
     }
 
     @Override
@@ -122,6 +130,56 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         return new MessageResponse("User registered successfully!");
+    }
+    
+    @Override
+    @Transactional
+    public MessageResponse registerAdminUser(SignupRequest signUpRequest) {
+        // 檢查用戶名是否已存在
+        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+            return new MessageResponse("Error: Username is already taken!");
+        }
+
+        // 檢查郵箱是否已存在
+        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            return new MessageResponse("Error: Email is already in use!");
+        }
+
+        // 創建新用戶帳號
+        User user = new User(signUpRequest.getUsername(),
+                signUpRequest.getEmail(),
+                encoder.encode(signUpRequest.getPassword()));
+                
+        user.setFirstName(signUpRequest.getFirstName());
+        user.setLastName(signUpRequest.getLastName());
+
+        // 確保角色存在
+        createRoleIfNotExists(ERole.ROLE_USER);
+        createRoleIfNotExists(ERole.ROLE_MODERATOR);
+        createRoleIfNotExists(ERole.ROLE_ADMIN);
+        
+        // 無論請求中的角色如何，都將其設置為管理員
+        Set<Role> roles = new HashSet<>();
+        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                .orElseThrow(() -> new RuntimeException("Error: Admin Role is not found."));
+        roles.add(adminRole);
+        
+        // 同時添加用戶角色
+        Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                .orElseThrow(() -> new RuntimeException("Error: User Role is not found."));
+        roles.add(userRole);
+        
+        user.setRoles(roles);
+        userRepository.save(user);
+
+        return new MessageResponse("Admin user registered successfully!");
+    }
+    
+    private void createRoleIfNotExists(ERole roleName) {
+        if (!roleRepository.existsByName(roleName)) {
+            Role role = new Role(roleName);
+            roleRepository.save(role);
+        }
     }
 
     @Override
