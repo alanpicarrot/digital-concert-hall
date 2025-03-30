@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart, User, ChevronDown, Music, Ticket, CalendarDays, Video, Mail } from 'lucide-react';
@@ -6,6 +6,11 @@ import { ShoppingCart, User, ChevronDown, Music, Ticket, CalendarDays, Video, Ma
 const MainLayout = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 添加調試輸出
+  useEffect(() => {
+    console.log('MainLayout 用戶資訊:', { isAuthenticated, username: user?.username });
+  }, [isAuthenticated, user]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);

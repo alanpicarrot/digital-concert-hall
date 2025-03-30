@@ -1,35 +1,42 @@
 import AuthService from '../authService';
+import { validateApiPath } from '../../utils/apiUtils';
 
 const axiosInstance = AuthService.axiosInstance;
 
 // 獲取所有音樂會
 const getAllConcerts = () => {
-  return axiosInstance.get('/api/admin/concerts');
+  const path = validateApiPath('/api/admin/concerts');
+  return axiosInstance.get(path);
 };
 
 // 獲取單個音樂會
 const getConcertById = (id) => {
-  return axiosInstance.get(`/api/admin/concerts/${id}`);
+  const path = validateApiPath(`/api/admin/concerts/${id}`);
+  return axiosInstance.get(path);
 };
 
 // 創建新音樂會
 const createConcert = (concertData) => {
-  return axiosInstance.post('/api/admin/concerts', concertData);
+  const path = validateApiPath('/api/admin/concerts');
+  return axiosInstance.post(path, concertData);
 };
 
 // 更新音樂會
 const updateConcert = (id, concertData) => {
-  return axiosInstance.put(`/api/admin/concerts/${id}`, concertData);
+  const path = validateApiPath(`/api/admin/concerts/${id}`);
+  return axiosInstance.put(path, concertData);
 };
 
 // 刪除音樂會
 const deleteConcert = (id) => {
-  return axiosInstance.delete(`/api/admin/concerts/${id}`);
+  const path = validateApiPath(`/api/admin/concerts/${id}`);
+  return axiosInstance.delete(path);
 };
 
 // 更新音樂會狀態
 const updateConcertStatus = (id, status) => {
-  return axiosInstance.patch(`/api/admin/concerts/${id}/status?status=${status}`);
+  const path = validateApiPath(`/api/admin/concerts/${id}/status?status=${status}`);
+  return axiosInstance.patch(path);
 };
 
 const ConcertService = {

@@ -17,7 +17,7 @@ import com.digitalconcerthall.service.order.OrderService;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/users/me")
+@RequestMapping("/api/users/me")
 public class OrderController {
     
     @Autowired

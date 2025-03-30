@@ -5,6 +5,31 @@ import PerformanceService from '../services/admin/performanceService';
 import TicketTypeService from '../services/admin/ticketTypeService';
 import ConcertService from '../services/admin/concertService';
 
+// 格式化日期函數
+const formatDate = (dateString) => {
+  if (!dateString) return '無效日期';
+  try {
+    // 嘗試解析各種可能的日期格式
+    const date = new Date(dateString);
+    // 檢查日期是否有效
+    if (isNaN(date.getTime())) {
+      return '無效日期';
+    }
+    return date.toLocaleString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+  } catch (error) {
+    console.error('日期格式化錯誤:', error);
+    return '無效日期';
+  }
+};
+
 const TicketsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -129,7 +154,17 @@ const TicketsPage = () => {
     try {
       setLoading(true);
       const response = await TicketService.getTicketsByPerformanceId(performanceId);
-      setTickets(response.data);
+      
+      // 為每個票券添加当前演出場次的ID，因為@JsonBackReference注解可能导致前端收不到performanceId
+      const ticketsWithPerformanceId = response.data.map(ticket => ({
+        ...ticket,
+        price: ticket.ticketType?.price || 0,
+        performanceId: parseInt(performanceId), // 確保每個票券都有正確的演出場次ID
+        ticketTypeId: ticket.ticketType?.id // 確保每個票券都有正確的票種ID
+      }));
+      
+      console.log('加載到的票券数据:', ticketsWithPerformanceId);
+      setTickets(ticketsWithPerformanceId);
       setError(null);
     } catch (err) {
       setError('無法加載票券：' + (err.response?.data?.message || err.message));
@@ -145,9 +180,21 @@ const TicketsPage = () => {
     setCurrentTicket({
       ...currentTicket,
       [name]: name === 'price' || name === 'totalQuantity' || name === 'availableQuantity' 
-        ? parseInt(value) 
+        ? (value ? parseInt(value) : 0)
         : value
     });
+    
+    // 如果選擇了票種，自動設置票價
+    if (name === 'ticketTypeId' && value) {
+      const selectedTicketType = ticketTypes.find(t => t.id === parseInt(value));
+      if (selectedTicketType && selectedTicketType.price) {
+        setCurrentTicket(prev => ({
+          ...prev,
+          price: selectedTicketType.price,
+          [name]: value
+        }));
+      }
+    }
   };
   
   // 新增/編輯票券
@@ -163,14 +210,26 @@ const TicketsPage = () => {
         return;
       }
       
+      // 確保數字欄位為整數
+      const ticketData = {
+        ...currentTicket,
+        performanceId: parseInt(currentTicket.performanceId),
+        ticketTypeId: parseInt(currentTicket.ticketTypeId),
+        price: parseFloat(currentTicket.price) || 0,
+        totalQuantity: parseInt(currentTicket.totalQuantity) || 0,
+        availableQuantity: parseInt(currentTicket.availableQuantity) || 0
+      };
+      
+      console.log('準備提交的票券數據:', ticketData);
+      
       if (isEditing) {
-        await TicketService.updateTicket(currentTicket.id, currentTicket);
+        await TicketService.updateTicket(ticketData.id, ticketData);
       } else {
-        await TicketService.createTicket(currentTicket);
+        await TicketService.createTicket(ticketData);
       }
       
       // 重新加載數據
-      loadTickets(currentTicket.performanceId);
+      loadTickets(ticketData.performanceId);
       
       // 關閉模態框
       setShowModal(false);
@@ -196,16 +255,29 @@ const TicketsPage = () => {
   // 編輯票券
   const handleEditTicket = (ticket) => {
     setIsEditing(true);
+    
+    // 處理價格 - 可能來自 ticket.price 或 ticket.ticketType.price
+    let price = 0;
+    if (ticket.price) {
+      price = ticket.price;
+    } else if (ticket.ticketType && ticket.ticketType.price) {
+      price = ticket.ticketType.price;
+    }
+    
+    console.log('編輯票券數據:', ticket);
+    
+    // 添加防禦性程式設計，確保值存在且能夠轉換為字符串
     setCurrentTicket({
       id: ticket.id,
-      performanceId: ticket.performanceId.toString(),
-      ticketTypeId: ticket.ticketTypeId.toString(),
-      price: ticket.price,
-      totalQuantity: ticket.totalQuantity,
-      availableQuantity: ticket.availableQuantity,
+      performanceId: ticket.performanceId ? ticket.performanceId.toString() : '',
+      ticketTypeId: ticket.ticketTypeId ? ticket.ticketTypeId.toString() : '',
+      price: price,
+      totalQuantity: ticket.totalQuantity || 0,
+      availableQuantity: ticket.availableQuantity || 0,
       description: ticket.description || '',
-      status: ticket.status
+      status: ticket.status || 'active'
     });
+    
     setShowModal(true);
   };
   
@@ -235,24 +307,41 @@ const TicketsPage = () => {
   
   // 獲取票種名稱
   const getTicketTypeName = (ticketTypeId) => {
-    const ticketType = ticketTypes.find(t => t.id === parseInt(ticketTypeId));
-    return ticketType ? ticketType.name : '未知票種';
+    if (!ticketTypeId) return '未知票種';
+    try {
+      const ticketType = ticketTypes.find(t => t.id === parseInt(ticketTypeId));
+      return ticketType ? ticketType.name : '未知票種';
+    } catch (error) {
+      console.error('獲取票種名稱錯誤:', error);
+      return '未知票種';
+    }
   };
   
   // 獲取演出場次信息
   const getPerformanceInfo = (performanceId) => {
-    const performance = performances.find(p => p.id === parseInt(performanceId));
-    if (!performance) return '未知演出場次';
-    
-    // 格式化日期時間
-    const dateTime = new Date(performance.performanceDateTime);
-    return dateTime.toLocaleString();
+    if (!performanceId) return '未知演出場次';
+    try {
+      const performance = performances.find(p => p.id === parseInt(performanceId));
+      if (!performance) return '未知演出場次';
+      
+      // 格式化日期時間
+      return formatDate(performance.performanceDateTime || performance.startTime);
+    } catch (error) {
+      console.error('獲取演出場次信息錯誤:', error);
+      return '未知演出場次';
+    }
   };
   
   // 獲取音樂會標題
   const getConcertTitle = (concertId) => {
-    const concert = concerts.find(c => c.id === parseInt(concertId));
-    return concert ? concert.title : '未知音樂會';
+    if (!concertId) return '未知音樂會';
+    try {
+      const concert = concerts.find(c => c.id === parseInt(concertId));
+      return concert ? concert.title : '未知音樂會';
+    } catch (error) {
+      console.error('獲取音樂會標題錯誤:', error);
+      return '未知音樂會';
+    }
   };
 
   return (
@@ -262,6 +351,11 @@ const TicketsPage = () => {
         <button
           onClick={() => {
             setIsEditing(false);
+            // 確保有選擇的演出場次
+            if (!selectedPerformanceId) {
+              alert('請先選擇演出場次');
+              return;
+            }
             setCurrentTicket({
               performanceId: selectedPerformanceId,
               ticketTypeId: '',
@@ -314,7 +408,7 @@ const TicketsPage = () => {
             <option value="">-- 請選擇演出場次 --</option>
             {performances.map((performance) => (
               <option key={performance.id} value={performance.id}>
-                {new Date(performance.performanceDateTime).toLocaleString()}
+                {formatDate(performance.performanceDateTime || performance.startTime)}
               </option>
             ))}
           </select>
@@ -418,7 +512,7 @@ const TicketsPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      NT$ {ticket.price}
+                      NT$ {ticket.price || (ticket.ticketType ? ticket.ticketType.price : 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {ticket.totalQuantity}
@@ -438,14 +532,15 @@ const TicketsPage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${
-                            ticket.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
-                          }`}
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${
+                      ticket.status === 'active'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}
                       >
-                        {ticket.status === 'active' ? '上架中' : '未上架'}
+                      {/* 票券狀態可能不存在，預設設置為上架中 */}
+                        {ticket.status ? (ticket.status === 'active' ? '上架中' : '未上架') : '上架中'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -527,7 +622,7 @@ const TicketsPage = () => {
                       <option value="">-- 請選擇演出場次 --</option>
                       {performances.map((performance) => (
                         <option key={performance.id} value={performance.id}>
-                          {new Date(performance.performanceDateTime).toLocaleString()}
+                        {formatDate(performance.performanceDateTime || performance.startTime)}
                         </option>
                       ))}
                     </select>
@@ -554,8 +649,9 @@ const TicketsPage = () => {
                   </div>
                   <div>
                     <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-                      票價(NT$) <span className="text-red-500">*</span>
+                    票價(NT$) <span className="text-red-500">*</span>
                     </label>
+                    <div className="flex space-x-2 items-center">
                     <input
                       type="number"
                       name="price"
@@ -564,8 +660,28 @@ const TicketsPage = () => {
                       onChange={handleInputChange}
                       min="0"
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm"
-                      required
-                    />
+                        required
+                        />
+                        {currentTicket.ticketTypeId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const selectedTicketType = ticketTypes.find(
+                                t => t.id === parseInt(currentTicket.ticketTypeId)
+                              );
+                              if (selectedTicketType && selectedTicketType.price) {
+                                setCurrentTicket({
+                                  ...currentTicket,
+                                  price: selectedTicketType.price
+                                });
+                              }
+                            }}
+                            className="mt-1 px-3 py-2 bg-gray-100 text-xs text-gray-700 rounded hover:bg-gray-200"
+                          >
+                            使用票種預設價格
+                          </button>
+                        )}
+                      </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, CreditCard } from 'lucide-react';
-import axios from 'axios';
+import authService from '../../services/authService';
 
 const CheckoutPage = () => {
   const { orderNumber } = useParams();
@@ -13,6 +13,32 @@ const CheckoutPage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // 詳細檢查用戶登入狀態
+    const currentUser = authService.getCurrentUser();
+    const isTokenValid = authService.isTokenValid();
+    console.log('結帳頁面 - 用戶登入狀態:', {
+      user: currentUser ? currentUser.username : '未登入',
+      tokenValid: isTokenValid ? '有效' : '無效或過期',
+      orderNumber: orderNumber || '無訂單編號',
+      hasCheckoutInfo: !!sessionStorage.getItem('checkoutInfo')
+    });
+    
+    // 檢查用戶是否已登入並且令牌有效
+    if (!currentUser || !isTokenValid) {
+      // 如果用戶未登入或令牌無效，導向登入頁面
+      console.log('用戶未登入或令牌無效，重定向到登入頁面');
+      
+      // 先清除已經失效的登入狀態
+      if (!isTokenValid && currentUser) {
+        authService.logout();   
+      } else {
+        // 如果使用者沒登入，就先導到登入頁面
+        alert('請先登入才能處理結帳');
+        navigate('/auth/login?redirect=checkout' + (orderNumber ? `/${orderNumber}` : ''));
+      }
+      return;
+    }
+
     // 檢查是否是直接從音樂會頁面導航過來的
     const checkoutInfo = sessionStorage.getItem('checkoutInfo');
     
@@ -35,7 +61,8 @@ const CheckoutPage = () => {
       const fetchOrderDetails = async () => {
         try {
           setLoading(true);
-          const response = await axios.get(`/api/users/me/orders/${orderNumber}`);
+          // 使用 authService 的 axiosInstance 來帶上授權信息
+          const response = await authService.axiosInstance.get(`/api/users/me/orders/${orderNumber}`);
           setOrder(response.data);
           
           // 如果訂單已支付，直接導向到訂單詳情頁
@@ -64,6 +91,29 @@ const CheckoutPage = () => {
 
   // 處理支付請求
   const handlePayment = async () => {
+    // 再次檢查用戶登入狀態
+    const currentUser = authService.getCurrentUser();
+    const isTokenValid = authService.isTokenValid();
+    console.log('支付處理 - 用戶登入狀態:', {
+      user: currentUser ? currentUser.username : '未登入',
+      tokenValid: isTokenValid ? '有效' : '無效或過期'
+    });
+    
+    // 檢查用戶是否已登入並且令牌有效
+    if (!currentUser || !isTokenValid) {
+      // 如果用戶未登入或令牌無效，導向登入頁面
+      console.log('用戶未登入或令牌無效，重定向到登入頁面');
+      
+      // 先清除已經失效的登入狀態
+      if (!isTokenValid && currentUser) {
+        authService.logout();   
+      }
+      
+      alert('您的登入已失效，請重新登入後再購買');
+      navigate('/auth/login?redirect=checkout' + (orderNumber ? `/${orderNumber}` : ''));
+      return;
+    }
+    
     try {
       setPaymentLoading(true);
       
@@ -98,7 +148,7 @@ const CheckoutPage = () => {
       // 原本訂單支付部分
       if (orderNumber) {
         // 創建表單請求，返回HTML
-        const response = await axios.post(
+        const response = await authService.axiosInstance.post(
           '/api/payment/ecpay/create',
           { orderNumber },
           { responseType: 'text' }
@@ -119,7 +169,7 @@ const CheckoutPage = () => {
             // 模擬流程 - 僅在開發環境中
             setTimeout(() => {
               // 使用管理員測試API模擬支付成功
-              axios.post(`/api/payment/ecpay/test-notify?orderNumber=${orderNumber}&success=true`)
+              authService.axiosInstance.post(`/api/payment/ecpay/test-notify?orderNumber=${orderNumber}&success=true`)
                 .then(() => {
                   navigate(`/payment/result?MerchantTradeNo=${orderNumber}&RtnCode=1&RtnMsg=交易成功`);
                 })

@@ -34,8 +34,12 @@ const CartPage = () => {
   };
 
   const handleCheckout = async () => {
-    if (!authService.getCurrentUser()) {
+    const currentUser = authService.getCurrentUser();
+    console.log('Current user in cart checkout:', currentUser ? currentUser.username : 'Not logged in');
+    
+    if (!currentUser) {
       // 如果用戶未登錄，導向登錄頁面
+      alert('請先登入才能進行結帳');
       navigate('/login?redirect=cart');
       return;
     }

@@ -107,7 +107,27 @@ public class OrderServiceImpl implements OrderService {
         response.setTicketTypeName(item.getTicket().getTicketType().getName());
         response.setQuantity(item.getQuantity());
         response.setUnitPrice(item.getUnitPrice());
+        response.setPrice(item.getUnitPrice()); // 設置price以兼容前端
         response.setSubtotal(item.getSubtotal());
+        
+        // 創建嵌套對象以兼容前端結構
+        OrderItemResponse.TicketResponse ticketResponse = new OrderItemResponse.TicketResponse();
+        ticketResponse.setId(item.getTicket().getId());
+        
+        OrderItemResponse.TicketTypeResponse ticketTypeResponse = new OrderItemResponse.TicketTypeResponse();
+        ticketTypeResponse.setId(item.getTicket().getTicketType().getId());
+        ticketTypeResponse.setName(item.getTicket().getTicketType().getName());
+        ticketTypeResponse.setDescription(item.getTicket().getTicketType().getDescription());
+        ticketTypeResponse.setPrice(item.getTicket().getTicketType().getPrice());
+        ticketResponse.setTicketType(ticketTypeResponse);
+        
+        OrderItemResponse.EventResponse eventResponse = new OrderItemResponse.EventResponse();
+        eventResponse.setId(item.getTicket().getPerformance().getConcert().getId());
+        eventResponse.setName(item.getTicket().getPerformance().getConcert().getTitle());
+        eventResponse.setDescription(item.getTicket().getPerformance().getConcert().getDescription());
+        ticketResponse.setEvent(eventResponse);
+        
+        response.setTicket(ticketResponse);
         
         return response;
     }

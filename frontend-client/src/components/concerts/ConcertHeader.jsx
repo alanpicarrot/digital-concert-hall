@@ -2,14 +2,24 @@ import React from 'react';
 import { User } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { ConcertType } from '../../types/concert';
+import SimplePlaceholder from '../ui/SimplePlaceholder';
 
 export const ConcertHeader = ({ concert }) => (
   <div className="relative">
-    <img 
-      src={concert.image} 
-      alt={concert.title} 
-      className="w-full h-96 object-cover object-center"
-    />
+    {concert.image ? (
+      <img 
+        src={concert.image} 
+        alt={concert.title} 
+        className="w-full h-96 object-cover object-center"
+      />
+    ) : (
+      <SimplePlaceholder 
+        width="100%" 
+        height={384} 
+        text={concert.title}
+        className="w-full h-96 object-cover object-center" 
+      />
+    )}
     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
       <div className="p-6 text-white">
         <h1 className="text-3xl md:text-4xl font-bold mb-2">{concert.title}</h1>

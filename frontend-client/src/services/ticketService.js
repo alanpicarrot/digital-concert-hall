@@ -1,16 +1,19 @@
 import authService from './authService';
+import { validateApiPath } from '../utils/apiUtils';
 
-const API_URL = '/api/users/me/tickets';
+const API_BASE_PATH = '/api/users/me/tickets';
 const { axiosInstance } = authService;
 
 // 獲取用戶所有票券（分頁）
 const getUserTickets = async (page = 0, size = 10) => {
-  return axiosInstance.get(`${API_URL}?page=${page}&size=${size}`);
+  const path = validateApiPath(`${API_BASE_PATH}?page=${page}&size=${size}`);
+  return axiosInstance.get(path);
 };
 
 // 獲取特定票券詳情（包含QR碼）
 const getTicketDetail = async (ticketId) => {
-  return axiosInstance.get(`${API_URL}/${ticketId}`);
+  const path = validateApiPath(`${API_BASE_PATH}/${ticketId}`);
+  return axiosInstance.get(path);
 };
 
 const TicketService = {

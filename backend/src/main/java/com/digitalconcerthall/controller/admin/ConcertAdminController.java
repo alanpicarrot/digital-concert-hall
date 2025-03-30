@@ -14,7 +14,7 @@ import com.digitalconcerthall.model.concert.Concert;
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 
 @RestController
-@RequestMapping("/admin/concerts")
+@RequestMapping("/api/admin/concerts")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class ConcertAdminController {
 

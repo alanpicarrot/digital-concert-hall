@@ -1,3 +1,23 @@
+## API 路徑標準
+
+為了確保前後端 API 路徑的一致性，本專案已建立了統一的 API 路徑標準：
+
+- 所有 API 路徑必須以 `/api/` 開頭
+- 前端使用 `validateApiPath` 函數確保路徑正確
+- 後端控制器使用 `@RequestMapping("/api/...")` 設置路徑
+
+詳細規範請參考 `Documentation/API_PATH_STANDARD.md`。
+
+我們提供了一些工具來幫助檢查和修复 API 路徑問題：
+
+```bash
+# 執行 API 路徑檢查
+./check-api-paths.sh
+
+# 自動修复 API 路徑問題
+./migrate-api-paths.sh
+```
+
 # 數位音樂廳專案 (Digital Concert Hall)
 
 本專案為一個數位音樂廳平台，提供線上音樂會直播、點播和購票功能。

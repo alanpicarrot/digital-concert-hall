@@ -2,6 +2,8 @@ package com.digitalconcerthall.repository.concert;
 
 import com.digitalconcerthall.model.concert.Performance;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,7 +20,8 @@ public interface PerformanceRepository extends JpaRepository<Performance, Long> 
     /**
      * 根據音樂會ID查詢演出場次
      */
-    List<Performance> findByConcertId(Long concertId);
+    @Query("SELECT p FROM Performance p WHERE p.concert.id = :concertId")
+    List<Performance> findByConcertId(@Param("concertId") Long concertId);
     
     /**
      * 根據狀態查詢演出場次

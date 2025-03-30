@@ -1,4 +1,5 @@
 import authService from './authService';
+import { validateApiPath } from '../utils/apiUtils';
 
 // 這裡我們使用localStorage來存儲購物車數據
 // 在真實場景中，你可能需要同步到後端API
@@ -111,7 +112,8 @@ const checkout = async () => {
   };
   
   // 創建訂單
-  const response = await axiosInstance.post('/api/orders', orderData);
+  const path = validateApiPath('/api/orders');
+  const response = await axiosInstance.post(path, orderData);
   
   // 成功下單後清空購物車
   if (response.status === 200 || response.status === 201) {

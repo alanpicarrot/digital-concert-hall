@@ -1,35 +1,199 @@
 package com.digitalconcerthall.controller;
 
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * 簡單的測試控制器，用於檢查系統是否正常運行
- */
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+import com.digitalconcerthall.dto.response.ApiResponse;
+import com.digitalconcerthall.model.User;
+import com.digitalconcerthall.model.concert.Concert;
+import com.digitalconcerthall.model.concert.Performance;
+import com.digitalconcerthall.model.order.Order;
+import com.digitalconcerthall.repository.UserRepository;
+import com.digitalconcerthall.repository.concert.ConcertRepository;
+import com.digitalconcerthall.repository.concert.PerformanceRepository;
+import com.digitalconcerthall.repository.order.OrderRepository;
+import com.digitalconcerthall.security.services.UserDetailsImpl;
+
 @RestController
-@RequestMapping("/test")
+@RequestMapping("/api/test")
+@CrossOrigin(origins = "*", maxAge = 3600)
 public class TestController {
 
-    /**
-     * 簡單的測試端點，不需要認證即可訪問
-     */
-    @GetMapping("/ping")
-    public ResponseEntity<?> ping() {
-        return ResponseEntity.ok("pong - 測試成功!");
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private ConcertRepository concertRepository;
+
+    @Autowired
+    private PerformanceRepository performanceRepository;
+
+    // 簡單測試端點，用於檢查後端 API 是否正常工作
+    @GetMapping("/ping-test")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<String> ping() {
+        return ResponseEntity.ok("pong");
+    }
+
+    // 創建測試數據
+    @GetMapping("/create-concert")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<ApiResponse> createTestConcert() {
+        try {
+            // 創建測試音樂會
+            Concert concert = new Concert();
+            concert.setTitle("莫札特鋼琴協奏曲音樂會");
+            concert.setDescription("一場精彩的莫札特鋼琴協奏曲演出，由知名鋼琴家與樂團共同演出");
+            concert.setProgramDetails("第一部分: 鋼琴協奏曲第20號\n第二部分: 鋼琴協奏曲第21號\n第三部分: 鋼琴協奏曲第23號");
+            concert.setPosterUrl("/api/placeholder/600/400?text=Mozart");
+            concert.setStatus("active");
+            concert.setCreatedAt(LocalDateTime.now());
+            concert.setUpdatedAt(LocalDateTime.now());
+
+            Concert savedConcert = concertRepository.save(concert);
+
+            // 創建演出場次
+            Performance performance = new Performance();
+            performance.setConcert(savedConcert);
+            performance.setStartTime(LocalDateTime.now().plusDays(10));
+            performance.setEndTime(LocalDateTime.now().plusDays(10).plusHours(2));
+            performance.setVenue("數位音樂廳主廳");
+            performance.setStatus("scheduled");
+
+            performanceRepository.save(performance);
+
+            return ResponseEntity.ok(new ApiResponse(true, "測試音樂會創建成功"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new ApiResponse(false, "創建測試音樂會失敗: " + e.getMessage()));
+        }
+    }
+
+    // 檢查當前系統中的音樂會數量
+    @GetMapping("/count-concerts")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<String> countConcerts() {
+        long count = concertRepository.count();
+        return ResponseEntity.ok("系統中現有 " + count + " 場音樂會");
+    }
+
+    // 列出所有演出場次信息
+    @GetMapping("/list-performances")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<List<String>> listPerformances() {
+        List<Performance> performances = performanceRepository.findAll();
+        List<String> result = new ArrayList<>();
+        
+        for (Performance perf : performances) {
+            Concert concert = perf.getConcert();
+            String info = String.format(
+                "演出ID: %d, 音樂會: %s, 場地: %s, 時間: %s", 
+                perf.getId(), 
+                concert != null ? concert.getTitle() : "未知",
+                perf.getVenue(),
+                perf.getStartTime()
+            );
+            result.add(info);
+        }
+        
+        return ResponseEntity.ok(result);
+    }
+
+    // 創建測試訂單
+    @PostMapping("/orders")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<Order> createTestOrder(@RequestBody TestOrderRequest request) {
+        try {
+            // 獲取當前用戶
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            User user = userRepository.findById(userDetails.getId())
+                    .orElseThrow(() -> new RuntimeException("找不到當前用戶"));
+
+            // 創建測試訂單
+            Order order = new Order();
+            order.setUser(user);
+            order.setOrderNumber(request.getOrderNumber());
+            order.setTotalAmount(new BigDecimal(request.getTotalAmount()));
+            order.setStatus("pending");
+            order.setPaymentMethod("credit_card");
+            order.setPaymentStatus("pending");
+            order.setOrderDate(LocalDateTime.now());
+
+            Order savedOrder = orderRepository.save(order);
+            return ResponseEntity.ok(savedOrder);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(null);
+        }
     }
     
-    /**
-     * 初始化測試端點
-     */
-    @GetMapping("/init")
-    public ResponseEntity<?> init() {
-        try {
-            // 簡單返回成功消息
-            return ResponseEntity.ok("測試初始化成功");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("初始化錯誤: " + e.getMessage());
+    // 測試訂單請求類
+    static class TestOrderRequest {
+        private String orderNumber;
+        private String totalAmount;
+        private List<OrderItemRequest> items;
+
+        public String getOrderNumber() {
+            return orderNumber;
+        }
+
+        public void setOrderNumber(String orderNumber) {
+            this.orderNumber = orderNumber;
+        }
+
+        public String getTotalAmount() {
+            return totalAmount;
+        }
+
+        public void setTotalAmount(String totalAmount) {
+            this.totalAmount = totalAmount;
+        }
+
+        public List<OrderItemRequest> getItems() {
+            return items;
+        }
+
+        public void setItems(List<OrderItemRequest> items) {
+            this.items = items;
+        }
+    }
+
+    static class OrderItemRequest {
+        private String name;
+        private int quantity;
+        private double price;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public int getQuantity() {
+            return quantity;
+        }
+
+        public void setQuantity(int quantity) {
+            this.quantity = quantity;
+        }
+
+        public double getPrice() {
+            return price;
+        }
+
+        public void setPrice(double price) {
+            this.price = price;
         }
     }
 }

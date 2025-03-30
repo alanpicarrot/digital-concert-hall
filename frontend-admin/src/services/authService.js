@@ -1,8 +1,10 @@
 import axios from 'axios';
+import { validateApiPath } from '../utils/apiUtils';
 
 // 建立 axios 實例
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
-const API_BASE = `${API_URL}/api`; 
+// 從 API_URL 中移除了 /api 前綴以修復路徑問題
+const API_BASE = API_URL; 
 
 // 打印環境變量和 API URL
 console.log('Environment variables:', {
@@ -52,7 +54,8 @@ const logout = () => {
   
   // 嘗試調用後端登出 API
   try {
-    axiosInstance.post('/auth/logout').catch(err => {
+    const endpoint = validateApiPath('/api/auth/logout');
+    axiosInstance.post(endpoint).catch(err => {
       console.log('登出 API 調用失敗，但本地存儲已清除', err);
     });
   } catch (error) {
@@ -92,8 +95,8 @@ axiosInstance.interceptors.response.use(
 const login = async (usernameOrEmail, password) => {
   console.log('Sending admin login request with:', { usernameOrEmail, password: '[REDACTED]' });
   
-  // 檢查是否需要添加 /api 前綴
-  const endpoint = '/auth/login';
+  // 確保使用正確的 API 前綴
+  const endpoint = validateApiPath('/api/auth/login');
   
   // 嘗試使用作為用戶名登入
   const response = await axiosInstance.post(endpoint, {

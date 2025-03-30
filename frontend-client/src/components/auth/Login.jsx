@@ -15,7 +15,24 @@ const Login = () => {
   const location = useLocation();
   
   // 檢查是否有來自其他頁面的重定向
-  const from = location.state?.from?.pathname || '/';
+  const searchParams = new URLSearchParams(location.search);
+  const redirectUrl = searchParams.get('redirect');
+  
+  // 確保重定向正確，避免循環
+  let from = '/';
+  if (redirectUrl) {
+    // 確保不是登入相關頁面
+    if (redirectUrl.includes('/login') || redirectUrl.includes('/auth/login')) {
+      console.log('避免重定向到登入頁面循環:', redirectUrl);
+      from = '/';
+    } else {
+      from = redirectUrl;
+    }
+  } else if (location.state?.from?.pathname) {
+    from = location.state.from.pathname;
+  }
+  
+  console.log('登入頁面 - 設定重定向到:', from);
 
   const { username, password } = formData;
 
@@ -37,12 +54,54 @@ const Login = () => {
     
     try {
       // 呼叫登入API
-      console.log('Attempting login with:', { username, password: '******' });
+      console.log('===== 開始登入處理 =====');
+      console.log('嘗試登入用戶:', username);
       const response = await AuthService.login(username, password);
       console.log('Login successful! Response:', { ...response, accessToken: response.accessToken ? '[REDACTED]' : null });
       
-      // 登入成功，導航到重定向的頁面或預設頁面
-      navigate(from, { replace: true });
+      // 登入成功，準備重定向
+      console.log('Login successful, redirecting to:', from);
+      console.log('User token:', localStorage.getItem('token') ? 'Set' : 'Not set');
+      
+      // 檢查當前用戶狀態
+      const user = AuthService.getCurrentUser();
+      console.log('Current user after login:', user ? user.username : 'Unknown');
+      
+      // 增強的重定向處理
+      try {
+        // 支援 URL 解碼，避免特殊字符問題
+        let decodedPath = from;
+        if (from.indexOf('%2F') !== -1 || from.indexOf('%3A') !== -1) {
+          decodedPath = decodeURIComponent(from);
+        }
+        
+        console.log('解碼後的重定向路徑:', decodedPath);
+        
+        // 再次檢查防止重定向到登入頁面
+        if (decodedPath.includes('/login') || decodedPath.includes('/auth/login')) {
+          console.log('防止重定向循環，轉至首頁');
+          navigate('/', { replace: true });
+          return;
+        }
+        
+        if (decodedPath.startsWith('/')) {
+          // 如果是完整的URL路徑，則直接導航
+          console.log('導航至絕對路徑:', decodedPath);
+          navigate(decodedPath, { replace: true });
+        } else if (decodedPath.startsWith('http')) {
+          // 如果是外部鏈接，重定向到首頁
+          console.log('檢測到外部鏈接，重定向至首頁');
+          navigate('/', { replace: true });
+        } else {
+          // 否則作為相對路徑處理
+          console.log('導航至相對路徑:', '/' + decodedPath);
+          navigate('/' + decodedPath, { replace: true });
+        }
+      } catch (e) {
+        console.error('Redirect error:', e);
+        // 重定向發生錯誤時，預設導到首頁
+        navigate('/', { replace: true });
+      }
     } catch (error) {
       console.error('Login error:', error);
       

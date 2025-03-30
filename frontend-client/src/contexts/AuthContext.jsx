@@ -14,11 +14,18 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = () => {
       try {
+        console.log('開始初始化認證狀態');
         const user = AuthService.getCurrentUser();
+        console.log('從 localStorage 讀取的用戶:', user);
         
-        if (user) {
+        if (user && user.accessToken) {
+          console.log('用戶已登入，設置認證狀態');
           setUser(user);
           setIsAuthenticated(true);
+        } else {
+          console.log('沒有有效用戶或令牌');
+          // 清除可能錯誤的存儲
+          AuthService.logout();
         }
       } catch (error) {
         console.error('初始化認證狀態失敗', error);

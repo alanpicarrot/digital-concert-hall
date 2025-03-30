@@ -6,11 +6,18 @@
 
 - [前端重構開發記錄](development-logs/frontend-refactoring-session.md) - 記錄了數位音樂廳前後台分離重構過程
 - [前端樣式調整記錄](frontend-styling-session/styling-session-log.md) - 記錄了前端UI樣式的調整和優化過程
+- [佔位圖修復報告](placeholder-fix/placeholder-fix-report.md) - 記錄了解決前端佔位圖 HTTP 500 錯誤的過程
 
 ## 設計資源
 
 - [前端樣式指南](frontend-styling-session/style-guide.md) - 前端樣式統一標準和規範
 - [代碼變更摘要](frontend-styling-session/code-changes-summary.md) - 主要代碼修改的詳細記錄
+- [SimplePlaceholder 元件使用指南](placeholder-fix/placeholder-usage.md) - 如何使用 SimplePlaceholder 元件的指南
+
+## 技術解決方案
+
+- [SimplePlaceholder 解決方案](placeholder-fix/README.md) - 關於前端佔位圖實現的完整文檔
+- [SimplePlaceholder 元件實現說明](placeholder-fix/placeholder-implementation.md) - 佔位圖元件的技術細節
 
 ## 資料結構
 

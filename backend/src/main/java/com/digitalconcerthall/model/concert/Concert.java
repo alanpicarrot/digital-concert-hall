@@ -1,5 +1,7 @@
 package com.digitalconcerthall.model.concert;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -45,6 +47,7 @@ public class Concert {
     private LocalDateTime updatedAt;
     
     @OneToMany(mappedBy = "concert", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<Performance> performances = new ArrayList<>();
     
     @PrePersist

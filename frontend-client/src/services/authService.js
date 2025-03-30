@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { validateApiPath } from '../utils/apiUtils';
 
 // 建立 axios 實例
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
@@ -38,10 +39,16 @@ const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   
+  // 清除任何可能的購物車或結帳信息
+  sessionStorage.removeItem('checkoutInfo');
+  
   // 嘗試調用後端登出 API
   try {
-    // 檢查是否需要添加 /api 前綴
-    const endpoint = API_URL.includes('/api') ? '/auth/logout' : '/api/auth/logout';
+    // 使用一致的路徑
+    const endpoint = '/api/auth/logout';
+    console.log('API URL:', API_URL);
+    console.log('登出請求 URL:', `${API_URL}${endpoint}`);
+    
     axiosInstance.post(endpoint).catch(err => {
       console.log('登出 API 調用失敗，但本地存儲已清除', err);
       // 已經先清除了本地存儲，所以不需要額外處理
@@ -65,6 +72,7 @@ axiosInstance.interceptors.response.use(
       
       // 如果收到401錯誤且不是在登入或註冊頁面，則登出用戶
       const currentPath = window.location.pathname;
+      const currentUrl = window.location.href;
       if (
         !currentPath.includes('/login') &&
         !currentPath.includes('/register') &&
@@ -75,8 +83,11 @@ axiosInstance.interceptors.response.use(
         // 顯示通知（可選）
         alert('您的登入已過期，請重新登入');
         
-        // 重定向到登入頁面
-        window.location.href = '/login';
+        // 保存當前頁面路徑用於登入後重定向
+        const redirectPath = encodeURIComponent(currentPath);
+        
+        // 重定向到登入頁面，並帶上當前頁面作為重定向參數
+        window.location.href = `/login?redirect=${redirectPath}`;
       }
     }
     return Promise.reject(error);
@@ -101,9 +112,11 @@ const register = async (username, email, password, firstName, lastName) => {
     password: '[REDACTED]',
   });
   
-  // 確保 Content-Type 正確設置
-  // 檢查是否需要添加 /api 前綴
-  const endpoint = API_URL.includes('/api') ? '/auth/register' : '/api/auth/register';
+  // 使用一致的路徑，不使用 validateApiPath 避免重複添加 /api 前綴
+  const endpoint = '/api/auth/register';
+  console.log('API URL:', API_URL);
+  console.log('完整請求 URL:', `${API_URL}${endpoint}`);
+  
   return axiosInstance.post(endpoint, requestData, {
     headers: {
       'Content-Type': 'application/json'
@@ -111,54 +124,154 @@ const register = async (username, email, password, firstName, lastName) => {
   });
 };
 
-// 登入函數
+// 改進的登入函數
 const login = async (username, password) => {
-  console.log('Sending login request with:', { username, password: '[REDACTED]' });
+  console.log('登入流程啟動 - 清除舊資料');
+  // 先清除舊的登入狀態，避免混合
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
   
-  // 檢查是否需要添加 /api 前綴
-  const endpoint = API_URL.includes('/api') ? '/auth/login' : '/api/auth/login';
-  console.log('Login endpoint:', endpoint);
+  console.log('發送登入請求:', { username, password: '******' });
   
-  const response = await axiosInstance.post(endpoint, {
-    username,
-    password,
-  });
-  
-  // 後端返回的是 accessToken 而不是 token
-  if (response.data.accessToken) {
-    localStorage.setItem('token', response.data.accessToken);
-    localStorage.setItem('user', JSON.stringify(response.data));
+  try {
+    // 使用 validateApiPath 確保路徑一致
+    const endpoint = '/api/auth/login';
+    console.log('API URL:', API_URL);
+    console.log('完整請求 URL:', `${API_URL}${endpoint}`);
+    
+    const response = await axiosInstance.post(endpoint, {
+      username,
+      password
+    });
+    
+    console.log('登入請求成功:', response.status, response.statusText);
+    console.log('登入回應資料:', response.data);
+    
+    // 檢查回應中的 token
+    if (response.data && response.data.accessToken) {
+      console.log('成功收到令牌，存入 localStorage');
+      
+      // 存入令牌
+      localStorage.setItem('token', response.data.accessToken);
+      
+      // 確保用戶資料完整
+      const userData = {
+        ...response.data,
+        username: response.data.username || username
+      };
+      
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // 偵測 localStorage 是否成功存入
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      
+      console.log('存入後的檢查:', {
+        token: savedToken ? '已設置' : '未設置',
+        user: savedUser ? '已設置' : '未設置',
+        userData: savedUser ? JSON.parse(savedUser) : null
+      });
+      
+      return response.data;
+    } else {
+      console.error('登入回應中沒有令牌:', response.data);
+      throw new Error('登入回應中沒有令牌');
+    }
+  } catch (error) {
+    console.error('登入錯誤:', error.message);
+    if (error.response) {
+      console.error('錯誤資料:', error.response.data);
+      console.error('錯誤狀態:', error.response.status);
+    }
+    throw error;
   }
-  
-  return response.data;
 };
 
 // 獲取當前用戶信息
 const getCurrentUser = () => {
-  return JSON.parse(localStorage.getItem('user'));
+  try {
+    const userStr = localStorage.getItem('user');
+    console.log('localStorage 中的用戶字符串:', userStr);
+    if (!userStr) {
+      console.log('localStorage 中沒有用戶數據');
+      return null;
+    }
+    
+    const user = JSON.parse(userStr);
+    console.log('解析後的用戶對象:', user);
+    
+    // 檢查令牌有效性
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('找不到令牌');
+      return null;
+    }
+    
+    // 確保用戶對象已包含令牌
+    user.accessToken = token;
+    
+    return user;
+  } catch (error) {
+    console.error('獲取當前用戶時出錯:', error);
+    return null;
+  }
+};
+
+// 檢查令牌是否有效
+const isTokenValid = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return false;
+  
+  // 檢查令牌格式
+  const tokenParts = token.split('.');
+  if (tokenParts.length !== 3) {
+    console.error('令牌格式不正確');
+    return false;
+  }
+  
+  try {
+    // 解析JWT的有效期
+    const payload = JSON.parse(atob(tokenParts[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    
+    // 檢查令牌是否過期
+    if (payload.exp && payload.exp < currentTime) {
+      console.log('令牌已過期', { exp: payload.exp, now: currentTime, diff: currentTime - payload.exp });
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('驗證令牌時出錯:', error);
+    return false;
+  }
 };
 
 // 重設密碼請求
 const forgotPassword = (email) => {
-  const endpoint = API_URL.includes('/api') ? '/auth/forgot-password' : '/api/auth/forgot-password';
+  const endpoint = '/api/auth/forgot-password';
+  console.log('忘記密碼請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.post(endpoint, { email });
 };
 
 // 重設密碼
 const resetPassword = (token, password) => {
-  const endpoint = API_URL.includes('/api') ? '/auth/reset-password' : '/api/auth/reset-password';
+  const endpoint = '/api/auth/reset-password';
+  console.log('重設密碼請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.post(endpoint, { token, password });
 };
 
 // 更新用戶信息
 const updateProfile = (userData) => {
-  const endpoint = API_URL.includes('/api') ? '/users/me' : '/api/users/me';
+  const endpoint = '/api/users/me';
+  console.log('更新用戶信息請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.put(endpoint, userData);
 };
 
 // 更新密碼
 const updatePassword = (currentPassword, newPassword) => {
-  const endpoint = API_URL.includes('/api') ? '/users/me/password' : '/api/users/me/password';
+  const endpoint = '/api/users/me/password';
+  console.log('更新密碼請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.put(endpoint, {
     currentPassword,
     newPassword,
@@ -170,6 +283,7 @@ const AuthService = {
   login,
   logout,
   getCurrentUser,
+  isTokenValid,
   forgotPassword,
   resetPassword,
   updateProfile,

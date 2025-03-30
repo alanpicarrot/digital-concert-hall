@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/placeholder")
+@RequestMapping("/api/placeholder")
 public class PlaceholderController {
 
     /**
@@ -30,7 +30,11 @@ public class PlaceholderController {
     @GetMapping(value = "/{width}/{height}", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getPlaceholderImage(
             @PathVariable("width") int width,
-            @PathVariable("height") int height) {
+            @PathVariable("height") int height,
+            @org.springframework.web.bind.annotation.RequestParam(value = "text", required = false) String customText) {
+        
+        // 記錄該請求，以便於調試
+        System.out.println("Placeholder image requested: " + width + "x" + height + ", text: " + customText);
         
         // 設置圖片最大限制，防止請求過大圖片導致服務器壓力
         int maxWidth = 2000;
@@ -52,8 +56,16 @@ public class PlaceholderController {
         g2d.drawRect(0, 0, width - 1, height - 1);
         
         // 繪製文字
-        String text = width + " × " + height;
-        Font font = new Font("Arial", Font.BOLD, Math.min(width, height) / 8);
+        String text = (customText != null && !customText.trim().isEmpty()) 
+            ? customText 
+            : width + " × " + height;
+        
+        // 根據文字長度調整字體大小
+        int fontSize = Math.min(width, height) / 8;
+        if (text.length() > 10) {
+            fontSize = Math.max(12, fontSize * 10 / text.length());
+        }
+        Font font = new Font("Arial", Font.BOLD, fontSize);
         g2d.setFont(font);
         
         // 計算文字位置以便置中
@@ -72,10 +84,14 @@ public class PlaceholderController {
             
             return ResponseEntity.ok()
                     .contentType(MediaType.IMAGE_PNG)
+                    .header("Cache-Control", "public, max-age=86400") // 快取 24 小時
                     .body(imageData);
         } catch (IOException e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(new byte[0]);
         }
     }
 }

@@ -1,5 +1,8 @@
 package com.digitalconcerthall.model.concert;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import com.digitalconcerthall.model.ticket.Ticket;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -23,6 +26,7 @@ public class Performance {
     
     @ManyToOne
     @JoinColumn(name = "concert_id", nullable = false)
+    @JsonBackReference
     private Concert concert;
     
     @Column(name = "start_time", nullable = false)
@@ -44,5 +48,11 @@ public class Performance {
     private String recordingUrl;
     
     @OneToMany(mappedBy = "performance", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<Ticket> tickets = new ArrayList<>();
+    
+    // 提供 concertId 方便前端使用
+    public Long getConcertId() {
+        return concert != null ? concert.getId() : null;
+    }
 }

@@ -18,7 +18,7 @@ import com.digitalconcerthall.repository.ticket.TicketRepository;
 import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 
 @RestController
-@RequestMapping("/admin/tickets")
+@RequestMapping("/api/admin/tickets")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class TicketAdminController {
 

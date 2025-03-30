@@ -59,10 +59,9 @@ public class DevWebSecurityConfig {
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
             
+        // 開發環境允許所有請求
         http.authorizeHttpRequests(auth -> 
-                auth.requestMatchers("/auth/**", "/debug/**", "/setup/**", "/placeholder/**", "/api/placeholder/**").permitAll()
-                    .requestMatchers("/h2-console/**").permitAll()
-                    .anyRequest().authenticated()
+                auth.anyRequest().permitAll()
             );
         
         // For H2 Console

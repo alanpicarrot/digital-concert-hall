@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import orderService from '../../services/orderService';
 import axios from 'axios';
 import { Loader2, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -12,7 +13,7 @@ const UserOrdersPage = () => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/users/me/orders');
+        const response = await orderService.getUserOrders();
         setOrders(response.data);
       } catch (err) {
         console.error('Error fetching orders', err);
@@ -38,9 +39,9 @@ const UserOrdersPage = () => {
       // 在實際專案中，這會被實際的訂單創建流程替代
       const response = await axios.post('/api/test/orders', {
         orderNumber,
-        totalAmount: 1000,
+        totalAmount: "1000",
         items: [
-          { name: '標準票券', quantity: 2, price: 500 }
+          { name: '標準票券', quantity: 2, price: "500" }
         ]
       });
       

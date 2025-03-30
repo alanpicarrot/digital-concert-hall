@@ -1,0 +1,2 @@
+-- 強制更新票種表結構，確保 created_at 列存在
+ALTER TABLE IF EXISTS ticket_types ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;

@@ -19,12 +19,35 @@ const getPerformancesByConcertId = (concertId) => {
 
 // 創建新演出場次
 const createPerformance = (performanceData) => {
-  return axiosInstance.post('/api/admin/performances', performanceData);
+  // 將前端的資料模型轉換為後端需要的模型
+  const requestData = {
+    concertId: Number(performanceData.concertId), // 確保是數字
+    startTime: performanceData.performanceDateTime,
+    duration: Number(performanceData.duration), // 演出時長（分鐘）
+    venue: performanceData.venue || '數位音樂廳主廳',
+    status: performanceData.status,
+    livestreamUrl: performanceData.streamingUrl || null,
+    recordingUrl: performanceData.recordingUrl || null
+  };
+  
+  console.log('Sending performance creation request:', requestData);
+  return axiosInstance.post('/api/admin/performances', requestData);
 };
 
 // 更新演出場次
 const updatePerformance = (id, performanceData) => {
-  return axiosInstance.put(`/api/admin/performances/${id}`, performanceData);
+  const requestData = {
+    concertId: Number(performanceData.concertId), // 確保是數字
+    startTime: performanceData.performanceDateTime,
+    duration: Number(performanceData.duration), // 演出時長（分鐘）
+    venue: performanceData.venue || '數位音樂廳主廳',
+    status: performanceData.status,
+    livestreamUrl: performanceData.streamingUrl || null,
+    recordingUrl: performanceData.recordingUrl || null
+  };
+  
+  console.log('Sending performance update request:', requestData);
+  return axiosInstance.put(`/api/admin/performances/${id}`, requestData);
 };
 
 // 刪除演出場次

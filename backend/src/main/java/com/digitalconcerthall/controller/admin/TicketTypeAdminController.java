@@ -1,6 +1,7 @@
 package com.digitalconcerthall.controller.admin;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,7 @@ import com.digitalconcerthall.model.ticket.TicketType;
 import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 
 @RestController
-@RequestMapping("/admin/ticket-types")
+@RequestMapping("/api/admin/ticket-types")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class TicketTypeAdminController {
 
@@ -26,6 +27,14 @@ public class TicketTypeAdminController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<TicketType>> getAllTicketTypes() {
         List<TicketType> ticketTypes = ticketTypeRepository.findAll();
+        
+        // 打印日期信息以追蹤問題
+        for(TicketType type : ticketTypes) {
+            System.out.println("TicketType ID: " + type.getId() + 
+                               ", Name: " + type.getName() + 
+                               ", CreatedAt: " + type.getCreatedAt());
+        }
+        
         return ResponseEntity.ok(ticketTypes);
     }
 
@@ -55,6 +64,8 @@ public class TicketTypeAdminController {
             ticketType.setName(ticketTypeRequest.getName());
             ticketType.setDescription(ticketTypeRequest.getDescription());
             ticketType.setPrice(new BigDecimal(ticketTypeRequest.getPrice()));
+            ticketType.setColorCode(ticketTypeRequest.getColorCode());
+            ticketType.setCreatedAt(LocalDateTime.now());
             
             TicketType savedTicketType = ticketTypeRepository.save(ticketType);
             return ResponseEntity.ok(savedTicketType);
@@ -82,6 +93,7 @@ public class TicketTypeAdminController {
             existingTicketType.setName(ticketTypeRequest.getName());
             existingTicketType.setDescription(ticketTypeRequest.getDescription());
             existingTicketType.setPrice(new BigDecimal(ticketTypeRequest.getPrice()));
+            existingTicketType.setColorCode(ticketTypeRequest.getColorCode());
             
             TicketType updatedTicketType = ticketTypeRepository.save(existingTicketType);
             return ResponseEntity.ok(updatedTicketType);

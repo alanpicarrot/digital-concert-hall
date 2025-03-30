@@ -1,6 +1,8 @@
 package com.digitalconcerthall.controller.admin;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -9,13 +11,14 @@ import org.springframework.web.bind.annotation.*;
 
 import com.digitalconcerthall.dto.request.PerformanceRequest;
 import com.digitalconcerthall.dto.response.ApiResponse;
+import com.digitalconcerthall.dto.response.PerformanceResponse;
 import com.digitalconcerthall.model.concert.Concert;
 import com.digitalconcerthall.model.concert.Performance;
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
 
 @RestController
-@RequestMapping("/admin/performances")
+@RequestMapping("/api/admin/performances")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class PerformanceAdminController {
 
@@ -28,17 +31,19 @@ public class PerformanceAdminController {
     // 獲取所有演出場次
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Performance>> getAllPerformances() {
+    public ResponseEntity<List<PerformanceResponse>> getAllPerformances() {
         List<Performance> performances = performanceRepository.findAll();
-        return ResponseEntity.ok(performances);
+        List<PerformanceResponse> responses = convertToResponseList(performances);
+        return ResponseEntity.ok(responses);
     }
 
     // 依音樂會ID獲取演出場次
     @GetMapping("/concert/{concertId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<Performance>> getPerformancesByConcertId(@PathVariable("concertId") Long concertId) {
+    public ResponseEntity<List<PerformanceResponse>> getPerformancesByConcertId(@PathVariable("concertId") Long concertId) {
         List<Performance> performances = performanceRepository.findByConcertId(concertId);
-        return ResponseEntity.ok(performances);
+        List<PerformanceResponse> responses = convertToResponseList(performances);
+        return ResponseEntity.ok(responses);
     }
 
     // 獲取單個演出場次
@@ -50,7 +55,9 @@ public class PerformanceAdminController {
         if (performance == null) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(performance);
+        
+        PerformanceResponse response = convertToResponse(performance);
+        return ResponseEntity.ok(response);
     }
 
     // 創建新演出場次
@@ -68,14 +75,27 @@ public class PerformanceAdminController {
             Performance performance = new Performance();
             performance.setConcert(concert);
             performance.setStartTime(performanceRequest.getStartTime());
-            performance.setEndTime(performanceRequest.getEndTime());
+            
+            // 如果提供了 startTime 和 duration，自動計算 endTime
+            if (performanceRequest.getStartTime() != null && performanceRequest.getDuration() != null) {
+                LocalDateTime endTime = performanceRequest.getStartTime().plusMinutes(performanceRequest.getDuration());
+                performance.setEndTime(endTime);
+            } else if (performanceRequest.getStartTime() != null && performanceRequest.getEndTime() == null) {
+                // 無 duration 時默認2小時
+                LocalDateTime endTime = performanceRequest.getStartTime().plusMinutes(120);
+                performance.setEndTime(endTime);
+            } else {
+                performance.setEndTime(performanceRequest.getEndTime());
+            }
+            
             performance.setVenue(performanceRequest.getVenue());
             performance.setStatus(performanceRequest.getStatus());
             performance.setLivestreamUrl(performanceRequest.getLivestreamUrl());
             performance.setRecordingUrl(performanceRequest.getRecordingUrl());
             
             Performance savedPerformance = performanceRepository.save(performance);
-            return ResponseEntity.ok(savedPerformance);
+            PerformanceResponse response = convertToResponse(savedPerformance);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "創建演出場次失敗: " + e.getMessage()));
         }
@@ -101,14 +121,29 @@ public class PerformanceAdminController {
             }
             
             existingPerformance.setStartTime(performanceRequest.getStartTime());
-            existingPerformance.setEndTime(performanceRequest.getEndTime());
+            
+            // 如果提供了 startTime 和 duration，自動計算 endTime
+            if (performanceRequest.getStartTime() != null && performanceRequest.getDuration() != null) {
+                LocalDateTime endTime = performanceRequest.getStartTime().plusMinutes(performanceRequest.getDuration());
+                existingPerformance.setEndTime(endTime);
+            } else if (performanceRequest.getStartTime() != null && performanceRequest.getEndTime() == null) {
+                // 無 duration 時默認2小時或保持現有 endTime
+                if (existingPerformance.getEndTime() == null) {
+                    LocalDateTime endTime = performanceRequest.getStartTime().plusMinutes(120);
+                    existingPerformance.setEndTime(endTime);
+                }
+            } else {
+                existingPerformance.setEndTime(performanceRequest.getEndTime());
+            }
+            
             existingPerformance.setVenue(performanceRequest.getVenue());
             existingPerformance.setStatus(performanceRequest.getStatus());
             existingPerformance.setLivestreamUrl(performanceRequest.getLivestreamUrl());
             existingPerformance.setRecordingUrl(performanceRequest.getRecordingUrl());
             
             Performance updatedPerformance = performanceRepository.save(existingPerformance);
-            return ResponseEntity.ok(updatedPerformance);
+            PerformanceResponse response = convertToResponse(updatedPerformance);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "更新演出場次失敗: " + e.getMessage()));
         }
@@ -142,16 +177,67 @@ public class PerformanceAdminController {
             }
             
             // 驗證狀態是否有效
-            if (!status.equals("scheduled") && !status.equals("live") && !status.equals("completed") && !status.equals("cancelled")) {
+            if (!status.equals("scheduled") && !status.equals("active") && 
+                !status.equals("live") && !status.equals("completed") && 
+                !status.equals("cancelled")) {
                 return ResponseEntity.badRequest().body(new ApiResponse(false, "無效的狀態值"));
             }
             
             existingPerformance.setStatus(status);
             
             Performance updatedPerformance = performanceRepository.save(existingPerformance);
-            return ResponseEntity.ok(updatedPerformance);
+            PerformanceResponse response = convertToResponse(updatedPerformance);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new ApiResponse(false, "更新演出場次狀態失敗: " + e.getMessage()));
         }
+    }
+    
+    /**
+     * 將 Performance 實體轉換為 PerformanceResponse DTO
+     */
+    private PerformanceResponse convertToResponse(Performance performance) {
+        if (performance == null) return null;
+        
+        PerformanceResponse response = new PerformanceResponse();
+        response.setId(performance.getId());
+        response.setConcertId(performance.getConcertId());
+        
+        // 如果音樂會存在，設置標題
+        if (performance.getConcert() != null) {
+            response.setConcertTitle(performance.getConcert().getTitle());
+        }
+        
+        response.setStartTime(performance.getStartTime());
+        response.setEndTime(performance.getEndTime());
+        response.setVenue(performance.getVenue());
+        response.setStatus(performance.getStatus());
+        response.setLivestreamUrl(performance.getLivestreamUrl());
+        response.setRecordingUrl(performance.getRecordingUrl());
+        
+        // 計算演出時長（分鐘）
+        if (performance.getStartTime() != null && performance.getEndTime() != null) {
+            long durationMinutes = java.time.Duration.between(
+                performance.getStartTime(), 
+                performance.getEndTime()
+            ).toMinutes();
+            response.setDuration((int) durationMinutes);
+        } else {
+            response.setDuration(120); // 默認值2小時
+        }
+        
+        // 為了與前端保持兼容，將 startTime 設置為 performanceDateTime
+        response.setPerformanceDateTime(performance.getStartTime());
+        
+        return response;
+    }
+    
+    /**
+     * 將 Performance 實體列表轉換為 PerformanceResponse DTO 列表
+     */
+    private List<PerformanceResponse> convertToResponseList(List<Performance> performances) {
+        return performances.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
     }
 }

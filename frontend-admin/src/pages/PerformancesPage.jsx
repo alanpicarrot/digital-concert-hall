@@ -4,6 +4,8 @@ import PerformanceService from '../services/admin/performanceService';
 import ConcertService from '../services/admin/concertService';
 
 const PerformancesPage = () => {
+  // 新增錯誤處理
+  console.log('PerformancesPage component initialized');
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -22,7 +24,8 @@ const PerformancesPage = () => {
     performanceDateTime: '',
     duration: 120,
     streamingUrl: '',
-    status: 'inactive'
+    venue: '數位音樂廳主廳',  // 默認場地
+    status: 'active'
   });
   const [isEditing, setIsEditing] = useState(false);
   
@@ -72,11 +75,21 @@ const PerformancesPage = () => {
     try {
       setLoading(true);
       const response = await PerformanceService.getPerformancesByConcertId(concertId);
-      setPerformances(response.data);
+      console.log('API Response:', response); // 打印返回的整個響應
+      console.log('Response data type:', typeof response.data, Array.isArray(response.data)); // 檢查資料類型
+      
+      // 確保資料是陣列
+      const performancesArray = Array.isArray(response.data) ? response.data : 
+                               (response.data && Array.isArray(response.data.content)) ? response.data.content : 
+                               [];
+                               
+      console.log('Processed performances array:', performancesArray);
+      setPerformances(performancesArray);
       setError(null);
     } catch (err) {
+      console.error('API Error:', err);
       setError('無法加載演出場次：' + (err.response?.data?.message || err.message));
-      console.error('加載演出場次失敗:', err);
+      setPerformances([]); // 確保即使發生錯誤，也會設置為空陣列
     } finally {
       setLoading(false);
     }
@@ -122,7 +135,8 @@ const PerformancesPage = () => {
         performanceDateTime: '',
         duration: 120,
         streamingUrl: '',
-        status: 'inactive'
+        venue: '數位音樂廳主廳',
+        status: 'active'
       });
       
       setIsEditing(false);
@@ -134,18 +148,33 @@ const PerformancesPage = () => {
   
   // 編輯演出場次
   const handleEditPerformance = (performance) => {
+    console.log('Editing performance:', performance);
     // 格式化日期時間為input datetime-local所需格式
-    const dateTime = new Date(performance.performanceDateTime);
-    const formattedDateTime = dateTime.toISOString().slice(0, 16);
+    let formattedDateTime = '';
+    try {
+      // 優先使用 startTime，如果不存在則使用 performanceDateTime
+      const dateTime = new Date(performance.startTime || performance.performanceDateTime);
+      formattedDateTime = dateTime.toISOString().slice(0, 16);
+    } catch (err) {
+      console.error('Date formatting error:', err, performance);
+      // 使用當前時間作為備用
+      formattedDateTime = new Date().toISOString().slice(0, 16);
+    }
+    
+    // 確保資料結構的一致性
+    const concertId = performance.concertId || 
+                      (performance.concert ? performance.concert.id : null) || 
+                      selectedConcertId;
     
     setIsEditing(true);
     setCurrentPerformance({
       id: performance.id,
-      concertId: performance.concertId,
+      concertId: concertId,
       performanceDateTime: formattedDateTime,
-      duration: performance.duration,
-      streamingUrl: performance.streamingUrl || '',
-      status: performance.status
+      duration: performance.duration || 120,
+      streamingUrl: performance.livestreamUrl || '',
+      venue: performance.venue || '數位音樂廳主廳',
+      status: performance.status || 'active'
     });
     setShowModal(true);
   };
@@ -176,7 +205,18 @@ const PerformancesPage = () => {
 
   // 獲取音樂會標題
   const getConcertTitle = (concertId) => {
-    const concert = concerts.find(c => c.id === parseInt(concertId));
+    if (!concertId) return '未知音樂會';
+    
+    // 嘗試將 concertId 轉換為數字，以避免字符串和數字比較的問題
+    let numericId;
+    try {
+      numericId = parseInt(concertId);
+    } catch (err) {
+      console.error('Error parsing concertId:', err, concertId);
+      return '未知音樂會';
+    }
+    
+    const concert = concerts.find(c => c.id === numericId);
     return concert ? concert.title : '未知音樂會';
   };
 
@@ -192,7 +232,8 @@ const PerformancesPage = () => {
               performanceDateTime: '',
               duration: 120,
               streamingUrl: '',
-              status: 'inactive'
+              venue: '數位音樂廳主廳',
+              status: 'active'
             });
             setShowModal(true);
           }}
@@ -279,31 +320,35 @@ const PerformancesPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(performance.performanceDateTime).toLocaleString()}
+                      {new Date(performance.startTime || performance.performanceDateTime).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {performance.duration}
+                      {performance.duration || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                           ${
-                            performance.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : performance.status === 'upcoming'
+                            performance.status === 'scheduled'
                               ? 'bg-blue-100 text-blue-800'
-                              : performance.status === 'past'
+                              : performance.status === 'active'
+                              ? 'bg-green-100 text-green-800'
+                              : performance.status === 'live'
+                              ? 'bg-purple-100 text-purple-800'
+                              : performance.status === 'completed'
                               ? 'bg-gray-100 text-gray-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
                           }`}
                       >
-                        {performance.status === 'active'
+                        {performance.status === 'scheduled'
+                          ? '已排程'
+                          : performance.status === 'active'
                           ? '上架中'
-                          : performance.status === 'upcoming'
-                          ? '即將推出'
-                          : performance.status === 'past'
-                          ? '已結束'
-                          : '未上架'}
+                          : performance.status === 'live'
+                          ? '直播中'
+                          : performance.status === 'completed'
+                          ? '已完成'
+                          : '已取消'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -314,10 +359,11 @@ const PerformancesPage = () => {
                           value={performance.status}
                           onChange={(e) => handleStatusChange(performance.id, e.target.value)}
                         >
+                          <option value="scheduled">已排程</option>
                           <option value="active">上架中</option>
-                          <option value="inactive">未上架</option>
-                          <option value="upcoming">即將推出</option>
-                          <option value="past">已結束</option>
+                          <option value="live">直播中</option>
+                          <option value="completed">已完成</option>
+                          <option value="cancelled">已取消</option>
                         </select>
                         
                         {/* 查看票券按鈕 */}
@@ -432,6 +478,20 @@ const PerformancesPage = () => {
                     />
                   </div>
                   <div>
+                    <label htmlFor="venue" className="block text-sm font-medium text-gray-700">
+                      場地 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="venue"
+                      id="venue"
+                      value={currentPerformance.venue}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                      required
+                    />
+                  </div>
+                  <div>
                     <label htmlFor="streamingUrl" className="block text-sm font-medium text-gray-700">
                       直播URL
                     </label>
@@ -456,10 +516,11 @@ const PerformancesPage = () => {
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                       required
                     >
+                      <option value="scheduled">已排程</option>
                       <option value="active">上架中</option>
-                      <option value="inactive">未上架</option>
-                      <option value="upcoming">即將推出</option>
-                      <option value="past">已結束</option>
+                      <option value="live">直播中</option>
+                      <option value="completed">已完成</option>
+                      <option value="cancelled">已取消</option>
                     </select>
                   </div>
                 </div>

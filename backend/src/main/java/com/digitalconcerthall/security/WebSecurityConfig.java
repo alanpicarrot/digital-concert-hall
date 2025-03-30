@@ -1,14 +1,15 @@
-package com.digitalconcerthall.config;
+package com.digitalconcerthall.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,8 +26,8 @@ import com.digitalconcerthall.security.services.UserDetailsServiceImpl;
 import java.util.Arrays;
 
 @Configuration
+@EnableWebSecurity
 @EnableMethodSecurity
-@Order(2)
 public class WebSecurityConfig {
     @Autowired
     UserDetailsServiceImpl userDetailsService;
@@ -45,7 +46,7 @@ public class WebSecurityConfig {
         
         authProvider.setUserDetailsService(userDetailsService);
         authProvider.setPasswordEncoder(passwordEncoder());
-        
+    
         return authProvider;
     }
 
@@ -62,10 +63,15 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("*"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("authorization", "content-type", "x-auth-token"));
-        configuration.setExposedHeaders(Arrays.asList("x-auth-token"));
+        // 允許來自用戶前台和管理後台的請求
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:3000", // 用戶前台
+            "http://localhost:3001"  // 管理後台
+        ));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -73,22 +79,25 @@ public class WebSecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http
+            .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-            
-        http.authorizeHttpRequests(auth -> 
-                auth.requestMatchers("/api/auth/**", "/api/debug/**", "/api/setup/**", "/api/test/**", "/api/direct/**", "/api/placeholder/**").permitAll()
-                    .requestMatchers("/auth/**", "/debug/**", "/setup/**", "/test/**", "/direct/**", "/placeholder/**").permitAll() // 同時支持帶和不帶 /api 前綴的路徑
-                    .requestMatchers("/h2-console/**").permitAll()
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> 
+                auth
+                    .requestMatchers("/api/auth/**").permitAll() // 更新為新的API路徑
+                    .requestMatchers("/auth/**").permitAll() // 保留舊路徑以兼容
+                    .requestMatchers("/h2-console/**").permitAll() // 允許訪問H2數據庫控制台（僅開發環境）
+                    .requestMatchers("/public/**").permitAll() // 允許訪問公共資源
                     .anyRequest().authenticated()
             );
         
-        // For H2 Console
+        // 允許H2控制台的框架顯示（僅開發環境）
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
-        
+
         http.authenticationProvider(authenticationProvider());
+
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
         
         return http.build();

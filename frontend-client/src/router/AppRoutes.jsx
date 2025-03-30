@@ -49,6 +49,10 @@ const AppRoutes = () => {
         <Route path="register" element={<RegisterPage />} />
       </Route>
       
+      {/* 支援舊路徑，避免已存在的連結失效 */}
+      <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+      <Route path="/register" element={<Navigate to="/auth/register" replace />} />
+      
       {/* 未匹配的路由重定向到首頁 */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

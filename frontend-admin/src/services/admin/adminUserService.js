@@ -59,17 +59,17 @@ const createAdmin = async (adminData) => {
 
 // 獲取所有管理員帳號 - 需要認證
 const getAllAdmins = () => {
-  return axiosInstance.get('/api/admin/users');
+  return axiosInstance.get('/admin/users');
 };
 
 // 修改管理員帳號狀態 - 需要認證
 const updateAdminStatus = (id, status) => {
-  return axiosInstance.patch(`/api/admin/users/${id}/status?status=${status}`);
+  return axiosInstance.patch(`/admin/users/${id}/status?status=${status}`);
 };
 
 // 刪除管理員帳號 - 需要認證
 const deleteAdmin = (id) => {
-  return axiosInstance.delete(`/api/admin/users/${id}`);
+  return axiosInstance.delete(`/admin/users/${id}`);
 };
 
 const AdminUserService = {

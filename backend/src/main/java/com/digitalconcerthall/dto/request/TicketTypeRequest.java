@@ -11,4 +11,5 @@ public class TicketTypeRequest {
     private String name;
     private String description;
     private String price;  // 使用字串以避免精度問題，在Controller中轉換為BigDecimal
+    private String colorCode;  // 票種顯示顏色
 }

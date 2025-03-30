@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtUtils {
@@ -25,11 +27,18 @@ public class JwtUtils {
 
     public String generateJwtToken(Authentication authentication) {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
-
+        
+        // 獲取用戶角色列表
+        List<String> roles = userPrincipal.getAuthorities().stream()
+                .map(item -> item.getAuthority())
+                .collect(Collectors.toList());
+        
         return Jwts.builder()
                 .setSubject((userPrincipal.getUsername()))
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                // 添加角色信息到 claims 中
+                .claim("roles", roles)
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -41,6 +50,18 @@ public class JwtUtils {
     public String getUserNameFromJwtToken(String token) {
         return Jwts.parserBuilder().setSigningKey(key()).build()
                 .parseClaimsJws(token).getBody().getSubject();
+    }
+    
+    @SuppressWarnings("unchecked")
+    public List<String> getRolesFromJwtToken(String token) {
+        try {
+            Claims claims = Jwts.parserBuilder().setSigningKey(key()).build()
+                    .parseClaimsJws(token).getBody();
+            return (List<String>) claims.get("roles");
+        } catch (Exception e) {
+            logger.error("Error extracting roles from JWT token: {}", e.getMessage());
+            return List.of(); // 返回空列表而不是 null
+        }
     }
 
     public boolean validateJwtToken(String authToken) {

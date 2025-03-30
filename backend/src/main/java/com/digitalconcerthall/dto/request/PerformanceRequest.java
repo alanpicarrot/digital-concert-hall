@@ -17,4 +17,5 @@ public class PerformanceRequest {
     private String status;  // scheduled, live, completed, cancelled
     private String livestreamUrl;
     private String recordingUrl;
+    private Integer duration; // 時長（分鐘）
 }

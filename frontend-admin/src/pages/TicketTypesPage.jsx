@@ -1,6 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import TicketTypeService from '../services/admin/ticketTypeService';
 
+// 格式化日期函數
+const formatDate = (dateString) => {
+  // 調試輸出
+  console.log('formatDate received:', dateString, typeof dateString);
+  
+  if (!dateString) {
+    console.log('dateString is empty or null');
+    return '未知';
+  }
+  
+  try {
+    // 嘗試解析各種可能的日期格式
+    const date = new Date(dateString);
+    console.log('Parsed date:', date, 'isValid:', !isNaN(date.getTime()));
+    
+    // 檢查日期是否有效
+    if (isNaN(date.getTime())) {
+      console.log('Invalid date detected');
+      return '無效日期';
+    }
+    
+    const formattedDate = date.toLocaleString('zh-TW', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    console.log('Formatted date:', formattedDate);
+    return formattedDate;
+  } catch (error) {
+    console.error('日期格式化錯誤:', error);
+    return '無效日期';
+  }
+};
+
 const TicketTypesPage = () => {
   const [ticketTypes, setTicketTypes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,7 +50,7 @@ const TicketTypesPage = () => {
   const [currentTicketType, setCurrentTicketType] = useState({
     name: '',
     description: '',
-    priceMultiplier: 1.0,
+    price: '1000',
     colorCode: '#4f46e5'
   });
   const [isEditing, setIsEditing] = useState(false);
@@ -21,6 +60,7 @@ const TicketTypesPage = () => {
     try {
       setLoading(true);
       const response = await TicketTypeService.getAllTicketTypes();
+      console.log('API Response:', response.data); // 印出完整的API響應數據
       setTicketTypes(response.data);
       setError(null);
     } catch (err) {
@@ -68,7 +108,7 @@ const TicketTypesPage = () => {
       setCurrentTicketType({
         name: '',
         description: '',
-        priceMultiplier: 1.0,
+        price: '1000',
         colorCode: '#4f46e5'
       });
       
@@ -86,7 +126,7 @@ const TicketTypesPage = () => {
       id: ticketType.id,
       name: ticketType.name,
       description: ticketType.description || '',
-      priceMultiplier: ticketType.priceMultiplier,
+      price: ticketType.price || '1000',
       colorCode: ticketType.colorCode || '#4f46e5'
     });
     setShowModal(true);
@@ -109,21 +149,32 @@ const TicketTypesPage = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">票種管理</h1>
-        <button
-          onClick={() => {
-            setIsEditing(false);
-            setCurrentTicketType({
-              name: '',
-              description: '',
-              priceMultiplier: 1.0,
-              colorCode: '#4f46e5'
-            });
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-        >
-          新增票種
-        </button>
+        <div className="flex space-x-4">
+          <button
+            onClick={loadTicketTypes}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
+          >
+            <span className="mr-2">重新載入</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <button
+            onClick={() => {
+              setIsEditing(false);
+              setCurrentTicketType({
+                name: '',
+                description: '',
+                price: '1000',
+                colorCode: '#4f46e5'
+              });
+              setShowModal(true);
+            }}
+            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+          >
+            新增票種
+          </button>
+        </div>
       </div>
 
       {/* 錯誤訊息 */}
@@ -190,19 +241,19 @@ const TicketTypesPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {ticketType.priceMultiplier}x
+                      {ticketType.price || '0'} 元
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div 
                           className="h-6 w-6 rounded-full mr-2" 
-                          style={{ backgroundColor: ticketType.colorCode }}
+                          style={{ backgroundColor: ticketType.colorCode || '#4f46e5' }}
                         ></div>
-                        <span className="text-sm text-gray-500">{ticketType.colorCode}</span>
+                        <span className="text-sm text-gray-500">{ticketType.colorCode || '無預設顏色'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(ticketType.createdAt).toLocaleString()}
+                      {formatDate(ticketType.createdAt)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
@@ -273,22 +324,21 @@ const TicketTypesPage = () => {
                     ></textarea>
                   </div>
                   <div>
-                    <label htmlFor="priceMultiplier" className="block text-sm font-medium text-gray-700">
-                      價格倍數 <span className="text-red-500">*</span>
+                    <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+                      價格 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="number"
-                      name="priceMultiplier"
-                      id="priceMultiplier"
-                      value={currentTicketType.priceMultiplier}
+                      name="price"
+                      id="price"
+                      value={currentTicketType.price}
                       onChange={handleInputChange}
-                      step="0.1"
-                      min="0.1"
+                      min="0"
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
                       required
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      價格倍數將與票券基本價格相乘，例如：基本價格1000 x 倍數1.5 = 最終價格1500
+                      票種基本價格，例如：1000元
                     </p>
                   </div>
                   <div>

@@ -1,5 +1,7 @@
 package com.digitalconcerthall.model.ticket;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import com.digitalconcerthall.model.concert.Performance;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -7,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "tickets")
@@ -21,6 +24,7 @@ public class Ticket {
     
     @ManyToOne
     @JoinColumn(name = "performance_id", nullable = false)
+    @JsonBackReference
     private Performance performance;
     
     @ManyToOne
@@ -32,6 +36,15 @@ public class Ticket {
     
     @Column(name = "available_quantity", nullable = false)
     private int availableQuantity;
+    
+    @Column(name = "price", precision = 10, scale = 2)
+    private BigDecimal price;
+    
+    @Column(name = "description")
+    private String description;
+    
+    @Column(name = "status")
+    private String status;
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

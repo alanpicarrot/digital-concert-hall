@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Play, Loader2 } from "lucide-react";
-import axios from 'axios';
+import concertService from "../../services/concertService";
+import SimplePlaceholder from "../../components/ui/SimplePlaceholder";
 
 const HomePage = () => {
   const [upcomingConcerts, setUpcomingConcerts] = useState([]);
@@ -10,62 +11,72 @@ const HomePage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // 測試健康檢查端點
+    const testApi = async () => {
+      try {
+        const healthResponse = await concertService.testHealthCheck();
+        console.log('API Health Check:', healthResponse);
+        
+        // 如果健康檢查成功，嘗試創建測試數據
+        try {
+          console.log('Attempting to create test data...');
+          const testDataResponse = await concertService.createTestData();
+          console.log('Create Test Data Response:', testDataResponse);
+        } catch (testDataErr) {
+          console.error('Failed to create test data:', testDataErr);
+        }
+      } catch (err) {
+        console.error('API Health Check Failed:', err);
+        console.error('Error details:', err.response ? err.response.data : 'No response data');
+      }
+    };
+    
+    testApi();
+    
     const fetchConcerts = async () => {
       try {
         setLoading(true);
-        // 模擬從API獲取數據的延遲
-        setTimeout(() => {
-          // 模擬數據
-          const mockUpcomingConcerts = [
-            {
-              id: 1,
-              title: "貝多芬第九號交響曲",
-              artist: "臺北交響樂團",
-              date: "2025/04/15",
-              time: "19:30",
-              image: "/api/placeholder/400/240"
-            },
-            {
-              id: 2,
-              title: "莫札特鋼琴協奏曲",
-              artist: "網寧家王小明與北交響樂團",
-              date: "2025/04/22",
-              time: "19:30",
-              image: "/api/placeholder/400/240"
-            },
-            {
-              id: 3,
-              title: "巴赫無伴奏大提琴組曲",
-              artist: "大提琴家李大華",
-              date: "2025/05/01",
-              time: "19:30",
-              image: "/api/placeholder/400/240"
-            }
-          ];
+        
+        // 從後端獲取所有活躍音樂會
+        const activeConcerts = await concertService.getAllConcerts();
+        console.log('Received concerts:', activeConcerts);
+        
+        // 將API返回的數據格式化為頁面需要的格式
+        const formattedUpcomingConcerts = activeConcerts.map(concert => ({
+          id: concert.id,
+          title: concert.title || '未命名音樂會',
+          artist: concert.artist || '音樂會表演者', // 這裡可以添加演出者信息
+          date: concert.startTime ? new Date(concert.startTime).toLocaleDateString() : 'N/A',
+          time: concert.startTime ? new Date(concert.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+          image: concert.posterUrl || null, // 修改為 null，以便後面使用 SimplePlaceholder
+          venue: concert.venue || "數位音樂廳"
+        }));
+        
+        try {
+          // 獲取過往音樂會
+          const pastConcertsData = await concertService.getPastConcerts();
+          console.log('Past concerts:', pastConcertsData);
           
-          const mockPastConcerts = [
-            {
-              id: 101,
-              title: "蕭邦夜曲集",
-              artist: "鋼琴家陳嘉儀",
-              date: "2025/03/10",
-              image: "/api/placeholder/400/240"
-            },
-            {
-              id: 102,
-              title: "德布西印象集",
-              artist: "鋼琴家張小剛",
-              date: "2025/02/20",
-              image: "/api/placeholder/400/240"
-            }
-          ];
+          const formattedPastConcerts = pastConcertsData.map(concert => ({
+            id: concert.id,
+            title: concert.title || '未命名音樂會',
+            artist: concert.artist || '音樂會表演者',
+            date: concert.startTime ? new Date(concert.startTime).toLocaleDateString() : 'N/A',
+            image: concert.posterUrl || null // 修改為 null，以便後面使用 SimplePlaceholder
+          }));
           
-          setUpcomingConcerts(mockUpcomingConcerts);
-          setPastConcerts(mockPastConcerts);
-          setLoading(false);
-        }, 500);
+          setPastConcerts(formattedPastConcerts);
+        } catch (pastError) {
+          console.error('Error fetching past concerts:', pastError);
+          // 如果無法從後端獲取過往音樂會，則使用真實音樂會的數據作為過往音樂會
+          setPastConcerts(formattedUpcomingConcerts.slice(0, 2));
+        }
+        
+        setUpcomingConcerts(formattedUpcomingConcerts);
+        setLoading(false);
       } catch (err) {
         console.error('Error fetching concerts:', err);
+        console.error('Error details:', err.response ? err.response.data : 'No response data');
         setError('無法載入音樂會數據，請稍後再試。');
         setLoading(false);
       }
@@ -101,14 +112,14 @@ const HomePage = () => {
       <div className="max-w-6xl mx-auto px-4 py-4">
         <div className="bg-gray-900 rounded-lg overflow-hidden">
           <div className="py-12 px-8 text-center text-white">
-            <h1 className="text-2xl font-bold mb-2">貝多芬第九號交響曲</h1>
-            <p className="text-lg mb-1">臺北交響樂團</p>
-            <p className="text-base mb-6">2025年4月15日 19:30</p>
+            <h1 className="text-2xl font-bold mb-2">{upcomingConcerts.length > 0 ? upcomingConcerts[0].title : '來一場數位音樂之旅'}</h1>
+            <p className="text-lg mb-1">{upcomingConcerts.length > 0 ? upcomingConcerts[0].artist : '享受線上音樂廳的獨特體驗'}</p>
+            <p className="text-base mb-6">{upcomingConcerts.length > 0 ? `${upcomingConcerts[0].date} ${upcomingConcerts[0].time}` : '隨時隨地，在家欣賞美妙音樂'}</p>
             <Link
-              to="/concerts/1"
+              to={upcomingConcerts.length > 0 ? `/concerts/${upcomingConcerts[0].id}` : '/concerts'}
               className="bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-10 rounded inline-block"
             >
-              立即購票
+              {upcomingConcerts.length > 0 ? '立即購票' : '探索音樂會'}
             </Link>
           </div>
         </div>
@@ -132,11 +143,20 @@ const HomePage = () => {
                 key={concert.id}
                 className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200"
               >
-                <img
-                  src={concert.image}
-                  alt={concert.title}
-                  className="w-full h-40 object-cover"
-                />
+                {concert.image ? (
+                  <img
+                    src={concert.image}
+                    alt={concert.title}
+                    className="w-full h-40 object-cover"
+                  />
+                ) : (
+                  <SimplePlaceholder
+                    width="100%"
+                    height={160}
+                    text={concert.title}
+                    className="w-full h-40 object-cover"
+                  />
+                )}
                 <div className="p-4">
                   <h3 className="font-bold text-lg">{concert.title}</h3>
                   <p className="text-gray-600 text-sm">{concert.artist}</p>
@@ -173,11 +193,20 @@ const HomePage = () => {
                 className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200"
               >
                 <div className="relative">
-                  <img
-                    src={concert.image}
-                    alt={concert.title}
-                    className="w-full h-40 object-cover"
-                  />
+                  {concert.image ? (
+                    <img
+                      src={concert.image}
+                      alt={concert.title}
+                      className="w-full h-40 object-cover"
+                    />
+                  ) : (
+                    <SimplePlaceholder
+                      width="100%"
+                      height={160}
+                      text={concert.title}
+                      className="w-full h-40 object-cover"
+                    />
+                  )}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-gray-600 rounded-full p-2 opacity-80">
                       <Play size={24} className="text-white" />
@@ -203,6 +232,32 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      {/* 緊急測試按鈕 */}
+      <div className="fixed bottom-4 right-4">
+        <button
+          onClick={async () => {
+            try {
+              alert('正在測試健康檢查端點...');
+              const healthResponse = await concertService.testHealthCheck();
+              alert('健康檢查成功: ' + JSON.stringify(healthResponse));
+              
+              alert('正在創建測試數據...');
+              const testDataResponse = await concertService.createTestData();
+              alert('創建測試數據成功: ' + JSON.stringify(testDataResponse));
+              
+              alert('重新載入頁面...');
+              window.location.reload();
+            } catch (err) {
+              alert('測試失敗: ' + err.message);
+              console.error(err);
+            }
+          }}
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded shadow-lg"
+        >
+          緊急測試
+        </button>
+      </div>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 package com.digitalconcerthall.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,7 @@ public class ApiTestController {
      * 簡單的測試端點，不需要認證即可訪問
      */
     @GetMapping("/ping")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<?> ping() {
         return ResponseEntity.ok("pong - API 測試成功!");
     }
@@ -25,6 +27,7 @@ public class ApiTestController {
      * 初始化測試端點
      */
     @GetMapping("/init")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<?> init() {
         try {
             // 簡單返回成功消息

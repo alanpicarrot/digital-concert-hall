@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, User, Music, Filter } from 'lucide-react';
+import concertService from '../../services/concertService';
+import SimplePlaceholder from '../../components/ui/SimplePlaceholder';
 
 const ConcertsPage = () => {
   // 模擬音樂會數據
@@ -12,80 +14,45 @@ const ConcertsPage = () => {
     genre: ''
   });
 
-  // 模擬數據加載
+  // 從後端加載真實數據
   useEffect(() => {
     const fetchConcerts = async () => {
-      // 這裡應連接後端API
-      setTimeout(() => {
-        const mockConcerts = [
-          {
-            id: 1,
-            title: '貝多芬鋼琴奏鳴曲全集音樂會',
-            performer: '王小明',
-            date: '2025-04-15T19:30:00',
-            image: 'https://via.placeholder.com/300x200?text=Beethoven',
-            location: '數位音樂廳主廳',
-            genre: '古典音樂',
-            price: { min: 400, max: 1200 }
-          },
-          {
-            id: 2,
-            title: '莫札特弦樂四重奏之夜',
-            performer: '台北弦樂四重奏團',
-            date: '2025-04-20T20:00:00',
-            image: 'https://via.placeholder.com/300x200?text=Mozart',
-            location: '數位音樂廳主廳',
-            genre: '古典音樂',
-            price: { min: 350, max: 1000 }
-          },
-          {
-            id: 3,
-            title: '爵士樂之夜',
-            performer: '藍調爵士樂團',
-            date: '2025-04-25T20:30:00',
-            image: 'https://via.placeholder.com/300x200?text=Jazz',
-            location: '數位音樂廳小廳',
-            genre: '爵士樂',
-            price: { min: 300, max: 800 }
-          },
-          {
-            id: 4,
-            title: '蕭邦夜曲音樂會',
-            performer: '李小玉',
-            date: '2025-05-05T19:00:00',
-            image: 'https://via.placeholder.com/300x200?text=Chopin',
-            location: '數位音樂廳主廳',
-            genre: '古典音樂',
-            price: { min: 500, max: 1500 }
-          },
-          {
-            id: 5,
-            title: '世界民族音樂節',
-            performer: '世界音樂合奏團',
-            date: '2025-05-10T18:30:00',
-            image: 'https://via.placeholder.com/300x200?text=World',
-            location: '數位音樂廳戶外廣場',
-            genre: '世界音樂',
-            price: { min: 250, max: 700 }
-          },
-          {
-            id: 6,
-            title: '電影配樂交響曲',
-            performer: '數位音樂廳交響樂團',
-            date: '2025-05-15T19:30:00',
-            image: 'https://via.placeholder.com/300x200?text=OST',
-            location: '數位音樂廳主廳',
-            genre: '交響樂',
-            price: { min: 450, max: 1300 }
-          }
-        ];
-        setConcerts(mockConcerts);
+      try {
+        setLoading(true);
+        // 根據過濾條件獲取不同類型的音樂會
+        let concertsData;
+        
+        if (filters.timeframe === 'past') {
+          concertsData = await concertService.getPastConcerts();
+        } else if (filters.timeframe === 'upcoming') {
+          concertsData = await concertService.getUpcomingConcerts();
+        } else {
+          concertsData = await concertService.getAllConcerts();
+        }
+        
+        // 將API返回的數據轉換為前端需要的格式
+        const formattedConcerts = concertsData.map(concert => ({
+          id: concert.id,
+          title: concert.title,
+          performer: '表演者', // 因為目前後端沒有提供表演者信息，可以先設置為固定值
+          date: concert.startTime || new Date().toISOString(),
+          posterUrl: concert.posterUrl,
+          location: concert.venue || '數位音樂廳主廳',
+          genre: '古典音樂', // 目前後端沒有提供音樂類型信息
+          price: { min: 300, max: 1200 }, // 目前後端沒有提供價格區間信息
+          description: concert.description
+        }));
+        
+        setConcerts(formattedConcerts);
         setLoading(false);
-      }, 800);
+      } catch (error) {
+        console.error('Error fetching concerts:', error);
+        setLoading(false);
+      }
     };
 
     fetchConcerts();
-  }, []);
+  }, [filters.timeframe]);
 
   // 根據過濾條件篩選音樂會
   const filteredConcerts = concerts.filter(concert => {
@@ -187,7 +154,16 @@ const ConcertsPage = () => {
             filteredConcerts.map((concert) => (
               <div key={concert.id} className="bg-white rounded-lg overflow-hidden shadow-md border border-gray-200 transition-transform hover:shadow-lg hover:-translate-y-1">
                 <div className="w-full h-48 bg-gray-200 overflow-hidden">
-                  <img src={concert.image} alt={concert.title} className="w-full h-full object-cover" />
+                  {concert.posterUrl ? (
+                    <img src={concert.posterUrl} alt={concert.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <SimplePlaceholder 
+                      width="100%" 
+                      height="100%" 
+                      text={concert.title}
+                      className="w-full h-full object-cover" 
+                    />
+                  )}
                 </div>
                 <div className="p-4">
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">{concert.title}</h2>
