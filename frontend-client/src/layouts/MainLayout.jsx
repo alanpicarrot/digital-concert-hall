@@ -4,13 +4,42 @@ import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart, User, ChevronDown, Music, Ticket, CalendarDays, Video, Mail } from 'lucide-react';
 
 const MainLayout = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, updateAuthState } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userDisplayName, setUserDisplayName] = useState('');
 
-  // 添加調試輸出
+  // 監聽 localStorage 更新與認證狀態
   useEffect(() => {
-    console.log('MainLayout 用戶資訊:', { isAuthenticated, username: user?.username });
-  }, [isAuthenticated, user]);
+    console.log('MainLayout 渲染，當前認證狀態:', { 
+      isAuthenticated, 
+      username: user?.username
+    });
+
+    // 設置顯示名稱
+    if (isAuthenticated && user) {
+      setUserDisplayName(user.username || '用戶');
+    }
+
+    // 檢查 localStorage 中是否有認證資料但未在狀態中反映
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    if (token && userStr && !isAuthenticated) {
+      console.log('發現 localStorage 有認證資料但狀態未更新，嘗試更新');
+      updateAuthState();
+    }
+    
+    // 監聽 storage 事件，處理在其他標籤頁登入/登出
+    const handleStorageChange = (e) => {
+      if (e.key === 'token' || e.key === 'user') {
+        console.log('檢測到 localStorage 認證資料變更');
+        updateAuthState();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [isAuthenticated, user, updateAuthState]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -57,58 +86,65 @@ const MainLayout = () => {
             </Link>
 
             {/* 使用者登入/註冊或下拉選單 */}
-            {isAuthenticated ? (
-              <div className="relative">
-                <button 
-                  onClick={toggleMenu}
-                  className="flex items-center text-white hover:text-indigo-300 text-sm font-medium"
-                >
-                  <User size={16} className="mr-1" />
-                  {user?.username}
-                  <ChevronDown size={16} className="ml-1" />
-                </button>
-                {isMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
-                    <div className="py-1">
-                      <Link 
-                        to="/user/profile" 
-                        className="block px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        個人資料
-                      </Link>
-                      <Link 
-                        to="/user/orders" 
-                        className="block px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        我的訂單
-                      </Link>
-                      <Link 
-                        to="/user/tickets" 
-                        className="block px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        我的票券
-                      </Link>
-                      <button 
-                        onClick={() => {
-                          logout();
-                          setIsMenuOpen(false);
-                        }}
-                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
-                      >
-                        登出
-                      </button>
+            {console.log('渲染使用者選單狀態:', {isAuthenticated, hasUser: !!user, username: user?.username})}
+            {(isAuthenticated && user) ? (
+              <>
+                {console.log('顯示已登入用戶選單')}
+                <div className="relative">
+                  <button 
+                    onClick={toggleMenu}
+                    className="flex items-center text-white hover:text-indigo-300 text-sm font-medium"
+                  >
+                    <User size={16} className="mr-1" />
+                    {userDisplayName || user?.username || '使用者'}
+                    <ChevronDown size={16} className="ml-1" />
+                  </button>
+                  {isMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                      <div className="py-1">
+                        <Link 
+                          to="/user/profile" 
+                          className="block px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          個人資料
+                        </Link>
+                        <Link 
+                          to="/user/orders" 
+                          className="block px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          我的訂單
+                        </Link>
+                        <Link 
+                          to="/user/tickets" 
+                          className="block px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          我的票券
+                        </Link>
+                        <button 
+                          onClick={() => {
+                            logout();
+                            setIsMenuOpen(false);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-100 text-sm"
+                        >
+                          登出
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="flex items-center space-x-4">
-                <Link to="/auth/login" className="text-white hover:text-indigo-300 text-sm font-medium">登入</Link>
-                <Link to="/auth/register" className="bg-indigo-600 text-white px-4 py-1.5 rounded hover:bg-indigo-500 text-sm font-medium">註冊</Link>
-              </div>
+              <>
+                {console.log('顯示登入按鈕')}
+                <div className="flex items-center space-x-4">
+                  <Link to="/auth/login" className="text-white hover:text-indigo-300 text-sm font-medium">登入</Link>
+                  <Link to="/auth/register" className="bg-indigo-600 text-white px-4 py-1.5 rounded hover:bg-indigo-500 text-sm font-medium">註冊</Link>
+                </div>
+              </>
             )}
           </div>
         </div>

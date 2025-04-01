@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import AuthService from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +13,7 @@ const Login = () => {
   
   const navigate = useNavigate();
   const location = useLocation();
+  const { login, updateAuthState } = useAuth();
   
   // 檢查是否有來自其他頁面的重定向
   const searchParams = new URLSearchParams(location.search);
@@ -53,19 +54,23 @@ const Login = () => {
     setError('');
     
     try {
-      // 呼叫登入API
+      // 使用 useAuth 的 login 方法登入
       console.log('===== 開始登入處理 =====');
       console.log('嘗試登入用戶:', username);
-      const response = await AuthService.login(username, password);
-      console.log('Login successful! Response:', { ...response, accessToken: response.accessToken ? '[REDACTED]' : null });
+      
+      const result = await login(username, password);
+      
+      if (!result.success) {
+        throw new Error(result.message || '登入失敗');
+      }
+      
+      console.log('登入成功，狀態已更新');
+      
+      // 確保認證狀態更新
+      updateAuthState();
       
       // 登入成功，準備重定向
-      console.log('Login successful, redirecting to:', from);
-      console.log('User token:', localStorage.getItem('token') ? 'Set' : 'Not set');
-      
-      // 檢查當前用戶狀態
-      const user = AuthService.getCurrentUser();
-      console.log('Current user after login:', user ? user.username : 'Unknown');
+      console.log('登入成功，準備重定向到:', from);
       
       // 增強的重定向處理
       try {
@@ -105,23 +110,8 @@ const Login = () => {
     } catch (error) {
       console.error('Login error:', error);
       
-      // 輸出詳細的錯誤信息
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-      } else if (error.request) {
-        console.error('Error request:', error.request);
-      } else {
-        console.error('Error message:', error.message);
-      }
-      
-      const resMessage =
-        (error.response &&
-          error.response.data &&
-          error.response.data.message) ||
-        error.message ||
-        error.toString();
-      setError(resMessage || '登入失敗，請檢查您的憑證');
+      const resMessage = error.message || '登入失敗，請檢查您的憑證';
+      setError(resMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -134,14 +124,14 @@ const Login = () => {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">登入您的帳號</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             或{' '}
-            <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link to="/auth/register" className="font-medium text-indigo-600 hover:text-indigo-500">
               還沒有帳號？立即註冊
             </Link>
           </p>
         </div>
         
         {error && (
-          <div className="rounded-md bg-red-100 p-4">
+          <div className="rounded-md bg-red-100 p-4 mt-4">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
@@ -170,6 +160,7 @@ const Login = () => {
                 onChange={onChange}
                 className="appearance-none w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 placeholder="用戶名"
+                autoComplete="username"
               />
             </div>
             <div>
@@ -185,6 +176,7 @@ const Login = () => {
                 onChange={onChange}
                 className="appearance-none w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 placeholder="密碼"
+                autoComplete="current-password"
               />
             </div>
           </div>

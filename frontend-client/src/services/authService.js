@@ -21,12 +21,19 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    console.log('請求攔截器 - 檢測令牌：', token ? '存在' : '不存在');
+    
     if (token) {
+      // 確保Authorization頭信息正確設置
       config.headers['Authorization'] = 'Bearer ' + token;
+      console.log('已添加認證頭信息：', 'Bearer ' + token.substring(0, 10) + '...');
     }
+    
+    console.log('請求目標：', config.url);
     return config;
   },
   (error) => {
+    console.error('請求攔截器錯誤：', error);
     return Promise.reject(error);
   }
 );
@@ -157,9 +164,14 @@ const login = async (username, password) => {
       // 確保用戶資料完整
       const userData = {
         ...response.data,
-        username: response.data.username || username
+        username: response.data.username || username,
+        id: response.data.id,
+        email: response.data.email,
+        roles: response.data.roles,
+        accessToken: response.data.accessToken
       };
       
+      console.log('寫入的用戶數據：', userData);
       localStorage.setItem('user', JSON.stringify(userData));
       
       // 偵測 localStorage 是否成功存入
@@ -172,7 +184,7 @@ const login = async (username, password) => {
         userData: savedUser ? JSON.parse(savedUser) : null
       });
       
-      return response.data;
+      return userData;
     } else {
       console.error('登入回應中沒有令牌:', response.data);
       throw new Error('登入回應中沒有令牌');
@@ -197,9 +209,6 @@ const getCurrentUser = () => {
       return null;
     }
     
-    const user = JSON.parse(userStr);
-    console.log('解析後的用戶對象:', user);
-    
     // 檢查令牌有效性
     const token = localStorage.getItem('token');
     if (!token) {
@@ -207,8 +216,46 @@ const getCurrentUser = () => {
       return null;
     }
     
-    // 確保用戶對象已包含令牌
+    let user;
+    try {
+      user = JSON.parse(userStr);
+      console.log('解析後的用戶對象:', user);
+    } catch (parseError) {
+      console.error('解析用戶JSON時出錯:', parseError);
+      // 如果解析失敗，創建空對象
+      user = {};
+    }
+    
+    // 確保用戶對象完整
     user.accessToken = token;
+    
+    // 如果用戶名稱不存在，嘗試從 token 正文中提取
+    if (!user.username) {
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log('JWT 載荷:', payload);
+          
+          // 如果載荷中有用戶名稱，使用它
+          if (payload.sub) {
+            user.username = payload.sub;
+            console.log('從 JWT 獲取的用戶名稱:', user.username);
+            // 更新儲存資訊
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+        }
+      } catch (jwtError) {
+        console.error('解析 JWT 時出錯:', jwtError);
+      }
+    }
+    
+    // 還是沒有用戶名稱，創建預設用戶名稱
+    if (!user.username) {
+      user.username = '已登入用戶';
+      console.log('設置預設用戶名稱');
+      localStorage.setItem('user', JSON.stringify(user));
+    }
     
     return user;
   } catch (error) {

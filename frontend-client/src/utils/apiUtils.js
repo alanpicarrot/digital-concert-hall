@@ -2,6 +2,21 @@
  * API 路徑工具函數
  * 用於確保所有 API 請求路徑都正確
  */
+import AuthService from '../services/authService';
+
+// 對每個請求添加監控
+const logApiRequest = (method, url, data = null) => {
+  console.log(`API 請求: ${method.toUpperCase()} ${url}`);
+  if (data) {
+    console.log('請求數據:', data);
+  }
+  
+  // 檢查授權狀態
+  const token = localStorage.getItem('token');
+  console.log('請求時令牌狀態:', token ? '存在' : '無效');
+  
+  return { url, data };
+};
 
 /**
  * 驗證 API 路徑是否正確
@@ -32,10 +47,24 @@ export const validateApiPath = (path) => {
  */
 export const getApiUrl = (path, baseUrl = process.env.REACT_APP_API_URL) => {
   const validPath = validateApiPath(path);
+  
+  // 記錄每個API URL的構建
+  console.log(`構建API URL: ${baseUrl}${validPath}`);
+  
   return `${baseUrl}${validPath}`;
+};
+
+// 用於檢查當前使用者是否已認證的輔助函數
+export const checkAuthentication = () => {
+  const user = AuthService.getCurrentUser();
+  const isAuthenticated = user && user.accessToken;
+  console.log('認證檢查:', { isAuthenticated, username: user?.username });
+  return { isAuthenticated, user };
 };
 
 export default {
   validateApiPath,
-  getApiUrl
+  getApiUrl,
+  logApiRequest,
+  checkAuthentication
 };

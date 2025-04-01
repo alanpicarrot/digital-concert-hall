@@ -12,25 +12,47 @@ export const AuthProvider = ({ children }) => {
 
   // 初始化時從 localStorage 獲取用戶信息
   useEffect(() => {
-    const initAuth = () => {
+    const initAuth = async () => {
       try {
         console.log('開始初始化認證狀態');
-        const user = AuthService.getCurrentUser();
-        console.log('從 localStorage 讀取的用戶:', user);
         
-        if (user && user.accessToken) {
-          console.log('用戶已登入，設置認證狀態');
-          setUser(user);
-          setIsAuthenticated(true);
+        // 直接檢查 localStorage 中的原始數據
+        const userStr = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        
+        console.log('原始 localStorage 中的數據:', { userStr: !!userStr, tokenExists: !!token });
+        
+        // 首先確保用戶資料與令牌一致
+        if (token && userStr) {
+          try {
+            const userData = JSON.parse(userStr);
+            console.log('從 localStorage 讀取的用戶:', userData.username);
+            
+            // 設置認證狀態
+            setUser(userData);
+            setIsAuthenticated(true);
+            
+            console.log('完成認證狀態設置', {username: userData.username, isAuthenticated: true});
+          } catch (e) {
+            console.error('解析用戶數據時出錯:', e);
+            // 清除無效數據
+            AuthService.logout();
+            setUser(null);
+            setIsAuthenticated(false);
+          }
         } else {
           console.log('沒有有效用戶或令牌');
           // 清除可能錯誤的存儲
           AuthService.logout();
+          setUser(null);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('初始化認證狀態失敗', error);
         // 清除可能錯誤的存儲
         AuthService.logout();
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
@@ -43,12 +65,25 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       setLoading(true);
-      const data = await AuthService.login(username, password);
-      setUser(data);
+      // 調用 AuthService 的登入方法
+      const userData = await AuthService.login(username, password);
+      console.log('登入成功，用戶數據:', userData.username);
+      
+      // 更新狀態
+      setUser(userData);
       setIsAuthenticated(true);
-      return { success: true, data };
+      
+      console.log('登入後認證狀態已更新:', { 
+        isAuthenticated: true, 
+        username: userData.username 
+      });
+      
+      return { success: true, data: userData };
     } catch (error) {
       console.error('登入失敗', error);
+      // 確保重設狀態
+      setIsAuthenticated(false);
+      setUser(null);
       return { 
         success: false, 
         message: error.response?.data?.message || '登入失敗，請檢查您的帳號和密碼'
@@ -81,6 +116,7 @@ export const AuthProvider = ({ children }) => {
     AuthService.logout();
     setUser(null);
     setIsAuthenticated(false);
+    console.log('用戶已登出，認證狀態已清除');
   };
 
   // 重設密碼請求
@@ -157,6 +193,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // 添加一個顯式的更新驗證狀態的方法，方便必要時調用
+  const updateAuthState = () => {
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
+    
+    console.log('手動更新認證狀態');
+    
+    if (token && userStr) {
+      try {
+        const userData = JSON.parse(userStr);
+        setUser(userData);
+        setIsAuthenticated(true);
+        return true;
+      } catch (e) {
+        console.error('解析用戶數據失敗', e);
+        return false;
+      }
+    } else {
+      return false;
+    }
+  };
+
   const value = {
     user,
     isAuthenticated,
@@ -167,7 +225,10 @@ export const AuthProvider = ({ children }) => {
     forgotPassword,
     resetPassword,
     updateProfile,
-    updatePassword
+    updatePassword,
+    updateAuthState,
+    setUser, // 暴露這些方法以便在必要時直接操作
+    setIsAuthenticated
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
