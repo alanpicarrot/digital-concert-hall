@@ -4,9 +4,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.digitalconcerthall.dto.response.order.OrderSummaryResponse;
+import com.digitalconcerthall.dto.request.CartRequest;
 import com.digitalconcerthall.model.order.Order;
 
 public interface OrderService {
+    
+    /**
+     * 創建新訂單
+     * @param cartRequest 購物車請求
+     * @return 訂單摘要響應
+     */
+    OrderSummaryResponse createOrder(CartRequest cartRequest);
     
     /**
      * 獲取當前登錄用戶的所有訂單

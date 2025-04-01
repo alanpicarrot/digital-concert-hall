@@ -13,9 +13,14 @@ const getCart = () => {
   return cartData ? JSON.parse(cartData) : { items: [], total: 0 };
 };
 
-// 保存購物車數據
+// 保存購物車數據並發出自定義事件
 const saveCart = (cart) => {
   localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  
+  // 發出自定義事件，通知購物車數據已更新
+  const event = new CustomEvent('cartUpdated', { detail: cart });
+  window.dispatchEvent(event);
+  
   return cart;
 };
 
@@ -96,31 +101,74 @@ const calculateTotal = (items) => {
 
 // 創建訂單 (連接到後端 API)
 const checkout = async () => {
-  const cart = getCart();
-  
-  // 準備訂單資料
-  const orderData = {
-    items: cart.items.map(item => ({
-      id: item.id,
-      type: item.type,
-      quantity: item.quantity,
-      price: item.price,
-      name: item.name,
-      image: item.image,
-      date: item.date
-    }))
-  };
-  
-  // 創建訂單
-  const path = validateApiPath('/api/orders');
-  const response = await axiosInstance.post(path, orderData);
-  
-  // 成功下單後清空購物車
-  if (response.status === 200 || response.status === 201) {
-    clearCart();
+  try {
+    // 檢查用戶登入和令牌狀態
+    const currentUser = authService.getCurrentUser();
+    const isTokenValid = authService.isTokenValid();
+    
+    console.log('用戶資訊:', currentUser);
+    console.log('令牌有效性:', isTokenValid);
+    
+    if (!currentUser || !isTokenValid) {
+      throw new Error('用戶未登入或令牌無效');
+    }
+    
+    const cart = getCart();
+    
+    // 檢查購物車是否為空
+    if (cart.items.length === 0) {
+      throw new Error('購物車為空');
+    }
+    
+    // 準備訂單資料
+    const orderData = {
+      items: cart.items.map(item => ({
+        id: item.id,
+        type: item.type,
+        quantity: item.quantity,
+        price: item.price,
+        name: item.name,
+        image: item.image,
+        date: item.date
+      }))
+    };
+    
+    // 創建訂單
+    const path = validateApiPath('/api/orders');
+    const response = await axiosInstance.post(path, orderData);
+    
+    // 檢查回應狀態
+    if (response.status === 200 || response.status === 201) {
+      console.log('訂單創建成功');
+      clearCart();
+      return response.data;
+    } else {
+      console.error('訂單創建失敗:', response);
+      throw new Error('無法創建訂單');
+    }
+  } catch (error) {
+    console.error('結帳過程中發生錯誤:', error);
+    
+    // 客製化錯誤訊息
+    if (error.response) {
+      switch (error.response.status) {
+        case 400:
+          throw new Error('訂單資料無效');
+        case 401:
+          throw new Error('未授權，請重新登入');
+        case 403:
+          throw new Error('無權限訪問');
+        case 500:
+          throw new Error('伺服器錯誤，請稍後再試');
+        default:
+          throw new Error(`服務異常：${error.message}`);
+      }
+    } else if (error.request) {
+      throw new Error('無法連接伺服器，請檢查網路');
+    } else {
+      throw error;
+    }
   }
-  
-  return response.data;
 };
 
 const CartService = {

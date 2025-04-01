@@ -2,12 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart, User, ChevronDown, Music, Ticket, CalendarDays, Video, Mail } from 'lucide-react';
+import cartService from '../services/cartService';
 
 const MainLayout = () => {
   const { isAuthenticated, user, logout, updateAuthState } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userDisplayName, setUserDisplayName] = useState('');
+  const [cartItemsCount, setCartItemsCount] = useState(0);
 
+  // 載入購物車數據並監聽更新
+  useEffect(() => {
+    // 初始載入購物車數量
+    const cart = cartService.getCart();
+    const itemCount = cart.items.reduce((total, item) => total + item.quantity, 0);
+    setCartItemsCount(itemCount);
+    
+    // 監聽購物車變化
+    const handleCartChange = () => {
+      const updatedCart = cartService.getCart();
+      const updatedCount = updatedCart.items.reduce((total, item) => total + item.quantity, 0);
+      setCartItemsCount(updatedCount);
+    };
+    
+    // 監聽自定義的購物車更新事件 (用於當前頁面的變化)
+    window.addEventListener('cartUpdated', handleCartChange);
+    
+    // 監聽 storage 事件 (用於不同頁面或標籤頁的變化)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'digital_concert_hall_cart') {
+        handleCartChange();
+      }
+    });
+    
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartChange);
+      window.removeEventListener('storage', handleCartChange);
+    };
+  }, []);
+  
   // 監聽 localStorage 更新與認證狀態
   useEffect(() => {
     console.log('MainLayout 渲染，當前認證狀態:', { 
@@ -81,8 +113,13 @@ const MainLayout = () => {
             </nav>
 
             {/* 購物車 */}
-            <Link to="/cart" className="text-white hover:text-indigo-300">
+            <Link to="/cart" className="text-white hover:text-indigo-300 relative">
               <ShoppingCart size={20} />
+              {cartItemsCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {cartItemsCount}
+                </span>
+              )}
             </Link>
 
             {/* 使用者登入/註冊或下拉選單 */}
