@@ -77,7 +77,7 @@ public class ConcertController {
 		return ResponseEntity.ok(responses);
 	}
 
-	// 獲取單個音樂會詳情（包含演出場次）
+	// 獲取單個音樂會詳情（包含演出場次和票券信息）
 	@GetMapping("/{id}")
 	public ResponseEntity<?> getConcertById(@PathVariable("id") Long id) {
 		Concert concert = concertRepository.findById(id).orElse(null);
@@ -87,6 +87,10 @@ public class ConcertController {
 
 		List<Performance> performances = performanceRepository.findByConcertId(id);
 		ConcertPerformanceResponse response = convertToDetailResponse(concert, performances);
+		
+		// 添加票券信息查詢功能，這需要您在前端ConcertDetailPage.jsx中使用合適的解析代碼
+		// response.setTickets(ticketRepository.findByPerformanceIdIn(performances.stream().map(Performance::getId).collect(Collectors.toList())));
+		
 		return ResponseEntity.ok(response);
 	}
 

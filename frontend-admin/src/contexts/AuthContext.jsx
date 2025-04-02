@@ -14,16 +14,41 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = () => {
       try {
-        const adminUser = AuthService.getCurrentAdmin();
+        // 清除所有人預設的情況
+        console.log('開始登入檢查，確保沒有預設用戶');
+        window.testUserCleared = true;
         
-        if (adminUser) {
-          setUser(adminUser);
-          setIsAuthenticated(true);
+        // 首先假設沒有登入
+        setUser(null);
+        setIsAuthenticated(false);
+        
+        // 然後檢查是否真的登入了
+        const adminUser = AuthService.getCurrentAdmin();
+        const token = localStorage.getItem('adminToken');
+        
+        // 只有當同時有用戶數據和令牌時才設置認證狀態
+        if (adminUser && token) {
+          // 進一步檢查用戶數據是否完整
+          if (adminUser.username && adminUser.roles) {
+            console.log('在本地存儲找到有效的用戶登入', adminUser.username);
+            setUser(adminUser);
+            setIsAuthenticated(true);
+          } else {
+            // 數據不完整，清除
+            console.log('本地存儲的用戶數據不完整，清除');
+            AuthService.logout();
+          }
+        } else {
+          // 不存在憑證，確保登出狀態
+          console.log('沒有發現有效的用戶登入憑證');
+          AuthService.logout();
         }
       } catch (error) {
         console.error('初始化管理員認證狀態失敗', error);
         // 清除可能錯誤的存儲
         AuthService.logout();
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
@@ -38,40 +63,43 @@ export const AuthProvider = ({ children }) => {
       console.log('Context: 嘗試登入', { username });
       setLoading(true);
       
-      // 嘗試直接使用用戶名登入
+      // 確保登入前先清除狀態
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // 嘗試登入處理
       try {
-        console.log('嘗試方法1: 直接使用提供的值作為用戶名');
+        console.log('嘗試登入處理: 使用提供的憑證');
         const data = await AuthService.login(username, password);
-        setUser(data);
-        setIsAuthenticated(true);
-        return { success: true, data };
-      } catch (error1) {
-        console.error('方法1失敗:', error1);
         
-        // 如果失敗，嘗試將用戶名用作電子郵件
-        if (username === 'testuser') {
-          try {
-            console.log('嘗試方法2: 使用測試用戶的電子郵件');
-            const data = await AuthService.login('test@example.com', password);
-            setUser(data);
-            setIsAuthenticated(true);
-            return { success: true, data };
-          } catch (error2) {
-            console.error('方法2失敗:', error2);
-            return { 
-              success: false, 
-              message: '測試用戶登入失敗，請檢查密碼'
-            };
-          }
+        // 確認返回數據完整性
+        if (data && data.username && data.accessToken) {
+          console.log('登入成功:', data.username);
+          setUser(data);
+          setIsAuthenticated(true);
+          return { success: true, data };
+        } else {
+          console.error('登入失敗: 返回數據不完整');
+          setUser(null);
+          setIsAuthenticated(false);
+          return { 
+            success: false, 
+            message: '登入失敗: 用戶數據不完整'
+          };
         }
-        
+      } catch (error) {
+        console.error('登入處理失敗:', error);
+        setUser(null);
+        setIsAuthenticated(false);
         return { 
           success: false, 
-          message: error1.response?.data?.message || '登入失敗，請檢查您的帳號和密碼'
+          message: error.response?.data?.message || '登入失敗，請檢查您的帳號和密碼'
         };
       }
     } catch (error) {
       console.error('管理員登入失敗', error);
+      setUser(null);
+      setIsAuthenticated(false);
       return { 
         success: false, 
         message: error.response?.data?.message || '登入失敗，請檢查您的帳號和密碼，或確認您擁有管理員權限'

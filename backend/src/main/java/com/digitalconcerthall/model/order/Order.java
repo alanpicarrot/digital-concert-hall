@@ -49,12 +49,10 @@ public class Order {
     
     @PrePersist
     protected void onCreate() {
-        orderDate = LocalDateTime.now();
-        if (orderNumber == null) {
-            // 生成一個訂單編號，格式：年月日+6位隨機數字
-            String dateStr = orderDate.toString().replace("-", "").substring(0, 8);
-            String randomNumber = String.format("%06d", (int) (Math.random() * 1000000));
-            orderNumber = "ORD" + dateStr + randomNumber;
+        if (orderDate == null) {
+            orderDate = LocalDateTime.now();
         }
+        // 不再在這裡生成訂單編號
+        // orderNumber 由 OrderServiceImpl 的 generateOrderNumber() 方法給出
     }
 }

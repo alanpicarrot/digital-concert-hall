@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart, User, ChevronDown, Music, Ticket, CalendarDays, Video, Mail } from 'lucide-react';
 import cartService from '../services/cartService';
 
 const MainLayout = () => {
   const { isAuthenticated, user, logout, updateAuthState } = useAuth();
+  const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userDisplayName, setUserDisplayName] = useState('');
   const [cartItemsCount, setCartItemsCount] = useState(0);
@@ -72,6 +73,28 @@ const MainLayout = () => {
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [isAuthenticated, user, updateAuthState]);
+  
+  // 確保測試模式不會影響一般頁面 - 清理測試元素
+  useEffect(() => {
+    // 只有在非支付相關頁面才需要清理測試元素
+    if (!location.pathname.includes('/payment/') && !location.pathname.includes('/checkout')) {
+      const cleanupTestElements = () => {
+        // 移除可能存在的測試模式HTML元素
+        const testElements = document.querySelectorAll('[data-testid="ecpay-test-mode"]');
+        if (testElements.length > 0) {
+          testElements.forEach(el => el.remove());
+        }
+        
+        // 移除模擬支付相關的全局變數
+        if (window.simulatePayment) {
+          delete window.simulatePayment;
+        }
+      };
+      
+      // 在頁面變更時執行清理
+      cleanupTestElements();
+    }
+  }, [location.pathname]);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);

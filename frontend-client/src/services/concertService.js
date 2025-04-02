@@ -16,7 +16,7 @@ const concertService = {
     }
   },
 
-  // 測試端點
+  // 測試端點 - 只保留健康檢查功能
   testHealthCheck: async () => {
     try {
       const path = validateApiPath('/api/concerts/health-check');
@@ -27,14 +27,19 @@ const concertService = {
     }
   },
 
-  // 創建測試數據
+  // 已禁用測試數據創建功能
   createTestData: async () => {
+    return { success: false, message: "測試數據創建功能已禁用，請通過管理後台手動創建音樂會和票種。" };
+  },
+  
+  // 清除測試數據
+  cleanTestData: async () => {
     try {
-      const path = validateApiPath('/api/concerts/test-data');
+      const path = validateApiPath('/debug/clean-test-data');
       const response = await axios.get(`${API_URL}${path}`);
-      return response.data;
+      return { success: true, message: response.data };
     } catch (error) {
-      throw error;
+      return { success: false, message: "清除測試數據失敗。" + (error.response?.data?.message || error.message) };
     }
   },
 

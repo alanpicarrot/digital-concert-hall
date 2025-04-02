@@ -77,13 +77,14 @@ axiosInstance.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       console.log('偵測到 401 未授權錯誤，清除登入狀態');
       
-      // 如果收到401錯誤且不是在登入或註冊頁面，則登出用戶
+      // 如果收到401錯誤且不是在登入或註冊頁面或付款結果頁面，則登出用戶
       const currentPath = window.location.pathname;
       const currentUrl = window.location.href;
       if (
         !currentPath.includes('/login') &&
         !currentPath.includes('/register') &&
-        !currentPath.includes('/reset-password')
+        !currentPath.includes('/reset-password') &&
+        !currentPath.includes('/payment')
       ) {
         logout();
         

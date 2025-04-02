@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 import com.digitalconcerthall.dto.response.MessageResponse;
+import java.time.ZonedDateTime;
+import com.digitalconcerthall.dto.response.ErrorResponse;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -35,6 +37,13 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
     
+    @ExceptionHandler(ResourceNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<MessageResponse> handleResourceNotFoundException(ResourceNotFoundException ex) {
+        System.out.println("Resource not found exception: " + ex.getMessage());
+        return new ResponseEntity<>(new MessageResponse(ex.getMessage()), HttpStatus.NOT_FOUND);
+    }
+    
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ResponseEntity<MessageResponse> handleRuntimeException(RuntimeException ex) {
@@ -43,9 +52,12 @@ public class GlobalExceptionHandler {
     }
     
     @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ResponseEntity<MessageResponse> handleAllExceptions(Exception ex) {
-        System.out.println("General exception: " + ex.getMessage());
-        return new ResponseEntity<>(new MessageResponse("發生錯誤: " + ex.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
+    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
+        ErrorResponse errorResponse = new ErrorResponse(
+            "SERVER_ERROR",
+            ex.getMessage(),
+            ZonedDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

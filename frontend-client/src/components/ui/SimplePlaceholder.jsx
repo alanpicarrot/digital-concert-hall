@@ -11,19 +11,20 @@ const SimplePlaceholder = ({ width, height, text, className }) => {
     (text.length > 20 ? text.substring(0, 20) + '...' : text) : 
     'Placeholder';
   
-  // 自動計算適當的字體大小
+  // 自動計算適當的字體大小，確保結果為數字
+  const calculatedWidth = typeof width === 'number' ? width : 400;
   const fontSize = Math.min(
     16, // 最大字體大小
     Math.max(10, // 最小字體大小
-      Math.floor(((width || 400) / displayText.length) * 0.8) // 根據文字長度和容器寬度計算
+      Math.floor((calculatedWidth / displayText.length) * 0.8) // 根據文字長度和容器寬度計算
     )
-  );
+  ).toString(); // 轉換為字符串以避免React警告
 
   return (
     <svg
       width={width || "100%"}
       height={height || 200}
-      viewBox={`0 0 ${width || 400} ${height || 300}`}
+      viewBox={`0 0 ${typeof width === 'number' ? width : 400} ${typeof height === 'number' ? height : 300}`}
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >

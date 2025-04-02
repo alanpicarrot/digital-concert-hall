@@ -27,7 +27,7 @@ import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity  // 已啟用方法級安全控制
 public class WebSecurityConfig {
     @Autowired
     UserDetailsServiceImpl userDetailsService;
@@ -43,10 +43,8 @@ public class WebSecurityConfig {
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        
-        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setUserDetailsService(userDetailsService);  // 使用自定義UserDetailsServiceImpl
         authProvider.setPasswordEncoder(passwordEncoder());
-    
         return authProvider;
     }
 
@@ -64,8 +62,9 @@ public class WebSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // 允許來自用戶前台和管理後台的請求
+        // 在corsConfigurationSource方法中更新允許的源
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000", // 用戶前台
+        "http://localhost:3000", // 用戶前台
             "http://localhost:3001"  // 管理後台
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
@@ -98,7 +97,11 @@ public class WebSecurityConfig {
 
         http.authenticationProvider(authenticationProvider());
 
-        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+        // 在filterChain方法中增加以下過濾器配置
+        http.addFilterBefore(
+            authenticationJwtTokenFilter(), 
+            UsernamePasswordAuthenticationFilter.class
+        );
         
         return http.build();
     }

@@ -52,6 +52,12 @@ const logout = () => {
   localStorage.removeItem('adminToken');
   localStorage.removeItem('adminUser');
   
+  // 確保清除任何測試用戶的痕跡
+  if (window.testUserCleared === undefined) {
+    window.testUserCleared = true;
+    console.log('清除測試用戶狀態');
+  }
+  
   // 嘗試調用後端登出 API
   try {
     const endpoint = validateApiPath('/api/auth/logout');

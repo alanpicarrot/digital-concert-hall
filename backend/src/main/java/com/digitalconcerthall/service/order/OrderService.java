@@ -41,7 +41,10 @@ public interface OrderService {
      * 更新訂單狀態
      * @param orderNumber 訂單編號
      * @param status 新狀態
-     * @return 是否更新成功
+     * @return 更新后的訂單摘要
      */
-    boolean updateOrderStatus(String orderNumber, String status);
+    OrderSummaryResponse updateOrderStatus(String orderNumber, String status);
+    
+    // 删除以下重复的boolean返回类型声明
+    // boolean updateOrderStatus(String orderNumber, String status);
 }

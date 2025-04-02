@@ -30,9 +30,11 @@ import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 /**
  * 測試數據控制器 - 用於創建測試數據
  */
-@RestController
-@RequestMapping("/api/data")
-@CrossOrigin(origins = "*", maxAge = 3600)
+// 已完全停用自動生成測試數據的控制器
+// 此控制器不會被啟用以確保不會生成測試音樂會和票券數據
+// @RestController
+// @RequestMapping("/api/data")
+// @CrossOrigin(origins = "*", maxAge = 3600)
 public class TestDataController {
 
     @Autowired

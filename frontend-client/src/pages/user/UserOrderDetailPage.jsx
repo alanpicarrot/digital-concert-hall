@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 import { Loader2, ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import orderService from '../../services/orderService';
+import authService from '../../services/authService';
 
 const UserOrderDetailPage = () => {
   const { orderNumber } = useParams();
@@ -13,12 +14,45 @@ const UserOrderDetailPage = () => {
   useEffect(() => {
     const fetchOrderDetail = async () => {
       try {
+        // 檢查用戶登入狀態
+        if (!authService.isTokenValid()) {
+          navigate('/auth/login', {
+            state: { 
+              from: `/user/orders/${orderNumber}`,
+              message: '請先登入以查看訂單詳情'
+            }
+          });
+          return;
+        }
+        
         setLoading(true);
-        const response = await axios.get(`/api/users/me/orders/${orderNumber}`);
-        setOrder(response.data);
+        
+        // 先使用輕量級方法檢查訂單是否存在
+        const exists = await orderService.checkOrderExists(orderNumber);
+        if (exists === false) {
+          // 如果明確不存在
+          console.error(`訂單 ${orderNumber} 不存在`);
+          setError(`找不到訂單編號為 ${orderNumber} 的訂單。請檢查訂單號是否正確。`);
+          setLoading(false);
+          return;
+        }
+        
+        try {
+          // 使用改進後的orderService帶有重試邏輯的函數獲取訂單
+          const orderData = await orderService.getOrderDetail(orderNumber, {
+            maxRetries: 3,          // 最多重試3次
+            retryDelay: 1000,       // 初始延遲1秒
+            exponentialBackoff: true  // 使用指數退避策略
+          });
+          setOrder(orderData);
+          setError(null); // 清除可能存在的錯誤
+        } catch (fetchErr) {
+          console.error(`獲取訂單 ${orderNumber} 詳情失敗:`, fetchErr);
+          setError(`無法載入訂單詳情(${orderNumber})，${fetchErr.message || '請稍後再試'}。`);
+        }
       } catch (err) {
-        console.error('Error fetching order details', err);
-        setError('無法載入訂單詳情，請稍後再試。');
+        console.error('訂單詳情頁處理錯誤:', err);
+        setError('無法處理您的請求，請稍後再試。');
       } finally {
         setLoading(false);
       }
@@ -27,7 +61,7 @@ const UserOrderDetailPage = () => {
     if (orderNumber) {
       fetchOrderDetail();
     }
-  }, [orderNumber]);
+  }, [orderNumber, navigate]);
 
   if (loading) {
     return (
@@ -122,17 +156,17 @@ const UserOrderDetailPage = () => {
 
             <div className="border-t border-gray-200 pt-4 mb-4">
               <h3 className="font-semibold mb-3">訂單項目</h3>
-              {order.orderItems.map((item, index) => (
+              {order.items && order.items.map((item, index) => (
                 <div key={index} className="flex justify-between py-2 border-b border-gray-100 last:border-b-0">
                   <div>
-                    <div className="font-medium">{item.ticket.ticketType.name}</div>
+                    <div className="font-medium">{item.description || '票券'}</div>
                     <div className="text-sm text-gray-500">
-                      {item.ticket.event?.name || '音樂會'}
+                      {item.concertTitle || '音樂會'}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div>NT$ {item.price} x {item.quantity}</div>
-                    <div className="font-medium">NT$ {item.price * item.quantity}</div>
+                    <div>NT$ {item.unitPrice} x {item.quantity}</div>
+                    <div className="font-medium">NT$ {item.subtotal || (item.unitPrice * item.quantity)}</div>
                   </div>
                 </div>
               ))}
@@ -141,7 +175,7 @@ const UserOrderDetailPage = () => {
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex justify-between mb-2">
                 <span className="text-gray-600">小計：</span>
-                <span>NT$ {order.subtotalAmount}</span>
+                <span>NT$ {order.totalAmount}</span>
               </div>
               {order.discountAmount > 0 && (
                 <div className="flex justify-between mb-2">
@@ -172,7 +206,7 @@ const UserOrderDetailPage = () => {
           </div>
         )}
 
-        {order.status === 'paid' && order.tickets && order.tickets.length > 0 && (
+        {order.status === 'paid' && (
           <div className="bg-green-50 border border-green-100 rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-2 text-green-800">票券已產生</h3>
             <p className="text-green-700 mb-4">

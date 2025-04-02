@@ -1,0 +1,23 @@
+/**
+ * 專門用於修復綠界支付測試模式UI的樣式
+ */
+
+/* 在訂單頁面上隱藏測試模式UI */
+body.hide-test-ui > div:not(#root) {
+  display: none !important;
+}
+
+/* 讓測試模式UI顯示在頁面頂部而非側邊 */
+body.show-test-ui-top > div:not(#root) {
+  position: fixed !important;
+  top: 60px !important;
+  left: 0 !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  max-width: 100% !important;
+  z-index: 9999 !important;
+  background-color: #fff8e6 !important;
+  border-bottom: 1px solid #fde68a !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+  padding: 10px !important;
+}

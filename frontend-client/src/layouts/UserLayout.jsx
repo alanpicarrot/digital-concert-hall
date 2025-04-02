@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -9,6 +9,51 @@ const UserLayout = () => {
   const isActive = (path) => {
     return location.pathname.includes(path) ? 'bg-indigo-50 text-indigo-800' : 'text-gray-700 hover:bg-gray-50';
   };
+
+  // 確保測試模式元素不會影響用戶頁面
+  useEffect(() => {
+    // 移除任何可能存在的測試模式HTML元素（更全面的清理方法）
+    const cleanupTestElements = () => {
+      // 針對性移除綠界支付相關元素
+      document.querySelectorAll('[data-testid="ecpay-test-mode"]').forEach(el => el.remove());
+      
+      // 查找並移除測試模式元素（不依賴於data-testid）
+      const testModeBanners = Array.from(document.querySelectorAll('*')).filter(el => {
+        // 通過內容查找測試模式元素
+        const content = el.textContent || '';
+        return (content.includes('測試模式') || content.includes('綠界支付')) && 
+               (el.className?.includes('rounded-lg') || el.className?.includes('shadow'));
+      });
+      
+      testModeBanners.forEach(el => {
+        console.log('移除測試模式元素:', el);
+        el.remove();
+      });
+      
+      // 移除可能由simulatePayment留下的全局函數
+      if (window.simulatePayment) {
+        delete window.simulatePayment;
+      }
+    };
+    
+    // 頁面加載時立即清理
+    cleanupTestElements();
+    
+    // 設置觀察器持續監視並移除測試模式元素
+    const observer = new MutationObserver(() => {
+      // 當DOM變化時檢查是否有測試模式元素
+      cleanupTestElements();
+    });
+    
+    // 啟動觀察器
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // 組件卸載時停止觀察並再次清理
+    return () => {
+      observer.disconnect();
+      cleanupTestElements();
+    };
+  }, [location.pathname]);
 
   return (
     <div className="container mx-auto px-4 py-8">

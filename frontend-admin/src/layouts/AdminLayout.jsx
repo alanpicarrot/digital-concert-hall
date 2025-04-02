@@ -124,7 +124,7 @@ const AdminLayout = () => {
               </h1>
             </div>
             <div className="ml-4 flex items-center md:ml-6">
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <div className="relative flex items-center">
                   <span className="hidden md:inline-block text-gray-700 mr-3">
                     {user?.username || '管理員'}
@@ -136,6 +136,14 @@ const AdminLayout = () => {
                     <LogOut className="h-6 w-6" />
                     <span className="ml-2 hidden md:inline-block">登出</span>
                   </button>
+                </div>
+              ) : (
+                <div className="relative flex items-center">
+                  <Link to="/auth/login"
+                    className="bg-teal-500 text-white p-2 rounded-md hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 flex items-center px-4 py-2 font-medium"
+                  >
+                    <span>登入</span>
+                  </Link>
                 </div>
               )}
             </div>

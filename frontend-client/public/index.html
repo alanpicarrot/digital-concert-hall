@@ -12,10 +12,38 @@
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="stylesheet" href="%PUBLIC_URL%/ecpay-fix.css" />
     <title>Digital Concert Hall</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    
+    <!-- 簡單的測試模式修復腳本 -->
+    <script>
+      // 定義全局的simulatePayment函數
+      window.simulatePayment = function() {
+        var orderNumber = window.location.pathname.split('/').pop();
+        window.location.href = '/payment/ecpay?orderNumber=' + orderNumber + '&amount=1000';
+      };
+      
+      // 根據頁面路徑設置正確的樣式類
+      function updateBodyClass() {
+        if (window.location.pathname.includes('/user/orders')) {
+          document.body.classList.add('hide-test-ui');
+          document.body.classList.remove('show-test-ui-top');
+        } else if (window.location.pathname.includes('/checkout') || 
+                  window.location.pathname.includes('/payment')) {
+          document.body.classList.remove('hide-test-ui');
+          document.body.classList.add('show-test-ui-top');
+        }
+      }
+      
+      // 初始執行
+      updateBodyClass();
+      
+      // 監聽路由變化
+      window.addEventListener('popstate', updateBodyClass);
+    </script>
   </body>
 </html>

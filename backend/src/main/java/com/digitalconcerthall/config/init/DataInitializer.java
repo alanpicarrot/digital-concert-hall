@@ -34,7 +34,8 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) throws Exception {
         initRoles();
-        createTestUsers();
+        // 已禁用測試用戶創建，只初始化角色
+        // createTestUsers();
     }
     
     /**
@@ -67,42 +68,7 @@ public class DataInitializer implements CommandLineRunner {
      * 創建測試用戶
      */
     private void createTestUsers() {
-        // 檢查是否已經存在測試用戶
-        if (!userRepository.existsByUsername("admin")) {
-            System.out.println("Creating test users...");
-            
-            // 創建管理員用戶
-            User adminUser = new User();
-            adminUser.setUsername("admin");
-            adminUser.setEmail("admin@digitalconcerthall.com");
-            adminUser.setPassword(passwordEncoder.encode("Admin@123"));
-            adminUser.setFirstName("系統");
-            adminUser.setLastName("管理員");
-            
-            Set<Role> adminRoles = new HashSet<>();
-            adminRoles.add(roleRepository.findByName(ERole.ROLE_ADMIN).orElseThrow());
-            adminRoles.add(roleRepository.findByName(ERole.ROLE_USER).orElseThrow());
-            adminUser.setRoles(adminRoles);
-            
-            userRepository.save(adminUser);
-            
-            // 創建一般用戶
-            User regularUser = new User();
-            regularUser.setUsername("user");
-            regularUser.setEmail("user@digitalconcerthall.com");
-            regularUser.setPassword(passwordEncoder.encode("User@123"));
-            regularUser.setFirstName("一般");
-            regularUser.setLastName("用戶");
-            
-            Set<Role> userRoles = new HashSet<>();
-            userRoles.add(roleRepository.findByName(ERole.ROLE_USER).orElseThrow());
-            regularUser.setRoles(userRoles);
-            
-            userRepository.save(regularUser);
-            
-            System.out.println("Test users created successfully.");
-        } else {
-            System.out.println("Test users already exist. Skipping creation.");
-        }
+        // 只建立角色，不自動創建測試用戶
+        System.out.println("Test user creation disabled. Please create users manually via API.");
     }
 }

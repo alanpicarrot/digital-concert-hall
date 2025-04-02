@@ -63,18 +63,26 @@ const ConcertDetailPage = () => {
               { name: "第二樹場曲目", duration: "20分鐘" }
             ],
           
-          // 如果有多個演出場次，將其轉換為票券區域
-          ticketAreas: concertData.performances ? 
-            concertData.performances.map((perf, index) => ({
-              id: perf.id,
-              name: `${formatDate(perf.startTime)} ${formatTime(perf.startTime)} ${perf.venue || "數位音樂廳"}`,
-              price: 500 + (index * 100),  // 模擬不同場次的價格
-              available: 50 - (index * 5)  // 模擬剩餘票數
+          // 從API接口獲取票券和場次數據
+          ticketAreas: concertData.tickets ? 
+            concertData.tickets.map((ticket) => ({
+              id: ticket.id,
+              name: `${ticket.ticketType.name} - ${formatDate(ticket.performance.startTime)} ${formatTime(ticket.performance.startTime)} ${ticket.performance.venue || "數位音樂廳"}`,
+              price: ticket.price,  // 使用實際票券價格
+              available: ticket.availableQuantity  // 使用實際可用票數
             })) : 
-            [
-              { id: 1, name: "普通座位", price: 500, available: 50 },
-              { id: 2, name: "VIP座位", price: 1000, available: 20 }
-            ],
+            // 以下為備用數據，僅當API沒有返回票券信息時使用
+            concertData.performances ? 
+              concertData.performances.map((perf, index) => ({
+                id: perf.id,
+                name: `${formatDate(perf.startTime)} ${formatTime(perf.startTime)} ${perf.venue || "數位音樂廳"}`,
+                price: 1000,  // 默認價格，若需手動調整
+                available: 50 // 默認可用票數
+              })) :
+              [
+                { id: 1, name: "普通座位", price: 1000, available: 50 },
+                { id: 2, name: "VIP座位", price: 1500, available: 20 }
+              ],
           
           // 評論和圖片庫使用預設值
           reviews: [
@@ -220,6 +228,7 @@ const handleBuyNow = () => {
   const ticketInfo = {
     concertId: concert.id,
     concertTitle: concert.title,
+    ticketId: selectedSeatingArea.id, // 確保添加票券ID
     ticketType: selectedSeatingArea.name,
     ticketPrice: selectedSeatingArea.price,
     quantity: quantity,

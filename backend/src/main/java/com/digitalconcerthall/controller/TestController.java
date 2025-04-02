@@ -16,10 +16,14 @@ import com.digitalconcerthall.model.User;
 import com.digitalconcerthall.model.concert.Concert;
 import com.digitalconcerthall.model.concert.Performance;
 import com.digitalconcerthall.model.order.Order;
+import com.digitalconcerthall.model.ticket.Ticket;
+import com.digitalconcerthall.model.ticket.TicketType;
 import com.digitalconcerthall.repository.UserRepository;
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
 import com.digitalconcerthall.repository.order.OrderRepository;
+import com.digitalconcerthall.repository.ticket.TicketRepository;
+import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 import com.digitalconcerthall.security.services.UserDetailsImpl;
 
 @RestController
@@ -39,14 +43,13 @@ public class TestController {
     @Autowired
     private PerformanceRepository performanceRepository;
 
-    // 簡單測試端點，用於檢查後端 API 是否正常工作
-    @GetMapping("/ping-test")
-    @PreAuthorize("permitAll()")
-    public ResponseEntity<String> ping() {
-        return ResponseEntity.ok("pong");
-    }
-
-    // 創建測試數據
+    // Add missing repository injections
+    @Autowired
+    private TicketTypeRepository ticketTypeRepository;
+    
+    @Autowired
+    private TicketRepository ticketRepository;
+    
     @GetMapping("/create-concert")
     @PreAuthorize("permitAll()")
     public ResponseEntity<ApiResponse> createTestConcert() {
@@ -71,7 +74,25 @@ public class TestController {
             performance.setVenue("數位音樂廳主廳");
             performance.setStatus("scheduled");
 
-            performanceRepository.save(performance);
+            // Fix variable name from savedPerformance to performance
+            Performance savedPerformance = performanceRepository.save(performance);
+            
+            // Create ticket type
+            TicketType vipType = new TicketType();
+            vipType.setName("VIP");
+            vipType.setDescription("Premium seating with exclusive benefits");
+            vipType.setPrice(new BigDecimal("599.00"));
+            vipType.setColorCode("#FFD700");
+            TicketType savedType = ticketTypeRepository.save(vipType);
+
+            // Create sample ticket
+            Ticket ticket = new Ticket();
+            ticket.setPerformance(savedPerformance);
+            ticket.setTicketType(savedType);
+            ticket.setTotalQuantity(100);
+            ticket.setAvailableQuantity(100);
+            ticket.setPrice(savedType.getPrice());
+            ticketRepository.save(ticket);
 
             return ResponseEntity.ok(new ApiResponse(true, "測試音樂會創建成功"));
         } catch (Exception e) {
