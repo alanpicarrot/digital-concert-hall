@@ -52,7 +52,7 @@ public class AuthServiceImpl implements AuthService {
     private JavaMailSender mailSender;
 
     @Override
-    public JwtResponse authenticate(LoginRequest loginRequest) {
+    public JwtResponse authenticateUser(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 

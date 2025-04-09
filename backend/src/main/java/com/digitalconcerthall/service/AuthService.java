@@ -17,6 +17,4 @@ public interface AuthService {
     MessageResponse requestPasswordReset(String email);
 
     MessageResponse resetPassword(String token, String newPassword);
-
-    JwtResponse authenticate(LoginRequest loginRequest);
 }

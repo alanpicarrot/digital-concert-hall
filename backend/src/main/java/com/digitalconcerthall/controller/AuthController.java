@@ -18,33 +18,33 @@ import com.digitalconcerthall.service.AuthService;
 
 import jakarta.validation.Valid;
 
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"}, maxAge = 3600, allowCredentials = "true")
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001" }, maxAge = 3600, allowCredentials = "true")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    
+
     @Autowired
     private AuthService authService;
 
     @PostMapping("/signin")
     public ResponseEntity<JwtResponse> authenticateUser(@RequestBody LoginRequest loginRequest) {
-        return ResponseEntity.ok(authService.authenticate(loginRequest));
+        return ResponseEntity.ok(authService.authenticateUser(loginRequest));
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
         // 調試信息
         System.out.println("Received signup request: " + signUpRequest);
-        
+
         MessageResponse response = authService.registerUser(signUpRequest);
         return ResponseEntity.ok(response);
     }
-    
+
     // 新增: 無需認證的管理員註冊端點
     @PostMapping("/register-admin")
     public ResponseEntity<?> registerAdmin(@Valid @RequestBody SignupRequest signUpRequest) {
         System.out.println("Received admin signup request: " + signUpRequest);
-        
+
         // 使用現有的註冊服務，但確保為管理員角色
         MessageResponse response = authService.registerAdminUser(signUpRequest);
         return ResponseEntity.ok(response);
