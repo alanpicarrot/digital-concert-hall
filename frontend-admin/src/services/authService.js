@@ -2,7 +2,7 @@ import axios from 'axios';
 import { validateApiPath } from '../utils/apiUtils';
 
 // 建立 axios 實例
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
 // 從 API_URL 中移除了 /api 前綴以修復路徑問題
 const API_BASE = API_URL; 
 
@@ -104,19 +104,34 @@ const login = async (usernameOrEmail, password) => {
   // 確保使用正確的 API 前綴
   const endpoint = validateApiPath('/api/auth/login');
   
-  // 嘗試使用作為用戶名登入
-  const response = await axiosInstance.post(endpoint, {
-    username: usernameOrEmail, // 將 email/username 作為 username 傳送
-    password,
-  });
-  
-  if (response.data && response.data.accessToken) {
-    localStorage.setItem('adminToken', response.data.accessToken);
-    localStorage.setItem('adminUser', JSON.stringify(response.data));
-    return response.data;
+  try {
+    // 嘗試使用作為用戶名登入
+    const response = await axiosInstance.post(endpoint, {
+      username: usernameOrEmail, // 將 email/username 作為 username 傳送
+      password,
+    });
+    
+    console.log('Login response:', response);
+    
+    if (response.data && response.data.accessToken) {
+      // 確認用戶具有 ADMIN 角色
+      const hasAdminRole = response.data.roles && response.data.roles.includes('ROLE_ADMIN');
+      if (!hasAdminRole) {
+        console.error('此帳戶沒有管理員權限');
+        throw new Error('此帳戶沒有管理員權限，請使用管理員帳戶登入');
+      }
+      
+      localStorage.setItem('adminToken', response.data.accessToken);
+      localStorage.setItem('adminUser', JSON.stringify(response.data));
+      return response.data;
+    } else {
+      console.error('登入响應缺少 accessToken');
+      throw new Error('登入失敗，請檢查您的帳戶是否有管理員權限');
+    }
+  } catch (error) {
+    console.error('登入失敗:', error.response?.data || error.message);
+    throw error;
   }
-  
-  return response.data;
 };
 
 // 獲取當前管理員信息

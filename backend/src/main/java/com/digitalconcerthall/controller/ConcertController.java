@@ -36,7 +36,7 @@ public class ConcertController {
 		return ResponseEntity.ok("Concerts API is working");
 	}
 
-	// 小提示：創建測試數據的端點，可通過瀏覽器直接訪問 http://localhost:8081/api/concerts/test-data
+	// 小提示：創建測試數據的端點，可通過瀏覽器直接訪問 http://localhost:8080/api/concerts/test-data
 	@GetMapping("/test-data")
 	@PreAuthorize("permitAll()")
 	public ResponseEntity<ApiResponse> createTestData() {

@@ -2,7 +2,9 @@ import axios from 'axios';
 import { validateApiPath } from '../utils/apiUtils';
 
 // 建立 axios 實例
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8081';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+
+console.log('初始化 Auth Service');
 
 // 打印環境變量幫助排查問題
 console.log('Environment variables:', {
@@ -51,8 +53,8 @@ const logout = () => {
   
   // 嘗試調用後端登出 API
   try {
-    // 使用一致的路徑
-    const endpoint = '/api/auth/logout';
+    // 使用validateApiPath確保路徑一致性
+    const endpoint = validateApiPath('/auth/logout');
     console.log('API URL:', API_URL);
     console.log('登出請求 URL:', `${API_URL}${endpoint}`);
     
@@ -120,8 +122,8 @@ const register = async (username, email, password, firstName, lastName) => {
     password: '[REDACTED]',
   });
   
-  // 使用一致的路徑，不使用 validateApiPath 避免重複添加 /api 前綴
-  const endpoint = '/api/auth/register';
+  // 使用validateApiPath確保路徑一致性
+  const endpoint = validateApiPath('/auth/register');
   console.log('API URL:', API_URL);
   console.log('完整請求 URL:', `${API_URL}${endpoint}`);
   
@@ -142,8 +144,8 @@ const login = async (username, password) => {
   console.log('發送登入請求:', { username, password: '******' });
   
   try {
-    // 使用 validateApiPath 確保路徑一致
-    const endpoint = '/api/auth/login';
+    // 使用validateApiPath確保路徑一致性
+    const endpoint = validateApiPath('/auth/login');
     console.log('API URL:', API_URL);
     console.log('完整請求 URL:', `${API_URL}${endpoint}`);
     
@@ -297,28 +299,28 @@ const isTokenValid = () => {
 
 // 重設密碼請求
 const forgotPassword = (email) => {
-  const endpoint = '/api/auth/forgot-password';
+  const endpoint = validateApiPath('/auth/forgot-password');
   console.log('忘記密碼請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.post(endpoint, { email });
 };
 
 // 重設密碼
 const resetPassword = (token, password) => {
-  const endpoint = '/api/auth/reset-password';
+  const endpoint = validateApiPath('/auth/reset-password');
   console.log('重設密碼請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.post(endpoint, { token, password });
 };
 
 // 更新用戶信息
 const updateProfile = (userData) => {
-  const endpoint = '/api/users/me';
+  const endpoint = validateApiPath('/users/me');
   console.log('更新用戶信息請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.put(endpoint, userData);
 };
 
 // 更新密碼
 const updatePassword = (currentPassword, newPassword) => {
-  const endpoint = '/api/users/me/password';
+  const endpoint = validateApiPath('/users/me/password');
   console.log('更新密碼請求 URL:', `${API_URL}${endpoint}`);
   return axiosInstance.put(endpoint, {
     currentPassword,

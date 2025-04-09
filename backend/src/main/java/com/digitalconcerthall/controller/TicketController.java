@@ -18,7 +18,7 @@ import com.digitalconcerthall.service.ticket.TicketService;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/users/me")
+@RequestMapping("/api/users/me")
 public class TicketController {
     
     @Autowired

@@ -7,6 +7,7 @@ import ConcertsPage from '../pages/ConcertsPage';
 import PerformancesPage from '../pages/PerformancesPage';
 import TicketTypesPage from '../pages/TicketTypesPage';
 import TicketsPage from '../pages/TicketsPage';
+import UsersPage from '../pages/UsersPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterAdminPage from '../pages/auth/RegisterAdminPage';
 
@@ -27,6 +28,7 @@ const AdminRoutes = () => {
         <Route path="performances" element={<AdminRoute><PerformancesPage /></AdminRoute>} />
         <Route path="ticket-types" element={<AdminRoute><TicketTypesPage /></AdminRoute>} />
         <Route path="tickets" element={<AdminRoute><TicketsPage /></AdminRoute>} />
+        <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
         <Route index element={<Navigate to="/dashboard" />} />
       </Route>
       

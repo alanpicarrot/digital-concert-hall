@@ -1,80 +1,50 @@
-# 數位音樂廳專案文檔
+# 數位音樂廳系統文檔
 
-本目錄包含數位音樂廳專案的重要開發文檔和記錄。
+## 日誌系統文檔
 
-## 開發記錄
+本目錄包含數位音樂廳系統日誌系統的相關文檔。日誌系統設計用於增強應用程序的可觀察性，幫助開發人員和運維人員更高效地監控系統、診斷問題和分析性能。
 
-- [前端重構開發記錄](development-logs/frontend-refactoring-session.md) - 記錄了數位音樂廳前後台分離重構過程
-- [前端樣式調整記錄](frontend-styling-session/styling-session-log.md) - 記錄了前端UI樣式的調整和優化過程
-- [佔位圖修復報告](placeholder-fix/placeholder-fix-report.md) - 記錄了解決前端佔位圖 HTTP 500 錯誤的過程
+### 文檔索引
 
-## 設計資源
+1. **[日誌系統實現記錄](./logging-system-implementation.md)**  
+   詳細記錄了日誌系統的設計思路、實現方法和主要組件。包括原始問題分析、解決方案設計和實施過程。
 
-- [前端樣式指南](frontend-styling-session/style-guide.md) - 前端樣式統一標準和規範
-- [代碼變更摘要](frontend-styling-session/code-changes-summary.md) - 主要代碼修改的詳細記錄
-- [SimplePlaceholder 元件使用指南](placeholder-fix/placeholder-usage.md) - 如何使用 SimplePlaceholder 元件的指南
+2. **[日誌系統使用指南](./logging-system-usage-guide.md)**  
+   提供給開發人員和運維人員的使用指南，包括如何使用日誌註解、測試日誌服務，以及如何解讀不同類型的日誌文件。
 
-## 技術解決方案
+3. **[設計與實現對話記錄](./conversation-log.md)**  
+   記錄了日誌系統設計和實現過程中的完整對話，包含代碼示例和配置細節。
 
-- [SimplePlaceholder 解決方案](placeholder-fix/README.md) - 關於前端佔位圖實現的完整文檔
-- [SimplePlaceholder 元件實現說明](placeholder-fix/placeholder-implementation.md) - 佔位圖元件的技術細節
+### 主要特點
 
-## 資料結構
+- **結構化HTTP請求/響應日誌**：詳細記錄API調用
+- **方法執行跟踪**：記錄方法調用參數、返回值和執行時間
+- **自動化測試日誌**：結構化記錄測試過程和結果
+- **分類日誌存儲**：按類型分離日誌文件
+- **安全防護**：自動屏蔽敏感信息
 
-本專案分為三個主要部分：
+### 日誌文件組織
 
-1. **frontend-client** - 用戶前台
-   - 提供音樂會瀏覽、購票和觀看功能
-   - 用戶賬戶管理
-   - 使用深紫色為主色調的界面設計
-
-2. **frontend-admin** - 管理員後台
-   - 演出管理
-   - 用戶管理
-   - 訂單管理
-   - 數據統計和報告
-
-3. **backend** - 後端API服務
-   - 處理所有前台和後台的數據請求
-   - 提供RESTful API接口
-   - 管理數據庫操作
-
-## 開發環境
-
-本專案使用以下技術棧：
-
-- **前端**：React、React Router、Tailwind CSS
-- **後端**：Spring Boot
-- **數據庫**：MySQL
-- **版本控制**：Git
-
-## 本地開發指南
-
-要在本地運行完整的開發環境，請執行：
-
-```bash
-# 確保腳本有執行權限
-chmod 755 *.sh
-
-# 啟動所有服務
-./start-dev.sh
+```
+/logs/
+  ├── digital-concert-hall.log     # 主應用日誌
+  ├── api.log                      # API請求日誌
+  ├── performance.log              # 性能相關日誌
+  ├── test.log                     # 測試執行日誌
+  ├── error.log                    # 錯誤日誌
+  └── *.log.yyyy-MM-dd.i           # 歷史滾動日誌文件
 ```
 
-這將啟動：
-- 用戶前台 - http://localhost:3000
-- 管理員後台 - http://localhost:3001
-- 後端API服務 - http://localhost:8080
+### 技術堆棧
 
-要停止所有服務：
+- Spring AOP
+- Logback
+- SLF4J MDC
+- Spring Boot 自動配置
 
-```bash
-./stop-dev.sh
-```
+### 後續計劃
 
-## 佈署指南
-
-詳細的佈署指南請參閱項目根目錄的 [DEPLOYMENT.md](../DEPLOYMENT.md) 文件。
-
-## 貢獻指南
-
-若要為本專案貢獻代碼，請參照項目根目錄的 [CONTRIBUTING.md](../CONTRIBUTING.md) 文件。
+- 整合ELK堆棧（Elasticsearch、Logstash、Kibana）
+- 實現動態日誌級別調整
+- 添加日誌統計儀表板
+- 實現基於日誌的異常檢測

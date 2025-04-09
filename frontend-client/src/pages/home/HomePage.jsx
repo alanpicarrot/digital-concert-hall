@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Calendar, Play, Loader2 } from "lucide-react";
 import concertService from "../../services/concertService";
 import SimplePlaceholder from "../../components/ui/SimplePlaceholder";
+import ConcertHistory from "../../components/concert/ConcertHistory";
 
 const HomePage = () => {
   const [upcomingConcerts, setUpcomingConcerts] = useState([]);
@@ -22,12 +23,16 @@ const HomePage = () => {
           console.log('Attempting to create test data...');
           const testDataResponse = await concertService.createTestData();
           console.log('Create Test Data Response:', testDataResponse);
+          if (testDataResponse?.success === false) {
+            console.log('Test data creation disabled or failed:', testDataResponse.message);
+          }
         } catch (testDataErr) {
           console.error('Failed to create test data:', testDataErr);
         }
       } catch (err) {
         console.error('API Health Check Failed:', err);
         console.error('Error details:', err.response ? err.response.data : 'No response data');
+        // 不需要在頁面上顯示錯誤，只在控制台輸出日誌
       }
     };
     
@@ -175,6 +180,11 @@ const HomePage = () => {
             ))}
           </div>
         </div>
+      </section>
+
+      {/* 最近瀏覽的音樂會 */}
+      <section className="py-8">
+        <ConcertHistory className="max-w-6xl mx-auto px-4" />
       </section>
 
       {/* 精選回放 */}

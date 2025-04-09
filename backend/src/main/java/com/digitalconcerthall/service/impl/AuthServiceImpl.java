@@ -47,36 +47,28 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     JwtUtils jwtUtils;
-    
+
     @Autowired
     private JavaMailSender mailSender;
 
     @Override
-    public JwtResponse authenticateUser(LoginRequest loginRequest) {
-        System.out.println("Attempting to authenticate user: " + loginRequest.getUsername());
-        try {
-            // 嘗試登入認證
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+    public JwtResponse authenticate(LoginRequest loginRequest) {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            String jwt = jwtUtils.generateJwtToken(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtils.generateJwtToken(authentication);
 
-            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-            List<String> roles = userDetails.getAuthorities().stream()
-                    .map(item -> item.getAuthority())
-                    .collect(Collectors.toList());
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        List<String> roles = userDetails.getAuthorities().stream()
+                .map(item -> item.getAuthority())
+                .collect(Collectors.toList());
 
-            System.out.println("Authentication successful for user: " + userDetails.getUsername());
-            return new JwtResponse(jwt,
-                    userDetails.getId(),
-                    userDetails.getUsername(),
-                    userDetails.getEmail(),
-                    roles);
-        } catch (Exception e) {
-            System.out.println("Authentication failed: " + e.getMessage());
-            throw e;
-        }
+        return new JwtResponse(
+                jwt,
+                userDetails.getId(),
+                userDetails.getUsername(),
+                roles);
     }
 
     @Override
@@ -94,7 +86,7 @@ public class AuthServiceImpl implements AuthService {
         User user = new User(signUpRequest.getUsername(),
                 signUpRequest.getEmail(),
                 encoder.encode(signUpRequest.getPassword()));
-                
+
         user.setFirstName(signUpRequest.getFirstName());
         user.setLastName(signUpRequest.getLastName());
 
@@ -131,7 +123,7 @@ public class AuthServiceImpl implements AuthService {
 
         return new MessageResponse("User registered successfully!");
     }
-    
+
     @Override
     @Transactional
     public MessageResponse registerAdminUser(SignupRequest signUpRequest) {
@@ -149,7 +141,7 @@ public class AuthServiceImpl implements AuthService {
         User user = new User(signUpRequest.getUsername(),
                 signUpRequest.getEmail(),
                 encoder.encode(signUpRequest.getPassword()));
-                
+
         user.setFirstName(signUpRequest.getFirstName());
         user.setLastName(signUpRequest.getLastName());
 
@@ -157,24 +149,24 @@ public class AuthServiceImpl implements AuthService {
         createRoleIfNotExists(ERole.ROLE_USER);
         createRoleIfNotExists(ERole.ROLE_MODERATOR);
         createRoleIfNotExists(ERole.ROLE_ADMIN);
-        
+
         // 無論請求中的角色如何，都將其設置為管理員
         Set<Role> roles = new HashSet<>();
         Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
                 .orElseThrow(() -> new RuntimeException("Error: Admin Role is not found."));
         roles.add(adminRole);
-        
+
         // 同時添加用戶角色
         Role userRole = roleRepository.findByName(ERole.ROLE_USER)
                 .orElseThrow(() -> new RuntimeException("Error: User Role is not found."));
         roles.add(userRole);
-        
+
         user.setRoles(roles);
         userRepository.save(user);
 
         return new MessageResponse("Admin user registered successfully!");
     }
-    
+
     private void createRoleIfNotExists(ERole roleName) {
         if (!roleRepository.existsByName(roleName)) {
             Role role = new Role(roleName);
@@ -193,21 +185,21 @@ public class AuthServiceImpl implements AuthService {
     public MessageResponse requestPasswordReset(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User Not Found with email: " + email));
-        
+
         String token = UUID.randomUUID().toString();
         user.setResetPasswordToken(token);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusHours(24)); // Token valid for 24 hours
         userRepository.save(user);
-        
+
         // Send email with reset link
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(user.getEmail());
         message.setSubject("Password Reset Request");
-        message.setText("To reset your password, click the link below:\n\n" 
+        message.setText("To reset your password, click the link below:\n\n"
                 + "http://localhost:3000/reset-password?token=" + token);
-        
+
         mailSender.send(message);
-        
+
         return new MessageResponse("Password reset email sent successfully!");
     }
 
@@ -216,18 +208,18 @@ public class AuthServiceImpl implements AuthService {
     public MessageResponse resetPassword(String token, String newPassword) {
         User user = userRepository.findByResetPasswordToken(token)
                 .orElseThrow(() -> new RuntimeException("Invalid or expired token"));
-        
+
         // Check if token is expired
         if (user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Token has expired");
         }
-        
+
         // Update password and clear token
         user.setPassword(encoder.encode(newPassword));
         user.setResetPasswordToken(null);
         user.setResetPasswordTokenExpiry(null);
         userRepository.save(user);
-        
+
         return new MessageResponse("Password has been reset successfully!");
     }
 }

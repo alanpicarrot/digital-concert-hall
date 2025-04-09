@@ -31,6 +31,7 @@ const PaymentResultPage = () => {
   const rtnCode = queryParams.get("RtnCode"); // 綠界格式：1 為成功
   const rtnMsg = queryParams.get("RtnMsg");
   const isSuccess = rtnCode === "1" || queryParams.get("success") === "true";
+  const isCancelled = rtnCode === "0" || rtnMsg === "使用者取消交易";
   const isSimulated = queryParams.get("simulatedPayment") === "true";
 
   // 更可靠的訂單獲取函數，包含重試邏輯和多種訂單號格式嘗試
@@ -304,6 +305,13 @@ const PaymentResultPage = () => {
       return;
     }
 
+    // 如果是取消交易，直接設置loading為已完成
+    if (isCancelled) {
+      console.log("交易已取消，跳過訂單獲取");
+      setLoading(false);
+      return;
+    }
+
     // 創建重試函數，使用升級版的重試邏輯
     const fetchWithRetries = async () => {
       // 設置指數退避策略的延遲
@@ -349,7 +357,7 @@ const PaymentResultPage = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [merchantTradeNo, isSuccess, isSimulated, navigate]);
+  }, [merchantTradeNo, isSuccess, isSimulated, navigate, isCancelled]);
 
   // 顯示加載中狀態
   if (loading) {
@@ -481,6 +489,45 @@ const PaymentResultPage = () => {
                 >
                   <User size={18} />
                   <span>我的訂單</span>
+                </Link>
+              </div>
+            </div>
+          ) : isCancelled ? (
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-100 mb-6">
+                <XCircle size={40} className="text-amber-600" />
+              </div>
+
+              <h2 className="text-2xl font-bold mb-3">交易已取消</h2>
+              <p className="text-gray-600 mb-6">
+                您已取消這筆交易，訂單未能完成。
+              </p>
+
+              <div className="mb-8 p-5 bg-amber-50 rounded-lg border border-amber-100">
+                <h3 className="text-left font-medium text-amber-800 mb-2">
+                  取消訊息
+                </h3>
+                <p className="text-amber-700">
+                  {rtnMsg || "您已取消付款處理，未進行收費。"}
+                </p>
+                <p className="text-xs text-amber-600 mt-2">訂單編號: {merchantTradeNo}</p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <Link
+                  to="/"
+                  className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <Home size={18} />
+                  <span>返回首頁</span>
+                </Link>
+
+                <Link
+                  to="/cart"
+                  className="flex items-center justify-center gap-2 py-2 px-4 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-colors"
+                >
+                  <ShoppingCart size={18} />
+                  <span>返回購物車</span>
                 </Link>
               </div>
             </div>

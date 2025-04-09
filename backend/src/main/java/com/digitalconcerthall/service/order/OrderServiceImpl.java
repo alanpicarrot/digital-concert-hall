@@ -70,7 +70,18 @@ public class OrderServiceImpl implements OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
 
         for (CartItemRequest cartItem : cartRequest.getItems()) {
-            Ticket ticket = ticketRepository.findById(Long.parseLong(cartItem.getId()))
+            // 嘗試將ID轉換為長整數，使用更健壯的方法
+            Long ticketId;
+            try {
+                ticketId = Long.parseLong(cartItem.getId());
+                logger.info("Processing ticket with ID: {}", ticketId);
+            } catch (NumberFormatException e) {
+                // 處理非數字格式的ID
+                logger.error("Invalid ticket ID format: {}", cartItem.getId(), e);
+                throw new IllegalArgumentException("Ticket ID must be a number: " + cartItem.getId());
+            }
+            
+            Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + cartItem.getId()));
 
             OrderItem orderItem = new OrderItem();

@@ -85,10 +85,16 @@ public class WebSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> 
                 auth
-                    .requestMatchers("/api/auth/**").permitAll() // 更新為新的API路徑
+                    .requestMatchers("/api/auth/**").permitAll() // 授權相關端點
                     .requestMatchers("/auth/**").permitAll() // 保留舊路徑以兼容
                     .requestMatchers("/h2-console/**").permitAll() // 允許訪問H2數據庫控制台（僅開發環境）
                     .requestMatchers("/public/**").permitAll() // 允許訪問公共資源
+                    .requestMatchers("/api/concerts/**").permitAll() // 允許未認證用戶訪問音樂會信息
+                    .requestMatchers("/api/performances/**").permitAll() // 允許未認證用戶訪問演出場次信息
+                    .requestMatchers("/api/tickets/available").permitAll() // 允許查看可用票券
+                    .requestMatchers("/api/debug/**").permitAll() // 開發環境調試端點
+                    .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN") // 管理員API需要ADMIN角色
+                    .requestMatchers("/api/user/**").hasAnyAuthority("ROLE_USER", "ROLE_ADMIN")
                     .anyRequest().authenticated()
             );
         

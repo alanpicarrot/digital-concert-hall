@@ -40,6 +40,12 @@ public class Concert {
     @Column(nullable = false, length = 20)
     private String status; // active, inactive, upcoming, past
     
+    @Column(name = "start_date_time", nullable = false)
+    private LocalDateTime startDateTime;
+    
+    @Column(name = "end_date_time", nullable = false)
+    private LocalDateTime endDateTime;
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     

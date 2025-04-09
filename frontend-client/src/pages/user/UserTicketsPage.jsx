@@ -90,7 +90,7 @@ const UserTicketsPage = () => {
           <li>網路連線無法建立</li>
           <li>登入狀態已過期</li>
           <li>後端服務暫時無法提供資料</li>
-          <li>後端功能尚未完全實現（目前為開發階段）</li>
+          <li>API路徑格式不一致（請檢查API路徑前綴是否正確）</li>
         </ul>
         <div className="flex justify-center space-x-4">
           <button 

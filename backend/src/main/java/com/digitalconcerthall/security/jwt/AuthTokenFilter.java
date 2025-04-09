@@ -22,7 +22,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import com.digitalconcerthall.security.jwt.JwtUtils;
+import org.springframework.stereotype.Component;
 
+@Component
 public class AuthTokenFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
     
@@ -40,11 +42,20 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {  // Use instance method
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);  // Use instance method
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                // 直接從 JWT 中提取角色
+                List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);
+                
+                // 將角色轉換為GrantedAuthority
+                List<SimpleGrantedAuthority> authorities = roles.stream()
+                    .map(role -> new SimpleGrantedAuthority(role))
+                    .collect(Collectors.toList());
+                
+                // 建立身份驗證令牌
                 UsernamePasswordAuthenticationToken authentication = 
                     new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
-                        userDetails.getAuthorities()
+                        authorities
                     );
                 
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

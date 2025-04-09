@@ -58,11 +58,17 @@ const Login = () => {
       console.log('===== 開始登入處理 =====');
       console.log('嘗試登入用戶:', username);
       
+      console.log('提交登入表單，開始調用登入函數');
       const result = await login(username, password);
       
+      console.log('登入函數返回結果:', result);
+      
       if (!result.success) {
+        console.error('登入失敗:', result.message);
         throw new Error(result.message || '登入失敗');
       }
+      
+      console.log('登入成功，結果:', result);
       
       console.log('登入成功，狀態已更新');
       

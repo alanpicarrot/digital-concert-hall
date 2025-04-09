@@ -57,10 +57,39 @@ public class PaymentController {
             throw new ResourceNotFoundException("Order not found with order number: " + request.getOrderNumber());
         }
         
-        // 整合商品名稱，如果有多個項目，用#分隔
-        String itemName = order.getOrderItems().stream()
-                           .map(item -> item.getTicket().getTicketType().getName() + " x " + item.getQuantity())
-                           .collect(Collectors.joining("#"));
+        logger.info("正在為訂單{}(包含{}個項目)創建支付表單", request.getOrderNumber(), order.getOrderItems().size());
+        
+        // 整合商品名稱，如果有多個項目，用逗號分隔，並確保格式一致
+        String itemName;
+        if (order.getOrderItems() == null || order.getOrderItems().isEmpty()) {
+            // 如果沒有項目，使用訂單編號作為商品名稱
+            itemName = "數位音樂廳訂單 #" + request.getOrderNumber();
+            logger.warn("訂單{} 沒有項目，使用預設商品名稱", request.getOrderNumber());
+        } else {
+            try {
+                // 使用適當的格式並包含數量
+                itemName = order.getOrderItems().stream()
+                    .map(item -> {
+                        // 確保取得完整的商品名稱
+                        String typeName = "";
+                        try {
+                            typeName = item.getTicket().getTicketType().getName();
+                        } catch (Exception e) {
+                            // 簡單停止程式崩潰，使用預設值
+                            typeName = "標準票";
+                            logger.warn("使用預設票券名稱，因為: {}", e.getMessage());
+                        }
+                        return typeName + " x " + item.getQuantity();
+                    })
+                    .collect(Collectors.joining(", "));
+                    
+                logger.info("生成的商品名稱: {}", itemName);
+            } catch (Exception e) {
+                // 如果出錯，使用備用商品名稱
+                itemName = "音樂會票券 訂單#" + request.getOrderNumber();
+                logger.error("商品名稱產生失敗，使用備用名稱: {}", e.getMessage());
+            }
+        }
         
         if (itemName.length() > 200) {
             // 如果商品名稱過長，進行截斷

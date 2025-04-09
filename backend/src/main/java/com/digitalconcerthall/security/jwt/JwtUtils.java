@@ -57,9 +57,20 @@ public class JwtUtils {
         try {
             Claims claims = Jwts.parserBuilder().setSigningKey(key()).build()
                     .parseClaimsJws(token).getBody();
-            return (List<String>) claims.get("roles");
+            List<String> roles = (List<String>) claims.get("roles");
+            
+            // 記錄提取到的角色信息
+            logger.info("Extracted roles from JWT token: {}", roles);
+            
+            if (roles == null) {
+                logger.warn("No roles found in JWT token");
+                return List.of(); // 返回空列表而不是 null
+            }
+            
+            return roles;
         } catch (Exception e) {
             logger.error("Error extracting roles from JWT token: {}", e.getMessage());
+            e.printStackTrace(); // 打印完整堆疊跟蹤
             return List.of(); // 返回空列表而不是 null
         }
     }

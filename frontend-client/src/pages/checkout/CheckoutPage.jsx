@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Loader2, CreditCard, ShoppingBag, Calendar, ArrowLeft } from 'lucide-react';
+import { Loader2, CreditCard, ShoppingBag, Calendar, ArrowLeft, ShieldCheck } from 'lucide-react';
 import authService from '../../services/authService';
 import orderService from '../../services/orderService';
+import { useToast } from '../../contexts/ToastContext';
+import StepProgress from '../../components/ui/StepProgress';
 
 const CheckoutPage = () => {
   const { orderNumber } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const [order, setOrder] = useState(null);
   const [directCheckout, setDirectCheckout] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +21,8 @@ const CheckoutPage = () => {
   // 這個函數將在組件卸載時被清理
   if (process.env.NODE_ENV === 'development') {
     window.simulatePayment = () => {
-      navigate(`/payment/ecpay?orderNumber=${orderNumber}&amount=${order?.totalAmount || directCheckout?.totalAmount || 1000}`);
+      // 使用新的分步模式支付流程
+      navigate(`/payment/steps/order?orderNumber=${orderNumber}&amount=${order?.totalAmount || directCheckout?.totalAmount || 1000}`);
     };
   }
 
@@ -35,6 +39,30 @@ const CheckoutPage = () => {
           try {
             const orderData = await orderService.getOrderByNumber(orderNumber);
             console.log('Order data fetched successfully:', orderData);
+            
+            // 顯示訂單加載成功的通知
+            toast.showSuccess('訂單已就緒', `訂單 #${orderNumber} 已成功加載，請確認資訊後進行付款`);
+            
+            // 驗證訂單總價是否正確
+            if (orderData && orderData.items) {
+              // 使用購物車服務中的相同計算方法重新計算總價
+              const cartService = await import('../../services/cartService');
+              const calculatedTotal = cartService.default.calculateTotal(orderData.items);
+              
+              // 比較計算出的總價與API回傳的總價
+              if (Math.abs(calculatedTotal - orderData.totalAmount) > 1) { // 允許 1 元誤差
+                console.warn(
+                  '訂單總價不一致，重新計算:', 
+                  calculatedTotal, 
+                  '但從API返回:', 
+                  orderData.totalAmount
+                );
+                
+                // 使用前端計算的總價(注意，在實際環境中可能需要將差異報告給後端)
+                orderData.calculatedTotal = calculatedTotal;
+              }
+            }
+            
             setOrder(orderData);
             setDirectCheckout(null);
           } catch (err) {
@@ -47,12 +75,15 @@ const CheckoutPage = () => {
           const checkoutInfoStr = sessionStorage.getItem('checkoutInfo');
           
           if (checkoutInfoStr) {
-            try {
-              const checkoutInfo = JSON.parse(checkoutInfoStr);
-              console.log('Direct checkout info found:', checkoutInfo);
-              setDirectCheckout(checkoutInfo);
-              setOrder(null);
-            } catch (err) {
+          try {
+          const checkoutInfo = JSON.parse(checkoutInfoStr);
+          console.log('Direct checkout info found:', checkoutInfo);
+          setDirectCheckout(checkoutInfo);
+          setOrder(null);
+            
+            // 顯示購票資訊已就緒的通知
+            toast.showInfo('準備完成', '購票資訊已就緒，請確認後進行付款');
+          } catch (err) {
               console.error('Error parsing checkout info:', err);
               setError('購票資訊無效，請返回重新選擇');
             }
@@ -107,6 +138,7 @@ const CheckoutPage = () => {
       }
       
       setPaymentLoading(true);
+      toast.showInfo('準備付款', '正在將您導向付款頁面...');
       
       // 如果是直接購票，需要先在後端創建一個訂單
       if (directCheckout) {
@@ -143,9 +175,9 @@ const CheckoutPage = () => {
           setTimeout(() => {
             // 在開發環境中使用模擬支付
             if (process.env.NODE_ENV === 'development') {
-              navigate(`/payment/ecpay?orderNumber=${realOrderNumber}&amount=${createdOrder.totalAmount}`);
-              setPaymentLoading(false);
-              return;
+            navigate(`/payment/steps/order?orderNumber=${realOrderNumber}&amount=${createdOrder.totalAmount}`);
+            setPaymentLoading(false);
+            return;
             }
             
             // 正式環境則重定向到真實支付頁面
@@ -188,8 +220,8 @@ const CheckoutPage = () => {
             if (typeof window.simulatePayment === 'function') {
               window.simulatePayment();
             } else {
-              // 如果函數不存在，就直接跳轉
-              navigate(`/payment/ecpay?orderNumber=${orderNumber}&amount=${order?.totalAmount || 1000}`);
+              // 如果函數不存在，就直接跳轉到分步支付頁面
+              navigate(`/payment/steps/order?orderNumber=${orderNumber}&amount=${order?.totalAmount || 1000}`);
             }
             setPaymentLoading(false);
           }, 1000);
@@ -221,13 +253,24 @@ const CheckoutPage = () => {
 
   // 渲染結帳頁面
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-3xl mx-auto">
+    <div className="container mx-auto px-4 py-6 bg-gray-50">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-indigo-600 mb-2">訂單確認與付款</h1>
+          <div className="text-gray-600 text-sm">確認以下訂單資訊並進行付款</div>
+        </div>
+        
+        {/* 購票流程步驟指引 */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">結帳</h1>
-          <div className="flex items-center text-sm text-gray-500">
-            <span>確認訂單詳情並進行付款</span>
-          </div>
+          <StepProgress
+            steps={[
+              { label: '選擇票券' },
+              { label: '確認訂單' },
+              { label: '付款' },
+              { label: '完成' }
+            ]}
+            currentStep={1}
+          />
         </div>
 
         {loading ? (
@@ -248,50 +291,86 @@ const CheckoutPage = () => {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-              <div className="bg-gray-50 p-4 border-b">
-                <h2 className="text-lg font-medium flex items-center">
-                  <ShoppingBag size={20} className="mr-2 text-indigo-600" />
-                  訂單詳情
+            {/* 測試模式通知 */}
+            <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 mb-6">
+              <div className="flex items-center text-yellow-800 text-sm">
+                <ShieldCheck size={16} className="mr-2" />
+                <div>測試環境：付款將使用模擬方式處理</div>
+              </div>
+            </div>
+            
+            {/* 卡片 - 訂單資訊 */}
+            <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
+              <div className="bg-indigo-600 p-3 border-b">
+                <h2 className="text-md font-medium text-white flex items-center">
+                  <ShoppingBag size={18} className="mr-2" />
+                  訂單資訊
                 </h2>
               </div>
               
-              <div className="p-6">
+              <div className="p-4">
                 {directCheckout ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between pb-4 border-b">
+                  <div className="space-y-3">
+                    <div className="flex justify-between pb-3 border-b border-gray-100">
                       <div>
-                        <h3 className="font-medium text-lg">{directCheckout.concertTitle}</h3>
-                        <p className="text-gray-600">{directCheckout.ticketType}</p>
+                        <h3 className="font-medium">{directCheckout.concertTitle}</h3>
+                        <p className="text-gray-600 text-sm">{directCheckout.ticketType}</p>
+                        {/* 添加時間和地點信息 */}
+                        <p className="text-gray-600 text-sm flex items-center mt-1">
+                          <Calendar size={14} className="mr-1" />
+                          {directCheckout.performanceTime || '時間未指定'}
+                        </p>
+                        <p className="text-gray-600 text-sm flex items-center mt-1">
+                          <Calendar size={14} className="mr-1" />
+                          {directCheckout.venue || '數位音樂廳'}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p className="font-medium">{directCheckout.quantity} 張</p>
-                        <p className="text-gray-600">NT$ {directCheckout.ticketPrice} /張</p>
+                        <p className="text-gray-600 text-sm">NT$ {directCheckout.ticketPrice} /張</p>
                       </div>
                     </div>
-                    <div className="flex justify-between text-lg font-semibold">
-                      <span>總計金額</span>
-                      <span>NT$ {directCheckout.totalAmount}</span>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-medium">總計金額</span>
+                      <span className="text-xl font-bold text-indigo-600">NT$ {directCheckout.totalAmount}</span>
                     </div>
                   </div>
                 ) : order ? (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {order.items && order.items.map((item, index) => (
-                      <div key={index} className="flex justify-between pb-4 border-b">
+                      <div key={index} className="flex justify-between pb-3 border-b border-gray-100">
                         <div>
                           <h3 className="font-medium">{item.concertTitle}</h3>
-                          <p className="text-gray-600">{item.description || '標準票'}</p>
+                          <p className="text-gray-600 text-sm">{item.description || '標準票'}</p>
+                          {/* 添加演出詳情 */}
+                          {item.performanceTime && (
+                            <p className="text-gray-600 text-sm flex items-center mt-1">
+                              <Calendar size={14} className="mr-1" />
+                              {item.performanceTime}
+                            </p>
+                          )}
+                          {item.venue && (
+                            <p className="text-gray-600 text-sm flex items-center mt-1">
+                              <Calendar size={14} className="mr-1" />
+                              {item.venue}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="font-medium">{item.quantity} 張</p>
-                          <p className="text-gray-600">NT$ {item.unitPrice} /張</p>
+                          <p className="text-gray-600 text-sm">NT$ {item.unitPrice} /張</p>
                         </div>
                       </div>
                     ))}
-                    <div className="flex justify-between text-lg font-semibold">
-                      <span>總計金額</span>
-                      <span>NT$ {order.totalAmount}</span>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="font-medium">總計金額</span>
+                      <span className="text-xl font-bold text-indigo-600">NT$ {order.calculatedTotal || order.totalAmount}</span>
                     </div>
+                    {order.calculatedTotal && order.calculatedTotal !== order.totalAmount && (
+                      <div className="mt-1 text-xs text-amber-600">
+                        <p>已使用正確的計算金額</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-gray-600">沒有可用的訂單資訊</p>
@@ -299,60 +378,73 @@ const CheckoutPage = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
-              <div className="bg-gray-50 p-4 border-b">
-                <h2 className="text-lg font-medium flex items-center">
-                  <CreditCard size={20} className="mr-2 text-indigo-600" />
+            {/* 卡片 - 付款方式 */}
+            <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+              <div className="bg-indigo-600 p-3 border-b">
+                <h2 className="text-md font-medium text-white flex items-center">
+                  <CreditCard size={18} className="mr-2" />
                   付款方式
                 </h2>
               </div>
               
-              <div className="p-6">
-                <div className="flex items-center border rounded-lg p-3 bg-indigo-50 border-indigo-200">
+              <div className="p-4">
+                <div className="flex items-center border rounded p-3 mb-4 bg-gray-50">
                   <input
                     type="radio"
                     id="credit-card"
                     name="payment-method"
-                    className="mr-3"
+                    className="mr-3 text-indigo-600"
                     checked
                     readOnly
                   />
-                  <label htmlFor="credit-card" className="flex items-center">
-                    <span className="font-medium">信用卡付款</span>
-                    <span className="ml-2 text-gray-600 text-sm">(透過綠界金流)</span>
+                  <label htmlFor="credit-card" className="flex items-center justify-between w-full">
+                    <div>
+                      <span className="font-medium">信用卡付款</span>
+                    </div>
+                    <div className="flex space-x-1">
+                      <div className="w-8 h-5 bg-blue-600 rounded text-white flex items-center justify-center text-xs font-bold">VISA</div>
+                      <div className="w-8 h-5 bg-red-500 rounded text-white flex items-center justify-center text-xs font-bold">MC</div>
+                      <div className="w-8 h-5 bg-gray-700 rounded text-white flex items-center justify-center text-xs font-bold">JCB</div>
+                    </div>
                   </label>
                 </div>
                 
-                <p className="mt-4 text-sm text-gray-600">
-                  點擊「確認付款」後，系統將引導您至綠界金流進行安全支付。
-                </p>
+                <div className="bg-indigo-50 rounded p-3 border border-indigo-100 text-xs text-indigo-700">
+                  <p>點擊「確認付款」後，系統將導引您至綠界金流進行安全支付。所有支付信息均使用SSL加密傳輸。</p>
+                </div>
               </div>
             </div>
             
-            <div className="flex justify-between">
+            {/* 按鈕區 */}
+            <div className="flex justify-between items-center mb-8">
               <button
                 onClick={() => navigate(-1)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-6 rounded-lg flex items-center"
+                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 py-2 px-4 rounded-lg flex items-center text-sm transition-colors"
               >
-                <ArrowLeft size={18} className="mr-1" />
+                <ArrowLeft size={16} className="mr-1" />
                 返回
               </button>
               <button
                 onClick={handlePayment}
                 disabled={paymentLoading || (!order && !directCheckout)}
-                className={`flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-8 rounded-lg ${
+                className={`bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-8 rounded-lg font-medium shadow-md hover:shadow-lg transition-all ${
                   paymentLoading || (!order && !directCheckout) ? 'opacity-70 cursor-not-allowed' : ''
                 }`}
               >
                 {paymentLoading ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin mr-2" />
+                  <span className="flex items-center">
+                    <Loader2 size={18} className="animate-spin mr-2" />
                     處理中...
-                  </>
+                  </span>
                 ) : (
                   '確認付款'
                 )}
               </button>
+            </div>
+            
+            {/* 安全提示 */}
+            <div className="text-center text-xs text-gray-500">
+              <p>© 2025 Digital Concert Hall - 安全支付由 ECPay 綠界金流提供</p>
             </div>
           </>
         )}

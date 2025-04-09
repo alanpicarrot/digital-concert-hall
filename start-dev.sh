@@ -25,13 +25,30 @@ for dir in "backend" "frontend-client" "frontend-admin"; do
 # 啟動後端
 echo "啟動後端服務..."
 cd backend
-mvn spring-boot:run &
+
+# 清除 target 目錄以確保乾淨的編譯
+echo "清除先前編譯的目標文件..."
+mvn clean
+
+echo "啟動 Spring Boot 應用程式..."
+mvn spring-boot:run -Dspring-boot.run.profiles=dev > ../logs/backend.log 2>&1 &
 BACKEND_PID=$!
 cd ..
 
+# 設定日誌目錄
+mkdir -p logs
+
 # 等待後端啟動
 echo "等待後端服務啟動..."
-sleep 10
+sleep 15
+
+# 檢查後端是否成功啟動
+if ! kill -0 $BACKEND_PID > /dev/null 2>&1; then
+    echo "錯誤: 後端服務啟動失敗。請查看 logs/backend.log 文件以了解詳情。"
+    exit 1
+fi
+
+echo "後端服務啟動成功！"
 
 # 啟動前台
 echo "啟動用戶前台..."
@@ -49,10 +66,14 @@ PORT=3001 npm start &
 FRONTEND_ADMIN_PID=$!
 cd ..
 
-echo "所有服務已啟動:"
-echo "- 後端: http://localhost:8081"
+echo "
+=========================================="
+echo "  所有服務已啟動！  "
+echo "=========================================="
+echo "- 後端 API: http://localhost:8080"
 echo "- 用戶前台: http://localhost:3000"
 echo "- 管理員後台: http://localhost:3001"
+echo "注意: 請查看logs目錄下的日誌文件以了解詳細信息。"
 
 # 保存 PID 以便停止服務
 echo "$BACKEND_PID" > .backend.pid

@@ -59,9 +59,16 @@ public class DevWebSecurityConfig {
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
             
-        // 開發環境允許所有請求
+        // 開發環境設置特定路徑的權限
         http.authorizeHttpRequests(auth -> 
-                auth.anyRequest().permitAll()
+                auth
+                    .requestMatchers("/api/auth/**").permitAll()
+                    .requestMatchers("/auth/**").permitAll()
+                    .requestMatchers("/h2-console/**").permitAll()
+                    .requestMatchers("/public/**").permitAll()
+                    .requestMatchers("/api/debug/**").permitAll() // 開發環境的調試端點
+                    .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN") // 確保API需要具有ROLE_ADMIN權限
+                    .anyRequest().authenticated()
             );
         
         // For H2 Console

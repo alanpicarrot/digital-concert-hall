@@ -1,3 +1,4 @@
+import storageService from './storageService';
 import authService from './authService';
 import { validateApiPath } from '../utils/apiUtils';
 
@@ -9,13 +10,12 @@ const CART_STORAGE_KEY = 'digital_concert_hall_cart';
 
 // 獲取購物車數據
 const getCart = () => {
-  const cartData = localStorage.getItem(CART_STORAGE_KEY);
-  return cartData ? JSON.parse(cartData) : { items: [], total: 0 };
+  return storageService.cart.getCart() || { items: [], total: 0 };
 };
 
 // 保存購物車數據並發出自定義事件
 const saveCart = (cart) => {
-  localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  storageService.cart.saveCart(cart);
   
   // 發出自定義事件，通知購物車數據已更新
   const event = new CustomEvent('cartUpdated', { detail: cart });
@@ -89,14 +89,39 @@ const updateQuantity = (itemId, itemType, quantity) => {
 
 // 清空購物車
 const clearCart = () => {
+  storageService.cart.clearCart();
   return saveCart({ items: [], total: 0 });
 };
 
-// 計算總金額
+// 計算總金額 - 確保此方法被一致地使用並呈現正確的價格
 const calculateTotal = (items) => {
-  return items.reduce((total, item) => {
-    return total + (item.price * item.quantity);
+  console.log('計算購物車總額，項目數:', items.length);
+  
+  // 確保 items 是數組且非空
+  if (!Array.isArray(items) || items.length === 0) {
+    console.log('項目為空或不是有效數組');
+    return 0;
+  }
+  
+  // 確保每個項目的價格是有效的數字
+  const total = items.reduce((total, item) => {
+    const price = Number(item.price) || 0;
+    const quantity = Number(item.quantity) || 0;
+    const itemTotal = price * quantity;
+    
+    console.log(`項目: ${item.name}, 價格: ${price}, 數量: ${quantity}, 小計: ${itemTotal}`);
+    
+    // 確保我們不會因一個項目的價格或數量不正確而使總金額計算出錯
+    if (isNaN(itemTotal)) {
+      console.warn('購物車項目計算結果非數字:', item);
+      return total;
+    }
+    
+    return total + itemTotal;
   }, 0);
+  
+  console.log('購物車總金額:', total);
+  return total;
 };
 
 // 創建訂單 (連接到後端 API)
@@ -122,16 +147,25 @@ const checkout = async () => {
     
     // 準備訂單資料
     const orderData = {
-      items: cart.items.map(item => ({
-        id: item.id,
-        type: item.type,
-        quantity: item.quantity,
-        price: item.price,
-        name: item.name,
-        image: item.image,
-        date: item.date
-      }))
+      items: cart.items.map(item => {
+        // 嘗試提取數字部分ID (例如 "2-vip" -> "2")
+        // 如果ID是複合格式，取第一個破折號前的數字
+        const numericId = item.id.toString().split('-')[0];
+        console.log(`處理商品ID: ${item.id}, 轉換為數字ID: ${numericId}`);
+        
+        return {
+          id: numericId,
+          type: item.type,
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name,
+          image: item.image,
+          date: item.date
+        };
+      })
     };
+    
+    console.log('處理後的訂單數據:', orderData);
     
     // 創建訂單
     const path = validateApiPath('/api/orders');
@@ -159,7 +193,12 @@ const checkout = async () => {
         case 403:
           throw new Error('無權限訪問');
         case 500:
-          throw new Error('伺服器錯誤，請稍後再試');
+          // 提供更詳細的錯誤信息
+          const errorMsg = error.response.data && error.response.data.message 
+              ? error.response.data.message 
+              : '伺服器錯誤，請稍後再試';
+          console.error('伺服器錯誤詳情:', errorMsg);
+          throw new Error(errorMsg);
         default:
           throw new Error(`服務異常：${error.message}`);
       }

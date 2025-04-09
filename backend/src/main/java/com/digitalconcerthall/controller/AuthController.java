@@ -18,7 +18,7 @@ import com.digitalconcerthall.service.AuthService;
 
 import jakarta.validation.Valid;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"}, maxAge = 3600, allowCredentials = "true")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -26,21 +26,9 @@ public class AuthController {
     @Autowired
     private AuthService authService;
 
-    @PostMapping("/login")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
-        try {
-            // 打印接收到的登入請求信息
-            System.out.println("Received login request for: " + loginRequest.getUsername());
-            
-            // 如果前端傳來的是 usernameOrEmail 參數，比如在 Request Body 中
-            // 我們已經在 UserDetailsServiceImpl 中做了處理，可以使用電子郵件或用戶名登入
-            
-            JwtResponse jwtResponse = authService.authenticateUser(loginRequest);
-            return ResponseEntity.ok(jwtResponse);
-        } catch (Exception e) {
-            System.out.println("Authentication error in controller: " + e.getMessage());
-            return ResponseEntity.status(401).body(new MessageResponse("Authentication failed: " + e.getMessage()));
-        }
+    @PostMapping("/signin")
+    public ResponseEntity<JwtResponse> authenticateUser(@RequestBody LoginRequest loginRequest) {
+        return ResponseEntity.ok(authService.authenticate(loginRequest));
     }
 
     @PostMapping("/register")

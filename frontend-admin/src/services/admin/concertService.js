@@ -5,8 +5,13 @@ const axiosInstance = AuthService.axiosInstance;
 
 // 獲取所有音樂會
 const getAllConcerts = () => {
+  console.log('總計: 検索所有音樂會...');
   const path = validateApiPath('/api/admin/concerts');
-  return axiosInstance.get(path);
+  return axiosInstance.get(path)
+    .catch(error => {
+      console.error('獲取音樂會列表失敗:', error.response ? error.response.data : error.message);
+      throw error;
+    });
 };
 
 // 獲取單個音樂會
@@ -17,8 +22,16 @@ const getConcertById = (id) => {
 
 // 創建新音樂會
 const createConcert = (concertData) => {
+  console.log('創建新音樂會:', concertData);
   const path = validateApiPath('/api/admin/concerts');
-  return axiosInstance.post(path, concertData);
+  return axiosInstance.post(path, concertData)
+    .catch(error => {
+      console.error('創建音樂會失敗:', error.response ? error.response.data : error.message);
+      if (error.response && error.response.status === 403) {
+        console.error('權限被拒絕，請確認您有管理員權限');
+      }
+      throw error;
+    });
 };
 
 // 更新音樂會
