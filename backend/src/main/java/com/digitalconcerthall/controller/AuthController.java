@@ -18,7 +18,7 @@ import com.digitalconcerthall.service.AuthService;
 
 import jakarta.validation.Valid;
 
-@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001" }, maxAge = 3600, allowCredentials = "true")
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600, allowCredentials = "true")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {

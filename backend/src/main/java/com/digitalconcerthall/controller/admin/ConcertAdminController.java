@@ -56,9 +56,25 @@ public class ConcertAdminController {
             concert.setCreatedAt(LocalDateTime.now());
             concert.setUpdatedAt(LocalDateTime.now());
             
+            // 設置開始和結束時間，如果請求中沒有提供，則使用默認值
+            if (concertRequest.getStartDateTime() != null) {
+                concert.setStartDateTime(concertRequest.getStartDateTime());
+            } else {
+                // 默認為当前時間
+                concert.setStartDateTime(LocalDateTime.now());
+            }
+            
+            if (concertRequest.getEndDateTime() != null) {
+                concert.setEndDateTime(concertRequest.getEndDateTime());
+            } else {
+                // 默認為開始時間後兩小時
+                concert.setEndDateTime(concert.getStartDateTime().plusHours(2));
+            }
+            
             Concert savedConcert = concertRepository.save(concert);
             return ResponseEntity.ok(savedConcert);
         } catch (Exception e) {
+            e.printStackTrace(); // 增加詳細的堆疊跟蹤
             return ResponseEntity.badRequest().body(new ApiResponse(false, "創建音樂會失敗: " + e.getMessage()));
         }
     }
@@ -79,11 +95,22 @@ public class ConcertAdminController {
             existingConcert.setPosterUrl(concertRequest.getPosterUrl());
             existingConcert.setBrochureUrl(concertRequest.getBrochureUrl());
             existingConcert.setStatus(concertRequest.getStatus());
+            
+            // 更新開始和結束時間
+            if (concertRequest.getStartDateTime() != null) {
+                existingConcert.setStartDateTime(concertRequest.getStartDateTime());
+            }
+            
+            if (concertRequest.getEndDateTime() != null) {
+                existingConcert.setEndDateTime(concertRequest.getEndDateTime());
+            }
+            
             existingConcert.setUpdatedAt(LocalDateTime.now());
             
             Concert updatedConcert = concertRepository.save(existingConcert);
             return ResponseEntity.ok(updatedConcert);
         } catch (Exception e) {
+            e.printStackTrace(); // 增加詳細的堆疊跟蹤
             return ResponseEntity.badRequest().body(new ApiResponse(false, "更新音樂會失敗: " + e.getMessage()));
         }
     }

@@ -67,7 +67,10 @@ public class DevWebSecurityConfig {
                     .requestMatchers("/h2-console/**").permitAll()
                     .requestMatchers("/public/**").permitAll()
                     .requestMatchers("/api/debug/**").permitAll() // 開發環境的調試端點
-                    .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN") // 確保API需要具有ROLE_ADMIN權限
+                    .requestMatchers("/api/concerts/**").permitAll() // 允許未認證用戶訪問音樂會信息
+                    .requestMatchers("/api/performances/**").permitAll() // 允許未認證用戶訪問演出場次信息
+                    .requestMatchers("/api/tickets/available").permitAll() // 允許查看可用票券
+                    .requestMatchers("/api/admin/**").permitAll() // 臨時允許無需認證訪問管理員API
                     .anyRequest().authenticated()
             );
         

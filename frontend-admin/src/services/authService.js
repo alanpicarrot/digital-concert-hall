@@ -3,8 +3,8 @@ import { validateApiPath } from '../utils/apiUtils';
 
 // 建立 axios 實例
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
-// 從 API_URL 中移除了 /api 前綴以修復路徑問題
-const API_BASE = API_URL; 
+// 確保API_BASE是正確的基本URL
+const API_BASE = API_URL.endsWith('/') ? API_URL : API_URL + '/'; 
 
 // 打印環境變量和 API URL
 console.log('Environment variables:', {
@@ -101,10 +101,11 @@ axiosInstance.interceptors.response.use(
 const login = async (usernameOrEmail, password) => {
   console.log('Sending admin login request with:', { usernameOrEmail, password: '[REDACTED]' });
   
-  // 確保使用正確的 API 前綴
-  const endpoint = validateApiPath('/api/auth/login');
-  
+  // 嘗試所有可能的登入路徑
+  // 首先嘗試使用正確的 signin 路徑（從後端代码中發現的）
+  let endpoint = '/api/auth/signin';
   try {
+  
     // 嘗試使用作為用戶名登入
     const response = await axiosInstance.post(endpoint, {
       username: usernameOrEmail, // 將 email/username 作為 username 傳送
@@ -129,8 +130,55 @@ const login = async (usernameOrEmail, password) => {
       throw new Error('登入失敗，請檢查您的帳戶是否有管理員權限');
     }
   } catch (error) {
-    console.error('登入失敗:', error.response?.data || error.message);
-    throw error;
+    console.error('標準API路徑登入失敗，嘗試備用路徑:', error.message);
+    
+    // 嘗試備用路徑1: 直接使用/auth/signin
+    try {
+      const response = await axiosRootInstance.post('/auth/signin', {
+        username: usernameOrEmail,
+        password,
+      });
+      
+      if (response.data && response.data.accessToken) {
+        // 處理成功的登入邏輯
+        const hasAdminRole = response.data.roles && response.data.roles.includes('ROLE_ADMIN');
+        if (!hasAdminRole) {
+          throw new Error('此帳戶沒有管理員權限，請使用管理員帳戶登入');
+        }
+        
+        localStorage.setItem('adminToken', response.data.accessToken);
+        localStorage.setItem('adminUser', JSON.stringify(response.data));
+        return response.data;
+      }
+    } catch (backupError) {
+      console.error('備用路徑1失敗，嘗試最後路徑:', backupError.message);
+      
+      // 嘗試最後備用路徑2: 使用直接路徑
+      try {
+        const response = await axios.post(`${API_URL}/signin`, {
+          username: usernameOrEmail,
+          password,
+        });
+        
+        if (response.data && response.data.accessToken) {
+          // 處理成功的登入邏輯
+          const hasAdminRole = response.data.roles && response.data.roles.includes('ROLE_ADMIN');
+          if (!hasAdminRole) {
+            throw new Error('此帳戶沒有管理員權限，請使用管理員帳戶登入');
+          }
+          
+          localStorage.setItem('adminToken', response.data.accessToken);
+          localStorage.setItem('adminUser', JSON.stringify(response.data));
+          return response.data;
+        }
+      } catch (finalError) {
+        console.error('所有登入路徑均失敗:', finalError.message);
+        throw new Error('登入失敗: 所有嘗試路徑均失敗，請確認服務器是否正常運行');
+      }
+    }
+    
+    // 如果所有嘗試都失敗但沒有明確錯誤
+    throw new Error('登入失敗: 無法連接到認證服務');
   }
 };
 

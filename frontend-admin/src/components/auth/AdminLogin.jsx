@@ -17,6 +17,10 @@ const AdminLogin = () => {
   useEffect(() => {
     const initSystem = async () => {
       try {
+        // 從環境變量獲取API URL
+        const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+        console.log('使用API URL:', API_URL);
+        
         // 使用 axios 實例以確保正確的路徑
         let response = null;
         let success = false;
@@ -29,12 +33,12 @@ const AdminLogin = () => {
           console.log('使用 axiosInstance 失敗，嘗試其他路徑...');
           // 如果失敗，嘗試直接訪問 /setup/admin-init
           try {
-            response = await axios.get("http://localhost:8081/setup/admin-init");
+            response = await axios.get("http://localhost:8080/setup/admin-init");
             success = true;
           } catch (error) {
             console.log('無法訪問 /setup/admin-init，最後嘗試 /api/setup/init');
             try {
-              response = await axios.get("http://localhost:8081/api/setup/init");
+              response = await axios.get("http://localhost:8080/api/setup/init");
               success = true;
             } catch (finalError) {
               console.error('所有初始化路徑均失敗');
@@ -48,7 +52,7 @@ const AdminLogin = () => {
           // 嘗試簡單的測試端點
           try {
             // 使用絕對路徑訪問測試端點
-            const pingResponse = await axios.get("http://localhost:8081/api/test/ping");
+            const pingResponse = await axios.get("http://localhost:8080/api/test/ping");
             console.log('測試響應:', pingResponse.data);
           } catch (e) {
             console.error('測試響應失敗:', e.message);
@@ -71,13 +75,13 @@ const AdminLogin = () => {
       
       try {
         // 先嘗試 /api/direct/create-test-user
-        response = await axios.get("http://localhost:8081/api/direct/create-test-user");
+        response = await axios.get("http://localhost:8080/api/direct/create-test-user");
         success = true;
       } catch (error) {
         console.log('使用 /api/direct/create-test-user 失敗，嘗試其他路徑...');
         try {
           // 再嘗試 /direct/create-test-user
-          response = await axios.get("http://localhost:8081/direct/create-test-user");
+          response = await axios.get("http://localhost:8080/direct/create-test-user");
           success = true;
         } catch (finalError) {
           console.error('所有創建測試用戶路徑均失敗');
@@ -103,13 +107,13 @@ const AdminLogin = () => {
       
       try {
         // 先嘗試 /api/direct/create-user
-        response = await axios.get(`http://localhost:8081/api/direct/create-user/${username}/${password}`);
+        response = await axios.get(`http://localhost:8080/api/direct/create-user/${username}/${password}`);
         success = true;
       } catch (error) {
         console.log('使用 /api/direct/create-user 失敗，嘗試其他路徑...');
         try {
           // 再嘗試 /direct/create-user
-          response = await axios.get(`http://localhost:8081/direct/create-user/${username}/${password}`);
+          response = await axios.get(`http://localhost:8080/direct/create-user/${username}/${password}`);
           success = true;
         } catch (finalError) {
           console.error(`所有創建用戶 ${username} 路徑均失敗`);
