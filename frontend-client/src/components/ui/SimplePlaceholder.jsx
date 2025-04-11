@@ -1,76 +1,23 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import React from "react";
 
 /**
  * SimplePlaceholder 是一個輕量級的佔位圖元件，用於替代外部佔位圖請求
  * 使用內置的 SVG 渲染，無需外部圖片資源
  */
-const SimplePlaceholder = ({ width, height, text, className }) => {
-  // 將文字長度限制在合理範圍內
-  const displayText = text ? 
-    (text.length > 20 ? text.substring(0, 20) + '...' : text) : 
-    'Placeholder';
-  
-  // 自動計算適當的字體大小，確保結果為數字
-  const calculatedWidth = typeof width === 'number' ? width : 400;
-  const fontSize = Math.min(
-    16, // 最大字體大小
-    Math.max(10, // 最小字體大小
-      Math.floor((calculatedWidth / displayText.length) * 0.8) // 根據文字長度和容器寬度計算
-    )
-  ).toString(); // 轉換為字符串以避免React警告
-
+const SimplePlaceholder = ({
+  width = "100%",
+  height = "100%",
+  text = "",
+  className = "",
+}) => {
   return (
-    <svg
-      width={width || "100%"}
-      height={height || 200}
-      viewBox={`0 0 ${typeof width === 'number' ? width : 400} ${typeof height === 'number' ? height : 300}`}
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
+    <div
+      className={`flex items-center justify-center bg-gray-200 ${className}`}
+      style={{ width, height }}
     >
-      {/* 背景填充 */}
-      <rect width="100%" height="100%" fill="#E2E8F0" />
-      
-      {/* 邊框 */}
-      <rect 
-        width="calc(100% - 2px)" 
-        height="calc(100% - 2px)" 
-        x="1" 
-        y="1" 
-        fill="none" 
-        stroke="#CBD5E0" 
-        strokeWidth="2" 
-      />
-      
-      {/* 顯示文字 */}
-      <text
-        x="50%"
-        y="50%"
-        fontFamily="sans-serif"
-        fontSize={fontSize}
-        fontWeight="bold"
-        fill="#4A5568"
-        textAnchor="middle"
-        dominantBaseline="middle"
-      >
-        {displayText}
-      </text>
-    </svg>
+      <span className="text-gray-500">{text}</span>
+    </div>
   );
-};
-
-SimplePlaceholder.propTypes = {
-  width: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  height: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  text: PropTypes.string,
-  className: PropTypes.string
-};
-
-SimplePlaceholder.defaultProps = {
-  width: "100%",
-  height: 200,
-  text: "Placeholder",
-  className: ""
 };
 
 export default SimplePlaceholder;

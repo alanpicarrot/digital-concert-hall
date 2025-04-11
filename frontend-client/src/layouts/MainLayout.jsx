@@ -14,15 +14,37 @@ const MainLayout = () => {
   // 載入購物車數據並監聽更新
   useEffect(() => {
     // 初始載入購物車數量
-    const cart = cartService.getCart();
-    const itemCount = cart.items.reduce((total, item) => total + item.quantity, 0);
-    setCartItemsCount(itemCount);
+    try {
+      const cart = cartService.getCart();
+      // 確保 cart 和 cart.items 有效
+      if (cart && cart.items && Array.isArray(cart.items)) {
+        const itemCount = cart.items.reduce((total, item) => total + item.quantity, 0);
+        setCartItemsCount(itemCount);
+      } else {
+        console.log('購物車數據無效，設置為0');
+        setCartItemsCount(0);
+      }
+    } catch (error) {
+      console.error('獲取購物車數據錯誤:', error);
+      setCartItemsCount(0);
+    }
     
     // 監聽購物車變化
     const handleCartChange = () => {
-      const updatedCart = cartService.getCart();
-      const updatedCount = updatedCart.items.reduce((total, item) => total + item.quantity, 0);
-      setCartItemsCount(updatedCount);
+      try {
+        const updatedCart = cartService.getCart();
+        // 確保 updatedCart 和 updatedCart.items 有效
+        if (updatedCart && updatedCart.items && Array.isArray(updatedCart.items)) {
+          const updatedCount = updatedCart.items.reduce((total, item) => total + item.quantity, 0);
+          setCartItemsCount(updatedCount);
+        } else {
+          console.log('更新後的購物車數據無效，設置為0');
+          setCartItemsCount(0);
+        }
+      } catch (error) {
+        console.error('更新購物車數據錯誤:', error);
+        setCartItemsCount(0);
+      }
     };
     
     // 監聽自定義的購物車更新事件 (用於當前頁面的變化)
@@ -201,8 +223,8 @@ const MainLayout = () => {
               <>
                 {console.log('顯示登入按鈕')}
                 <div className="flex items-center space-x-4">
-                  <Link to="/auth/login" className="text-white hover:text-indigo-300 text-sm font-medium">登入</Link>
-                  <Link to="/auth/register" className="bg-indigo-600 text-white px-4 py-1.5 rounded hover:bg-indigo-500 text-sm font-medium">註冊</Link>
+                  <Link to="/login" className="text-white hover:text-indigo-300 text-sm font-medium">登入</Link>
+                  <Link to="/register" className="bg-indigo-600 text-white px-4 py-1.5 rounded hover:bg-indigo-500 text-sm font-medium">註冊</Link>
                 </div>
               </>
             )}

@@ -55,7 +55,7 @@ const RegisterAdminPage = () => {
     
     setIsSubmitting(true);
     setMessage('');
-    setDebugInfo('');
+    setDebugInfo('開始創建管理員帳號流程...');
     
     // 確保所有必要欄位都有值
     if (!username || !email || !password) {
@@ -80,21 +80,14 @@ const RegisterAdminPage = () => {
         role: ['admin']  // 確保包含了角色信息
       };
       
-      setDebugInfo('開始嘗試創建管理員帳號...');
+      setDebugInfo(prev => `${prev}\n準備發送資料: ${JSON.stringify({...adminData, password: '[REDACTED]'})}`);
+      
+      setDebugInfo(prev => `${prev}\n將主要嘗試 /api/auth/register-admin 端點`);
       
       // 使用 AdminUserService 創建管理員帳號
       const response = await AdminUserService.createAdmin(adminData);
       
       setDebugInfo(prev => `${prev}\n創建結果: ${JSON.stringify(response.data)}`);
-      
-      // 如果返回訊息包含預設用戶信息
-      if (response.data.message && response.data.message.includes('預設用戶')) {
-        setMessage(response.data.message);
-        setTimeout(() => {
-          navigate('/auth/login');
-        }, 3000);
-        return;
-      }
       
       // 註冊成功後導航到登入頁面
       setMessage('管理員帳號創建成功！正在跳轉到登入頁面...');
@@ -108,7 +101,7 @@ const RegisterAdminPage = () => {
       // 顯示詳細錯誤信息
       if (error.response) {
         const { status, data } = error.response;
-        setDebugInfo(prev => `${prev}\n狀態碼: ${status}\n數據: ${JSON.stringify(data)}`);
+        setDebugInfo(prev => `${prev}\n狀態碼: ${status}\n數據: ${JSON.stringify(data, null, 2)}`);
         
         // 處理驗證錯誤
         if (data && data.errors) {
@@ -132,12 +125,7 @@ const RegisterAdminPage = () => {
     }
   };
 
-  const useTestUser = () => {
-    setMessage('將使用預設用戶登入: testuser/password123');
-    setTimeout(() => {
-      navigate('/auth/login');
-    }, 2000);
-  };
+
 
   return (
     <div className="flex justify-center">
@@ -148,7 +136,7 @@ const RegisterAdminPage = () => {
         </p>
         
         {message && (
-          <div className={`mb-6 rounded-md p-3 ${message.includes('成功') || message.includes('預設') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+          <div className={`mb-6 rounded-md p-3 ${message.includes('成功') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             {message}
           </div>
         )}
@@ -159,6 +147,15 @@ const RegisterAdminPage = () => {
             <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{debugInfo}</pre>
           </div>
         )}
+        
+        {/* 指導訊息，說明如果上面的註冊方式不可用可以嘗試的備用方法 */}
+        <div className="mb-6 rounded-md p-3 bg-blue-50 text-blue-800 text-sm">
+          <p>如果註冊失敗，請確保已啟動後端服務器。您也可以嘗試使用預設的管理員帳號登入：</p>
+          <ul className="list-disc pl-5 mt-2">
+            <li><strong>用戶名：</strong> admin</li>
+            <li><strong>密碼：</strong> password123</li>
+          </ul>
+        </div>
         
         <form onSubmit={onSubmit}>
           <div className="mb-6">
@@ -282,14 +279,6 @@ const RegisterAdminPage = () => {
           </button>
           
           <div className="mt-4 flex flex-col space-y-2">
-            <button 
-              type="button"
-              onClick={useTestUser}
-              className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              使用預設用戶 (testuser/password123)
-            </button>
-            
             <Link 
               to="/auth/login" 
               className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"

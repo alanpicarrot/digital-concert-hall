@@ -20,7 +20,7 @@ const PrivateRoute = ({ children }) => {
 
   // 如果用戶未登入，重定向到登入頁面，並保存原始頁面位置
   if (!isAuthenticated) {
-    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // 如果用戶已登入，渲染子路由

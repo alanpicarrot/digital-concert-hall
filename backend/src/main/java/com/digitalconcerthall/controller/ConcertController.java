@@ -33,6 +33,42 @@ public class ConcertController {
 	public ResponseEntity<String> ping() {
 		return ResponseEntity.ok("Concerts API is working");
 	}
+	
+	// 用於確保會有資料的檢查與修復端點
+	@GetMapping("/check-and-seed")
+	public ResponseEntity<ApiResponse> checkAndSeedData() {
+		try {
+			// 查詢音樂會資料
+			List<Concert> existingConcerts = concertRepository.findByStatus("active");
+			
+			// 若無音樂會資料，則創建測試數據
+			if (existingConcerts.isEmpty()) {
+				createTestData();
+				createSpringConcert();
+				return ResponseEntity.ok(new ApiResponse(true, "數據已檢查並自動創建：無音樂會資料，已創建測試數據"));
+			}
+			
+			// 查詢春季音樂會
+			boolean hasSpringConcert = false;
+			for (Concert concert : existingConcerts) {
+				if (concert.getTitle().contains("春季交響音樂會")) {
+					hasSpringConcert = true;
+					break;
+				}
+			}
+			
+			// 若無春季音樂會，則創建
+			if (!hasSpringConcert) {
+				createSpringConcert();
+				return ResponseEntity.ok(new ApiResponse(true, "數據已檢查並自動創建：創建春季交響音樂會"));
+			}
+			
+			return ResponseEntity.ok(new ApiResponse(true, "數據已檢查：所有必要的資料都存在"));
+			
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body(new ApiResponse(false, "數據檢查失敗: " + e.getMessage()));
+		}
+	}
 
 	// 測試數據創建（開發階段）
 	@GetMapping("/test-data")
@@ -59,10 +95,45 @@ public class ConcertController {
 			performance.setStatus("scheduled");
 
 			performanceRepository.save(performance);
+			
+			// 創建春季交響音樂會
+			createSpringConcert();
 
 			return ResponseEntity.ok(new ApiResponse(true, "測試數據創建成功"));
 		} catch (Exception e) {
 			return ResponseEntity.badRequest().body(new ApiResponse(false, "創建測試數據失敗: " + e.getMessage()));
+		}
+	}
+	
+	// 創建春季交響音樂會數據
+	@GetMapping("/create-spring-concert")
+	public ResponseEntity<ApiResponse> createSpringConcert() {
+		try {
+			// 創建春季交響音樂會
+			Concert concert = new Concert();
+			concert.setTitle("2025春季交響音樂會");
+			concert.setDescription("春季音樂盛宴，將為您帶來優美的音樂體驗。由著名指揮家帶領交響樂團，演奏經典曲目和當代作品。");
+			concert.setProgramDetails("貓與老鼠 - 幻想之舞\n柴可夫斯基 - 第五交響曲\n德布西 - 月光\n莫札特 - 小星星變奏曲");
+			concert.setPosterUrl("/api/concerts/posters/spring-concert.jpg");
+			concert.setStatus("active");
+			concert.setCreatedAt(LocalDateTime.now());
+			concert.setUpdatedAt(LocalDateTime.now());
+
+			Concert savedConcert = concertRepository.save(concert);
+
+			// 創建演出場次 - 使用固定的日期2025/5/15
+			Performance performance = new Performance();
+			performance.setConcert(savedConcert);
+			performance.setStartTime(LocalDateTime.of(2025, 5, 15, 19, 30, 0));
+			performance.setEndTime(LocalDateTime.of(2025, 5, 15, 21, 30, 0));
+			performance.setVenue("數位音樂廳主廳");
+			performance.setStatus("scheduled");
+
+			performanceRepository.save(performance);
+
+			return ResponseEntity.ok(new ApiResponse(true, "春季交響音樂會數據創建成功"));
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body(new ApiResponse(false, "創建春季交響音樂會數據失敗: " + e.getMessage()));
 		}
 	}
 

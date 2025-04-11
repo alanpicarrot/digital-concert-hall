@@ -229,18 +229,18 @@ const userPreferences = {
 const cartStorage = {
   /**
    * 保存購物車
-   * @param {Array} items - 購物車項目數組
+   * @param {Object} cart - 購物車對象
    */
-  saveCart: (items) => {
-    return localStorageService.set('cart', items);
+  saveCart: (cart) => {
+    return localStorageService.set('cart', cart);
   },
   
   /**
    * 獲取購物車
-   * @returns {Array} 購物車項目數組
+   * @returns {Object} 購物車對象 {items: [], total: 0}
    */
   getCart: () => {
-    return localStorageService.get('cart', { defaultValue: [] });
+    return localStorageService.get('cart', { defaultValue: {items: [], total: 0} });
   },
   
   /**

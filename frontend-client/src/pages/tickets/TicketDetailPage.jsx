@@ -149,7 +149,7 @@ const TicketDetailPage = () => {
         authService.logout();
       }
       
-      navigate('/auth/login?redirect=' + encodeURIComponent(`/tickets/${id}`));
+      navigate('/login?redirect=' + encodeURIComponent(`/tickets/${id}`));
       return;
     }
 
@@ -194,7 +194,7 @@ const TicketDetailPage = () => {
         authService.logout();
       }
       
-      navigate('/auth/login?redirect=' + encodeURIComponent(`/tickets/${id}`));
+      navigate('/login?redirect=' + encodeURIComponent(`/tickets/${id}`));
       return;
     }
 

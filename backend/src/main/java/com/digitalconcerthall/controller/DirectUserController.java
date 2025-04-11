@@ -6,6 +6,7 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +22,7 @@ import com.digitalconcerthall.repository.UserRepository;
  * 直接創建用戶的控制器，不需要認證
  * 這是一個緊急解決方案，用於創建測試帳號
  */
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001" }, maxAge = 3600, allowCredentials = "true")
 @RestController
 @RequestMapping("/direct")
 public class DirectUserController {

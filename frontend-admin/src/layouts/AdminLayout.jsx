@@ -1,12 +1,34 @@
-import React, { useState } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AuthService from '../services/authService';
 import { Menu, X, LogOut, Home, Music, Calendar, Ticket, UserCheck } from 'lucide-react';
 
 const AdminLayout = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // 每次渲染時檢查認證狀態
+  useEffect(() => {
+    // 延遲檢查，避免在路由切換過程中高頻率觸發
+    const timer = setTimeout(() => {
+      const checkAuth = () => {
+        if (!AuthService.isAdminAuthenticated()) {
+          console.log('管理面板檢測到無效登入狀態，重定向到登入頁面');
+          logout();
+          navigate('/auth/login');
+        } else {
+          console.log('管理員權限驗證通過');
+        }
+      };
+
+      checkAuth();
+    }, 300); // 300ms 延遲，避免頂端重定向
+
+    return () => clearTimeout(timer);
+  }, [logout, navigate, location.pathname]);
 
   const handleLogout = () => {
     logout();

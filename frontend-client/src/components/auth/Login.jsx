@@ -130,7 +130,7 @@ const Login = () => {
           <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">登入您的帳號</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             或{' '}
-            <Link to="/auth/register" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
               還沒有帳號？立即註冊
             </Link>
           </p>

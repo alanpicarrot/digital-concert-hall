@@ -127,44 +127,53 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public MessageResponse registerAdminUser(SignupRequest signUpRequest) {
-        // 檢查用戶名是否已存在
-        if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            return new MessageResponse("Error: Username is already taken!");
+        System.out.println("Processing admin registration request in AuthServiceImpl: " + signUpRequest);
+        
+        try {
+            // 檢查用戶名是否已存在
+            if (userRepository.existsByUsername(signUpRequest.getUsername())) {
+                return new MessageResponse("Error: Username is already taken!");
+            }
+    
+            // 檢查郵箱是否已存在
+            if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+                return new MessageResponse("Error: Email is already in use!");
+            }
+    
+            // 創建新用戶帳號
+            User user = new User(signUpRequest.getUsername(),
+                    signUpRequest.getEmail(),
+                    encoder.encode(signUpRequest.getPassword()));
+    
+            user.setFirstName(signUpRequest.getFirstName());
+            user.setLastName(signUpRequest.getLastName());
+    
+            // 確保角色存在
+            createRoleIfNotExists(ERole.ROLE_USER);
+            createRoleIfNotExists(ERole.ROLE_MODERATOR);
+            createRoleIfNotExists(ERole.ROLE_ADMIN);
+    
+            // 無論請求中的角色如何，都將其設置為管理員
+            Set<Role> roles = new HashSet<>();
+            Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                    .orElseThrow(() -> new RuntimeException("Error: Admin Role is not found."));
+            roles.add(adminRole);
+    
+            // 同時添加用戶角色
+            Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                    .orElseThrow(() -> new RuntimeException("Error: User Role is not found."));
+            roles.add(userRole);
+    
+            user.setRoles(roles);
+            System.out.println("Saving admin user with roles: " + roles);
+            userRepository.save(user);
+    
+            return new MessageResponse("Admin user registered successfully!");
+        } catch (Exception e) {
+            System.err.println("Error during admin user registration: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to register admin user: " + e.getMessage(), e);
         }
-
-        // 檢查郵箱是否已存在
-        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return new MessageResponse("Error: Email is already in use!");
-        }
-
-        // 創建新用戶帳號
-        User user = new User(signUpRequest.getUsername(),
-                signUpRequest.getEmail(),
-                encoder.encode(signUpRequest.getPassword()));
-
-        user.setFirstName(signUpRequest.getFirstName());
-        user.setLastName(signUpRequest.getLastName());
-
-        // 確保角色存在
-        createRoleIfNotExists(ERole.ROLE_USER);
-        createRoleIfNotExists(ERole.ROLE_MODERATOR);
-        createRoleIfNotExists(ERole.ROLE_ADMIN);
-
-        // 無論請求中的角色如何，都將其設置為管理員
-        Set<Role> roles = new HashSet<>();
-        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-                .orElseThrow(() -> new RuntimeException("Error: Admin Role is not found."));
-        roles.add(adminRole);
-
-        // 同時添加用戶角色
-        Role userRole = roleRepository.findByName(ERole.ROLE_USER)
-                .orElseThrow(() -> new RuntimeException("Error: User Role is not found."));
-        roles.add(userRole);
-
-        user.setRoles(roles);
-        userRepository.save(user);
-
-        return new MessageResponse("Admin user registered successfully!");
     }
 
     private void createRoleIfNotExists(ERole roleName) {
@@ -176,7 +185,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public MessageResponse logoutUser() {
+        // 清除當前的安全上下文
         SecurityContextHolder.clearContext();
+        
+        // 記錄登出記錄
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl) {
+            UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
+            System.out.println("User logged out: " + userDetails.getUsername());
+        } else {
+            System.out.println("Logout called with no valid authentication");
+        }
+        
         return new MessageResponse("Logout successful!");
     }
 

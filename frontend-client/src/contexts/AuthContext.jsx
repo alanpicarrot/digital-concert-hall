@@ -28,6 +28,18 @@ export const AuthProvider = ({ children }) => {
             const userData = JSON.parse(userStr);
             console.log('從 localStorage 讀取的用戶:', userData.username);
             
+            // 驗證令牌格式
+            const tokenParts = token.split('.');
+            if (tokenParts.length !== 3) {
+              console.error('令牌格式不正確');
+              localStorage.removeItem('token');
+              localStorage.removeItem('user');
+              setUser(null);
+              setIsAuthenticated(false);
+              setLoading(false);
+              return;
+            }
+            
             // 設置認證狀態
             setUser(userData);
             setIsAuthenticated(true);
@@ -36,21 +48,24 @@ export const AuthProvider = ({ children }) => {
           } catch (e) {
             console.error('解析用戶數據時出錯:', e);
             // 清除無效數據
-            AuthService.logout();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             setUser(null);
             setIsAuthenticated(false);
           }
         } else {
           console.log('沒有有效用戶或令牌');
           // 清除可能錯誤的存儲
-          AuthService.logout();
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('初始化認證狀態失敗', error);
         // 清除可能錯誤的存儲
-        AuthService.logout();
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setUser(null);
         setIsAuthenticated(false);
       } finally {
@@ -65,9 +80,33 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       setLoading(true);
+      // 先清除可能存在的舊登入資料
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setIsAuthenticated(false);
+      
       // 調用 AuthService 的登入方法
       const userData = await AuthService.login(username, password);
       console.log('登入成功，用戶數據:', userData.username);
+      
+      if (!userData || !userData.accessToken) {
+        console.error('登入返回的數據不完整，缺少令牌');
+        return { 
+          success: false, 
+          message: '登入失敗，伺服器回應不完整' 
+        };
+      }
+      
+      // 檢查令牌格式
+      const tokenParts = userData.accessToken.split('.');
+      if (tokenParts.length !== 3) {
+        console.error('收到不正確格式的令牌');
+        return { 
+          success: false, 
+          message: '登入失敗，認證令牌格式不正確' 
+        };
+      }
       
       // 更新狀態
       setUser(userData);
@@ -82,6 +121,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('登入失敗', error);
       // 確保重設狀態
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       setIsAuthenticated(false);
       setUser(null);
       return { 
@@ -113,9 +154,21 @@ export const AuthProvider = ({ children }) => {
 
   // 登出函數
   const logout = () => {
-    AuthService.logout();
+    // 先清除本地存儲
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // 再清除狀態
     setUser(null);
     setIsAuthenticated(false);
+    
+    // 嘗試發送登出請求到伺服器，但不受到伺服器回應的影響
+    try {
+      AuthService.logout();
+    } catch (error) {
+      console.error('發送登出請求失敗，已在本地登出', error);
+    }
+    
     console.log('用戶已登出，認證狀態已清除');
   };
 

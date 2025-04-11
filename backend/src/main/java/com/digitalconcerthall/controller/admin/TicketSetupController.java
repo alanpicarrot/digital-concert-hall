@@ -30,10 +30,11 @@ public class TicketSetupController {
             for (TicketType type : ticketTypes) {
                 // 檢查是否缺少創建日期
                 if (type.getCreatedAt() == null) {
-                    type.setCreatedAt(LocalDateTime.now());
+                    type.setCreatedAt(LocalDateTime.now()); // 確保方法存在
                     ticketTypeRepository.save(type);
                     count++;
-                    System.out.println("Updated ticket type ID: " + type.getId() + ", Name: " + type.getName() + " with current date");
+                    System.out.println("Updated ticket type ID: " + type.getId() + ", Name: " + type.getName()
+                            + " with current date");
                 }
             }
 

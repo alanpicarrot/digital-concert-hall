@@ -24,104 +24,160 @@ const ConcertDetailPage = () => {
   const [selectedSeatingArea, setSelectedSeatingArea] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("tickets");
+  const [error, setError] = useState(null);
 
   // 從後端獲取音樂會詳情
   useEffect(() => {
     const fetchConcertDetails = async () => {
+      if (!id) {
+        setError("無效的音樂會ID");
+        return;
+      }
+
       try {
         setLoading(true);
+        console.log(`正在勾取音樂會ID=${id}的詳情資料`);
         // 使用開發的服務獲取音樂會詳情
         const concertData = await concertService.getConcertById(id);
-        
+        console.log(`從服務獲取的音樂會資料:`, concertData);
+
+        if (!concertData) {
+          console.error("音樂會數據為空或無效");
+          setError("找不到該音樂會");
+          // 嘗試重新獲取或記錄問題
+          console.log(`嘗試發起API測試數據創建請求`);
+          try {
+            // 嘗試創建測試數據
+            const testDataResponse = await fetch('http://localhost:8080/api/concerts/create-spring-concert');
+            console.log('測試數據創建結果:', testDataResponse.status);
+            if (testDataResponse.ok) {
+              // 如果成功創建測試數據，稍等片刻後再次嘗試獲取
+              setTimeout(async () => {
+                console.log('重新嘗試獲取音樂會數據...');
+                const retryData = await concertService.getConcertById(id);
+                if (retryData) {
+                  setConcert(retryData);
+                  setLoading(false);
+                  setError(null);
+                }
+              }, 2000);
+            }
+          } catch (testDataError) {
+            console.error('創建測試數據失敗:', testDataError);
+          }
+          return;
+        }
+
         // 將API回傳的資料轉換為頁面需要的格式
         const concertDetails = {
           id: concertData.id,
           title: concertData.title,
-          performer: "表演者",  // 預設得表演者
-          performerTitle: "音樂家",  // 預設的順位
-          date: concertData.performances && concertData.performances[0] ? concertData.performances[0].startTime : new Date().toISOString(),
-          location: concertData.performances && concertData.performances[0] ? concertData.performances[0].venue : "數位音樂廳",
-          address: "台北市中正區忠孝東路一段123號",  // 預設的地址
+          performer: "表演者", // 預設得表演者
+          performerTitle: "音樂家", // 預設的順位
+          date:
+            concertData.performances && concertData.performances[0]
+              ? concertData.performances[0].startTime
+              : new Date().toISOString(),
+          location:
+            concertData.performances && concertData.performances[0]
+              ? concertData.performances[0].venue
+              : "數位音樂廳",
+          address: "台北市中正區忠孝東路一段123號", // 預設的地址
           // 使用實際圖片或null (將使用本地渲染的佔位圖片)
           image: concertData.posterUrl || null,
-          imageText: concertData.title,  // 用於渲染佔位圖
+          imageText: concertData.title, // 用於渲染佔位圖
           description: concertData.description || "暫無活動說明",
-          organizer: "數位音樂廳組委會",  // 預設主辦單位
-          organizerContact: "02-1234-5678",  // 預設聯絡電話
-          organizerEmail: "contact@digitalconcerthall.example.com",  // 預設電子郵件
+          organizer: "數位音樂廳組委會", // 預設主辦單位
+          organizerContact: "02-1234-5678", // 預設聯絡電話
+          organizerEmail: "contact@digitalconcerthall.example.com", // 預設電子郵件
           performerBio: concertData.description || "暫無表演者資料",
-          
+
           // 節目單，從程式細節中解析或使用預設值
-          program: concertData.programDetails ? 
-            concertData.programDetails.split('\n')
-              .filter(line => line.trim().length > 0)
-              .map((line, index) => ({
-                name: line.trim(),
-                duration: "15分鐘"
-              })) : 
-            [
-              { name: "第一樹場曲目", duration: "15分鐘" },
-              { name: "第二樹場曲目", duration: "20分鐘" }
-            ],
-          
-          // 從API接口獲取票券和場次數據
-          ticketAreas: concertData.tickets ? 
-            concertData.tickets.map((ticket) => ({
-              id: ticket.id,
-              name: `${ticket.ticketType.name} - ${formatDate(ticket.performance.startTime)} ${formatTime(ticket.performance.startTime)} ${ticket.performance.venue || "數位音樂廳"}`,
-              price: ticket.price,  // 使用實際票券價格
-              available: ticket.availableQuantity,  // 使用實際可用票數
-              performance: ticket.performance // 保存場次資訊供立即購票按鈕使用
-            })) : 
-            // 以下為備用數據，僅當API沒有返回票券信息時使用
-            concertData.performances ? 
-              concertData.performances.map((perf, index) => ({
-                id: perf.id,
-                name: `${formatDate(perf.startTime)} ${formatTime(perf.startTime)} ${perf.venue || "數位音樂廳"}`,
-                price: 1000,  // 默認價格，若需手動調整
-                available: 50, // 默認可用票數
-                performance: perf // 保存場次資訊供立即購票按鈕使用
-              })) :
-              [
-                { 
-                  id: 1, 
-                  name: "普通座位", 
-                  price: 1000, 
-                  available: 50, 
-                  performance: { id: concertData.id, startTime: new Date().toISOString() }
-                },
-                { 
-                  id: 2, 
-                  name: "VIP座位", 
-                  price: 1500, 
-                  available: 20,
-                  performance: { id: concertData.id, startTime: new Date().toISOString() }
-                }
+          program: concertData.programDetails
+            ? concertData.programDetails
+                .split("\n")
+                .filter((line) => line.trim().length > 0)
+                .map((line, index) => ({
+                  name: line.trim(),
+                  duration: "15分鐘",
+                }))
+            : [
+                { name: "第一樹場曲目", duration: "15分鐘" },
+                { name: "第二樹場曲目", duration: "20分鐘" },
               ],
-          
+
+          // 從API接口獲取票券和場次數據
+          ticketAreas: concertData.tickets
+            ? concertData.tickets.map((ticket) => ({
+                id: ticket.id,
+                name: `${ticket.ticketType.name} - ${formatDate(
+                  ticket.performance.startTime
+                )} ${formatTime(ticket.performance.startTime)} ${
+                  ticket.performance.venue || "數位音樂廳"
+                }`,
+                price: ticket.price, // 使用實際票券價格
+                available: ticket.availableQuantity, // 使用實際可用票數
+                performance: ticket.performance, // 保存場次資訊供立即購票按鈕使用
+              }))
+            : // 以下為備用數據，僅當API沒有返回票券信息時使用
+            concertData.performances
+            ? concertData.performances.map((perf, index) => ({
+                id: perf.id,
+                name: `${formatDate(perf.startTime)} ${formatTime(
+                  perf.startTime
+                )} ${perf.venue || "數位音樂廳"}`,
+                price: 1000, // 默認價格，若需手動調整
+                available: 50, // 默認可用票數
+                performance: perf, // 保存場次資訊供立即購票按鈕使用
+              }))
+            : [
+                {
+                  id: 1,
+                  name: "普通座位",
+                  price: 1000,
+                  available: 50,
+                  performance: {
+                    id: concertData.id,
+                    startTime: new Date().toISOString(),
+                  },
+                },
+                {
+                  id: 2,
+                  name: "VIP座位",
+                  price: 1500,
+                  available: 20,
+                  performance: {
+                    id: concertData.id,
+                    startTime: new Date().toISOString(),
+                  },
+                },
+              ],
+
           // 評論和圖片庫使用預設值
           reviews: [
             { id: 1, user: "觀眾1", rating: 5, comment: "非常精彩的演出！" },
-            { id: 2, user: "觀眾2", rating: 4, comment: "好聽的音樂，但場地有點小。" }
+            {
+              id: 2,
+              user: "觀眾2",
+              rating: 4,
+              comment: "好聽的音樂，但場地有點小。",
+            },
           ],
           // 使用名稱字串陣列來替代URL，會用佔位圖組件渲染
-          galleryItems: [
-            "Gallery 1",
-            "Gallery 2",
-            "Gallery 3"
-          ]
+          galleryItems: ["Gallery 1", "Gallery 2", "Gallery 3"],
         };
-        
+
         setConcert(concertDetails);
-        
+
         // 將音樂會添加到瀏覽歷史
         storageService.history.addConcert({
           id: concertData.id,
           title: concertData.title,
-          posterUrl: concertData.posterUrl
+          posterUrl: concertData.posterUrl,
         });
       } catch (error) {
-        console.error('Error fetching concert details:', error);
+        console.error("Error fetching concert details:", error);
+        setError("無法載入音樂會詳情");
       } finally {
         setLoading(false);
       }
@@ -170,43 +226,45 @@ const ConcertDetailPage = () => {
   };
 
   // 處理加入購物車
-const handleAddToCart = () => {
-  if (!selectedSeatingArea) return;
+  const handleAddToCart = () => {
+    if (!selectedSeatingArea) return;
 
-  // 清楚檢查用戶登入狀態
-  const currentUser = authService.getCurrentUser();
-  const isTokenValid = authService.isTokenValid();
-  
-  console.log('購物車 - 用戶登入狀態:', {
-  user: currentUser ? currentUser.username : '未登入', 
-    tokenValid: isTokenValid ? '有效' : '無效或過期'
-  });
+    // 清楚檢查用戶登入狀態
+    const currentUser = authService.getCurrentUser();
+    const isTokenValid = authService.isTokenValid();
 
-  // 檢查用戶是否已登入並且令牌有效
-  if (!currentUser || !isTokenValid) {
-    // 如果用戶未登入或令牌無效，導向登入頁面
-    console.log('用戶未登入或令牌無效，重定向到登入頁面');
-    alert('請先登入才能將商品加入購物車');
+    console.log("購物車 - 用戶登入狀態:", {
+      user: currentUser ? currentUser.username : "未登入",
+      tokenValid: isTokenValid ? "有效" : "無效或過期",
+    });
     
-    // 先清除已經失效的登入狀態
-    if (!isTokenValid && currentUser) {
-      authService.logout();
+    // 如果本地存儲中有 token但不正確，先清除
+    if (localStorage.getItem('token') && (!currentUser || !isTokenValid)) {
+      console.log('重置狀態：發現令牌有問題');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
-    
-    navigate('/auth/login?redirect=' + encodeURIComponent(`/concerts/${id}`));
-    return;
-  }
+
+    // 檢查用戶是否已登入並且令牌有效
+    if (!currentUser || !isTokenValid) {
+      // 如果用戶未登入或令牌無效，導向登入頁面
+      console.log("用戶未登入或令牌無效，重定向到登入頁面");
+      alert("請先登入才能將商品加入購物車");
+
+      navigate("/login?redirect=" + encodeURIComponent(`/concerts/${id}`));
+      return;
+    }
 
     // 創建商品物件用於添加到購物車
     const cartItem = {
       id: concert.id,
-      type: 'concert',
+      type: "concert",
       name: `${concert.title} - ${selectedSeatingArea.name}`,
       price: selectedSeatingArea.price,
       quantity: quantity,
-      date: concert.date
+      date: concert.date,
     };
-    
+
     // 添加到購物車
     cartService.addToCart(cartItem);
 
@@ -219,78 +277,83 @@ const handleAddToCart = () => {
   };
 
   // 處理立即購買
-const handleBuyNow = () => {
-  console.log('點擊立即購票按鈕');
-  console.log('音樂會數據：', concert);
-  // 如果已選擇座位區域，直接使用當前票種進行購買流程
-  if (selectedSeatingArea) {
-    // 清楚檢查用戶登入狀態
-    const currentUser = authService.getCurrentUser();
-    const isTokenValid = authService.isTokenValid();
-    
-    console.log('票券頁面 - 用戶登入狀態:', {
-      user: currentUser ? currentUser.username : '未登入', 
-      tokenValid: isTokenValid ? '有效' : '無效或過期'
-    });
+  const handleBuyNow = () => {
+    console.log("點擊立即購票按鈕");
+    console.log("音樂會數據：", concert);
+    // 如果已選擇座位區域，直接使用當前票種進行購買流程
+    if (selectedSeatingArea) {
+      // 清楚檢查用戶登入狀態
+      const currentUser = authService.getCurrentUser();
+      const isTokenValid = authService.isTokenValid();
 
-    // 檢查用戶是否已登入並且令牌有效
-    if (!currentUser || !isTokenValid) {
-      // 如果用戶未登入或令牌無效，導向登入頁面
-      console.log('用戶未登入或令牌無效，重定向到登入頁面');
-      alert('請先登入才能進行購票');
+      console.log("票券頁面 - 用戶登入狀態:", {
+        user: currentUser ? currentUser.username : "未登入",
+        tokenValid: isTokenValid ? "有效" : "無效或過期",
+      });
       
-      // 先清除已經失效的登入狀態
-      if (!isTokenValid && currentUser) {
-        authService.logout();
+      // 如果本地存儲中有 token但不正確，先清除
+      if (localStorage.getItem('token') && (!currentUser || !isTokenValid)) {
+        console.log('重置狀態：發現令牌有問題');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       }
-      
-      navigate('/auth/login?redirect=' + encodeURIComponent(`/concerts/${id}`));
-      return;
-    }
 
-    // 將購票信息存入 sessionStorage，以便結帳頁面可以使用
-    const ticketInfo = {
-      concertId: concert.id,
-      concertTitle: concert.title,
-      ticketId: selectedSeatingArea.id, // 確保添加票券ID
-      ticketType: selectedSeatingArea.name,
-      ticketPrice: selectedSeatingArea.price,
-      quantity: quantity,
-      totalAmount: calculateTotal(),
-      purchaseTime: new Date().toISOString() // 添加購買時間戳記錆跟蹤
-    };
+      // 檢查用戶是否已登入並且令牌有效
+      if (!currentUser || !isTokenValid) {
+        // 如果用戶未登入或令牌無效，導向登入頁面
+        console.log("用戶未登入或令牌無效，重定向到登入頁面");
+        alert("請先登入才能進行購票");
 
-    sessionStorage.setItem("checkoutInfo", JSON.stringify(ticketInfo));
-    console.log('已將購票信息存入sessionStorage:', ticketInfo);
+        navigate("/login?redirect=" + encodeURIComponent(`/concerts/${id}`));
+        return;
+      }
 
-    // 導航到結帳頁面
-    navigate("/checkout");
-  } else {
-    // 如果未選擇座位區域，導航到演出場次票券頁面
-    // 嘗試從 concert.performances 中獲取首個演出場次 ID
-    if (concert.performances && concert.performances.length > 0) {
-      const performanceId = concert.performances[0].id;
-      navigate(`/tickets/performance/${performanceId}`);
-    } 
-    // 如果沒有 performances 屬性或為空陣列，嘗試從票券陣列獲取演出場次 ID
-    else if (concert.ticketAreas && concert.ticketAreas.length > 0) {
-      // 檢查票券是否已關聯場次信息
-      if (concert.ticketAreas[0].performance && concert.ticketAreas[0].performance.id) {
-        // 從票券中取得場次ID
-        const performanceId = concert.ticketAreas[0].performance.id;
+      // 將購票信息存入 sessionStorage，以便結帳頁面可以使用
+      const ticketInfo = {
+        concertId: concert.id,
+        concertTitle: concert.title,
+        ticketId: selectedSeatingArea.id, // 確保添加票券ID
+        ticketType: selectedSeatingArea.name,
+        ticketPrice: selectedSeatingArea.price,
+        quantity: quantity,
+        totalAmount: calculateTotal(),
+        purchaseTime: new Date().toISOString(), // 添加購買時間戳記錆跟蹤
+      };
+
+      sessionStorage.setItem("checkoutInfo", JSON.stringify(ticketInfo));
+      console.log("已將購票信息存入sessionStorage:", ticketInfo);
+
+      // 導航到結帳頁面
+      navigate("/checkout");
+    } else {
+      // 如果未選擇座位區域，導航到演出場次票券頁面
+      // 嘗試從 concert.performances 中獲取首個演出場次 ID
+      if (concert.performances && concert.performances.length > 0) {
+        const performanceId = concert.performances[0].id;
         navigate(`/tickets/performance/${performanceId}`);
-      } else {
-        // 使用票券ID作為備選
-        const ticketId = concert.ticketAreas[0].id;
-        navigate(`/tickets/${ticketId}`);
+      }
+      // 如果沒有 performances 屬性或為空陣列，嘗試從票券陣列獲取演出場次 ID
+      else if (concert.ticketAreas && concert.ticketAreas.length > 0) {
+        // 檢查票券是否已關聯場次信息
+        if (
+          concert.ticketAreas[0].performance &&
+          concert.ticketAreas[0].performance.id
+        ) {
+          // 從票券中取得場次ID
+          const performanceId = concert.ticketAreas[0].performance.id;
+          navigate(`/tickets/performance/${performanceId}`);
+        } else {
+          // 使用票券ID作為備選
+          const ticketId = concert.ticketAreas[0].id;
+          navigate(`/tickets/${ticketId}`);
+        }
+      }
+      // 如果上述方法都失敗，則彈出提示
+      else {
+        alert("此音樂會暫無可用的演出場次");
       }
     }
-    // 如果上述方法都失敗，則彈出提示
-    else {
-      alert('此音樂會暫無可用的演出場次');
-    }
-  }
-};
+  };
 
   if (loading) {
     return (
@@ -299,6 +362,14 @@ const handleBuyNow = () => {
         className="container mx-auto px-4 py-16 flex justify-center items-center"
       >
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center text-red-600">{error}</div>
       </div>
     );
   }
@@ -330,11 +401,11 @@ const handleBuyNow = () => {
             首頁
           </Link>
           <span>/</span>
-          <Link to="/concerts" className="hover:text-indigo-600">
+          <Link to="/browse" className="hover:text-indigo-600">
             音樂會
           </Link>
           <span>/</span>
-          <span className="text-gray-700">{concert.title}</span>
+          <span className="text-gray-700">{concert?.title || "詳情"}</span>
         </div>
       </div>
 
@@ -349,11 +420,11 @@ const handleBuyNow = () => {
               className="w-full h-96 object-cover object-center"
             />
           ) : (
-            <SimplePlaceholder 
-              width="100%" 
-              height={384} 
+            <SimplePlaceholder
+              width="100%"
+              height={384}
               text={concert.imageText || concert.title}
-              className="w-full h-96 object-cover object-center" 
+              className="w-full h-96 object-cover object-center"
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
@@ -399,7 +470,7 @@ const handleBuyNow = () => {
                     <span>聯絡信箱：{concert.organizerEmail}</span>
                   </div>
                 )}
-                
+
                 {/* 添加主「立即購票」按鈕 */}
                 <div className="mt-4">
                   <button
@@ -516,7 +587,7 @@ const handleBuyNow = () => {
                         onClick={handleBuyNow}
                         className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
                       >
-                        {selectedSeatingArea ? '立即購買' : '查看所有票種'}
+                        {selectedSeatingArea ? "立即購買" : "查看所有票種"}
                       </button>
                     </div>
                   </div>
@@ -594,16 +665,17 @@ const handleBuyNow = () => {
         <h2 className="text-2xl font-bold mb-4">活動照片</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* 使用內建佔位元件替代外部圖片 */}
-          {concert.galleryItems && concert.galleryItems.map((item, index) => (
-            <div key={index} className="relative aspect-w-4 aspect-h-3 h-60">
-              <SimplePlaceholder 
-                width="100%" 
-                height="100%" 
-                text={item}
-                className="object-cover rounded-lg w-full h-full" 
-              />
-            </div>
-          ))}
+          {concert.galleryItems &&
+            concert.galleryItems.map((item, index) => (
+              <div key={index} className="relative aspect-w-4 aspect-h-3 h-60">
+                <SimplePlaceholder
+                  width="100%"
+                  height="100%"
+                  text={item}
+                  className="object-cover rounded-lg w-full h-full"
+                />
+              </div>
+            ))}
         </div>
       </div>
     </div>

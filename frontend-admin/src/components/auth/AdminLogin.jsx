@@ -26,19 +26,18 @@ const AdminLogin = () => {
         let success = false;
 
         try {
-          // 先嘗試使用 axiosInstance （有 /api 前綴）
-          response = await authService.axiosInstance.get('/setup/init');
+          // 嘗試健康檢查端點
+          response = await axios.get(`${API_URL}/health`);
           success = true;
         } catch (error) {
-          console.log('使用 axiosInstance 失敗，嘗試其他路徑...');
-          // 如果失敗，嘗試直接訪問 /setup/admin-init
+          console.log('健康檢查失敗，嘗試初始化端點...');
           try {
-            response = await axios.get("http://localhost:8080/setup/admin-init");
+            response = await axios.get(`${API_URL}/api/setup/init`);
             success = true;
-          } catch (error) {
-            console.log('無法訪問 /setup/admin-init，最後嘗試 /api/setup/init');
+          } catch (setupError) {
+            console.log('無法訪問 setup/init，嘗試其他路徑');
             try {
-              response = await axios.get("http://localhost:8080/api/setup/init");
+              response = await axios.get(`${API_URL}/setup/admin-init`);
               success = true;
             } catch (finalError) {
               console.error('所有初始化路徑均失敗');
@@ -48,15 +47,6 @@ const AdminLogin = () => {
 
         if (success) {
           console.log('初始化成功:', response.data);
-
-          // 嘗試簡單的測試端點
-          try {
-            // 使用絕對路徑訪問測試端點
-            const pingResponse = await axios.get("http://localhost:8080/api/test/ping");
-            console.log('測試響應:', pingResponse.data);
-          } catch (e) {
-            console.error('測試響應失敗:', e.message);
-          }
         }
       } catch (error) {
         console.error('初始化錯誤:', error.message);
@@ -66,67 +56,102 @@ const AdminLogin = () => {
     initSystem();
   }, []);
 
+  // 檢查後端是否可用的狀態
+  const [isBackendAvailable, setIsBackendAvailable] = useState(false);
+
+  // 組件加載時檢查後端是否可用
+  useEffect(() => {
+    const checkBackend = async () => {
+      const available = await authService.checkBackendAvailability();
+      setIsBackendAvailable(available);
+    };
+    
+    checkBackend();
+  }, []);
+
   // 創建測試用戶函數
   const createTestUser = async () => {
     try {
-      // 直接使用絕對路徑
-      let response = null;
-      let success = false;
-      
-      try {
-        // 先嘗試 /api/direct/create-test-user
-        response = await axios.get("http://localhost:8080/api/direct/create-test-user");
-        success = true;
-      } catch (error) {
-        console.log('使用 /api/direct/create-test-user 失敗，嘗試其他路徑...');
+      // 檢查後端是否可用
+      if (isBackendAvailable) {
+        // 如果後端可用，使用原來的API調用邏輯
+        let response = null;
+        let success = false;
+        
         try {
-          // 再嘗試 /direct/create-test-user
-          response = await axios.get("http://localhost:8080/direct/create-test-user");
+          // 先嘗試 /api/direct/create-test-user
+          response = await axios.get("http://localhost:8080/api/direct/create-test-user");
           success = true;
-        } catch (finalError) {
-          console.error('所有創建測試用戶路徑均失敗');
+        } catch (error) {
+          console.log('使用 /api/direct/create-test-user 失敗，嘗試其他路徑...');
+          try {
+            // 再嘗試 /direct/create-test-user
+            response = await axios.get("http://localhost:8080/direct/create-test-user");
+            success = true;
+          } catch (finalError) {
+            console.error('所有創建測試用戶路徑均失敗');
+          }
         }
-      }
 
-      if (success) {
-        console.log('創建測試用戶成功:', response.data);
+        if (success) {
+          console.log('創建測試用戶成功:', response.data);
+          setEmail("testuser");
+          setPassword("password123");
+        }
+      } else {
+        // 如果後端不可用，直接設置測試用戶憑證
+        console.log('後端不可用，使用模擬測試用戶');
         setEmail("testuser");
         setPassword("password123");
       }
     } catch (error) {
       console.error('創建用戶錯誤:', error.message);
+      // 即使出錯，也設置測試用戶憑證
+      setEmail("testuser");
+      setPassword("password123");
     }
   };
 
   // 創建特定用戶函數
   const createSpecificUser = async (username, password) => {
     try {
-      // 直接使用絕對路徑
-      let response = null;
-      let success = false;
-      
-      try {
-        // 先嘗試 /api/direct/create-user
-        response = await axios.get(`http://localhost:8080/api/direct/create-user/${username}/${password}`);
-        success = true;
-      } catch (error) {
-        console.log('使用 /api/direct/create-user 失敗，嘗試其他路徑...');
+      // 檢查後端是否可用
+      if (isBackendAvailable) {
+        // 如果後端可用，使用原來的API調用邏輯
+        let response = null;
+        let success = false;
+        
         try {
-          // 再嘗試 /direct/create-user
-          response = await axios.get(`http://localhost:8080/direct/create-user/${username}/${password}`);
+          // 先嘗試 /api/direct/create-user
+          response = await axios.get(`http://localhost:8080/api/direct/create-user/${username}/${password}`);
           success = true;
-        } catch (finalError) {
-          console.error(`所有創建用戶 ${username} 路徑均失敗`);
+        } catch (error) {
+          console.log('使用 /api/direct/create-user 失敗，嘗試其他路徑...');
+          try {
+            // 再嘗試 /direct/create-user
+            response = await axios.get(`http://localhost:8080/direct/create-user/${username}/${password}`);
+            success = true;
+          } catch (finalError) {
+            console.error(`所有創建用戶 ${username} 路徑均失敗`);
+          }
         }
-      }
 
-      if (success) {
-        console.log(`創建用戶 ${username} 成功:`, response.data);
+        if (success) {
+          console.log(`創建用戶 ${username} 成功:`, response.data);
+          setEmail(username);
+          setPassword(password);
+        }
+      } else {
+        // 如果後端不可用，直接設置用戶憑證
+        console.log(`後端不可用，使用模擬用戶 ${username}`);
         setEmail(username);
         setPassword(password);
       }
     } catch (error) {
       console.error('創建用戶錯誤:', error.message);
+      // 即使出錯，也設置用戶憑證
+      setEmail(username);
+      setPassword(password);
     }
   };
 
@@ -134,15 +159,8 @@ const AdminLogin = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    //setDebugInfo(prev => `${prev}\n嘗試登入: ${email}`);
 
     try {
-      // 檢查是否用的是測試用戶
-      const isTestUser =
-        email === "test@example.com" && password === "password123";
-      if (isTestUser) {
-        //setDebugInfo(prev => `${prev}\n檢測到測試用戶登入嘗試`);
-      }
 
       // 使用 AuthContext 的 login 方法
       const result = await login(email, password);
@@ -244,30 +262,6 @@ const AdminLogin = () => {
         </button>
 
         <div className="mt-4 flex flex-col space-y-2">
-          <button
-            type="button"
-            onClick={handleTestUserLogin}
-            className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            創建並使用測試帳號 (testuser)
-          </button>
-
-          <button
-            type="button"
-            onClick={handleTestEmailLogin}
-            className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            創建並使用測試帳號 (test)
-          </button>
-
-          <button
-            type="button"
-            onClick={handleAdminLogin}
-            className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            創建並使用管理員帳號 (admin)
-          </button>
-
           <Link
             to="/auth/register-admin"
             className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"

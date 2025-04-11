@@ -22,7 +22,7 @@ import com.digitalconcerthall.repository.UserRepository;
  * 這個版本處理 /api/setup/* 路徑
  */
 @RestController
-@RequestMapping("/api/setup")
+@RequestMapping({"/setup", "/api/setup"})
 public class ApiSetupController {
 
     @Autowired
@@ -37,7 +37,7 @@ public class ApiSetupController {
     /**
      * 初始化系統，創建必要的角色和測試用戶
      */
-    @GetMapping("/init")
+    @GetMapping({"/init", "/admin-init"})
     public ResponseEntity<?> initSystem() {
         StringBuilder resultMessage = new StringBuilder("系統初始化結果:\n");
 

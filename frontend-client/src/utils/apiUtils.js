@@ -29,13 +29,32 @@ export const validateApiPath = (path) => {
     return '/api';
   }
   
-  // 如果後端控制器已經包含 /api 前綴，我們不需要再添加
+  // 前端請求統一使用 /api 前綴
+  // 先檢查是否已經有 /api 前綴
   if (path.startsWith('/api/')) {
-    return path; // 已經是正確的路徑
+    // 保留 /auth 路徑
+    console.log(`路徑已有 /api 前綴: ${path}`);
+    return path; // 已有 /api 前綴
   }
   
-  // 如果尚未包含 /api 前綴，添加它
-  console.warn(`警告: API 路徑 "${path}" 應該以 "/api/" 開頭`);
+  // 無 /api 前綴的請求
+  // 檢查是否為認證相關路徑
+  if (path.startsWith('/signin') || path.startsWith('/register') || 
+      path.startsWith('/logout') || path.startsWith('/forgot-password') || 
+      path.startsWith('/reset-password')) {
+    console.log(`將認證路徑 "${path}" 轉換為 /api/auth 路徑`);
+    return `/api/auth${path}`;
+  }
+  
+  // 其他保留 auth 路徑
+  if (path.includes('/auth/')) {
+    console.log(`保留 auth 路徑: ${path}`);
+    path = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
+    return path;
+  }
+  
+  // 添加 /api 前綴
+  console.log(`將路徑 "${path}" 轉換為正確的 API 路徑`);
   return path.startsWith('/') ? `/api${path}` : `/api/${path}`;
 };
 

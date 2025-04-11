@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AuthService from '../services/authService';
 
 /**
  * 管理員路由元件，用於保護管理後台頁面
@@ -23,23 +24,17 @@ const AdminRoute = ({ children }) => {
     );
   }
 
-  // 器周的身份驗證
-  // 確保清除無效的登入狀態
-  if (!localStorage.getItem('adminToken')) {
-    console.log('沒有有效的登入令牌，清除狀態');
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
-  }
-  
-  // 如果用戶未登入，重定向到登入頁面
-  if (!isAuthenticated || !user) {
-    console.log('未登入或沒有用戶信息，重定向到登入頁面');
-    return <Navigate to="/auth/login" state={{ from: location }} replace />;
-  }
+  // 確保用戶登入狀態有效
+  const isValidAdmin = AuthService.isAdminAuthenticated();
+  console.log('检查管理員验证状态:', { isAuthenticated, isValidAdmin });
 
-  // 檢查用戶角色
-  if (user && Array.isArray(user.roles) && !user.roles.includes('ROLE_ADMIN')) {
-    console.log('非管理員角色，重定向到登入頁面', user.roles);
+  if (!isValidAdmin || !isAuthenticated) {
+    console.log('未登入或验证失败，重定向到登入页面');
+    
+    // 清除狀態
+    AuthService.logout();
+    
+    // 重定向到登入頁面
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 

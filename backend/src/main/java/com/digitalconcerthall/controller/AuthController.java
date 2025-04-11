@@ -16,11 +16,14 @@ import com.digitalconcerthall.dto.response.JwtResponse;
 import com.digitalconcerthall.dto.response.MessageResponse;
 import com.digitalconcerthall.service.AuthService;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import jakarta.validation.Valid;
 
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600, allowCredentials = "true")
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping({"/api/auth", "/auth"})
 public class AuthController {
 
     @Autowired
@@ -45,9 +48,24 @@ public class AuthController {
     public ResponseEntity<?> registerAdmin(@Valid @RequestBody SignupRequest signUpRequest) {
         System.out.println("Received admin signup request: " + signUpRequest);
 
-        // 使用現有的註冊服務，但確保為管理員角色
-        MessageResponse response = authService.registerAdminUser(signUpRequest);
-        return ResponseEntity.ok(response);
+        try {
+            // 確保註冊資料包含管理員角色
+            if (signUpRequest.getRole() == null || signUpRequest.getRole().isEmpty()) {
+                Set<String> roles = new HashSet<>();
+                roles.add("admin");
+                signUpRequest.setRole(roles);
+                System.out.println("Added admin role to signup request");
+            }
+            
+            // 使用現有的註冊服務，但確保為管理員角色
+            MessageResponse response = authService.registerAdminUser(signUpRequest);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error during admin registration: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.badRequest()
+                   .body(new MessageResponse("Admin registration failed: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/logout")

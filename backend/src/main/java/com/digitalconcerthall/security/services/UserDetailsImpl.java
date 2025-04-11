@@ -20,6 +20,8 @@ public class UserDetailsImpl implements UserDetails {
     private String password;
     private Collection<? extends GrantedAuthority> authorities;
 
+    // Removed unused user field
+
     // Add email getter
     public String getEmail() {
         return email;
@@ -33,14 +35,22 @@ public class UserDetailsImpl implements UserDetails {
     // Add constructor
     public UserDetailsImpl(Long id, String username, String email, String password,
             Collection<? extends GrantedAuthority> authorities) {
-        this.id = id;
         this.username = username;
         this.email = email;
         this.password = password;
         this.authorities = authorities;
     }
 
-    // Implement all required methods
+    public UserDetailsImpl(User user) {
+        this.id = user.getId();
+        this.username = user.getUsername();
+        this.email = user.getEmail();
+        this.password = user.getPassword();
+        this.authorities = user.getRoles().stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName().name()))
+                .collect(Collectors.toList());
+    }
+
     @Override
     public String getUsername() {
         return username;
