@@ -9,6 +9,8 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  Key,
+  User,
 } from "lucide-react";
 import axios from "axios";
 import { validateApiPath } from "../utils/apiUtils";
@@ -97,6 +99,34 @@ const UsersPage = () => {
     setModalSuccess(null);
   };
 
+  // 創建新用戶
+  const handleCreateUser = async (newUser) => {
+    try {
+      setModalLoading(true);
+      setModalError(null);
+
+      await axiosInstance.post(
+        validateApiPath("/api/admin/users"),
+        newUser
+      );
+
+      setModalSuccess("用戶創建成功！");
+
+      // 重新獲取用戶列表
+      await fetchUsers();
+
+      // 延遲關閉模態框
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
+    } catch (err) {
+      console.error("創建用戶失敗:", err);
+      setModalError(err.response?.data?.message || "創建用戶失敗，請稍後再試");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+  
   // 更新用戶
   const handleUpdateUser = async (updatedUser) => {
     try {
@@ -120,6 +150,53 @@ const UsersPage = () => {
     } catch (err) {
       console.error("更新用戶失敗:", err);
       setModalError(err.response?.data?.message || "更新用戶失敗，請稍後再試");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+  
+  // 更新用戶角色
+  const handleUpdateRoles = async (userId, roles) => {
+    try {
+      setModalLoading(true);
+      setModalError(null);
+
+      await axiosInstance.put(
+        validateApiPath(`/api/admin/users/${userId}/roles`),
+        { roles }
+      );
+
+      setModalSuccess("用戶角色更新成功！");
+      
+      // 重新獲取用戶列表
+      await fetchUsers();
+    } catch (err) {
+      console.error("更新用戶角色失敗:", err);
+      setModalError(err.response?.data?.message || "更新用戶角色失敗，請稍後再試");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+  
+  // 重置用戶密碼
+  const handleResetPassword = async (userId, newPassword) => {
+    try {
+      setModalLoading(true);
+      setModalError(null);
+
+      await axiosInstance.put(
+        validateApiPath(`/api/admin/users/${userId}/password-reset?newPassword=${encodeURIComponent(newPassword)}`)
+      );
+
+      setModalSuccess("用戶密碼重置成功！");
+
+      // 延遲關閉模態框
+      setTimeout(() => {
+        closeModal();
+      }, 1500);
+    } catch (err) {
+      console.error("重置密碼失敗:", err);
+      setModalError(err.response?.data?.message || "重置密碼失敗，請稍後再試");
     } finally {
       setModalLoading(false);
     }
@@ -150,6 +227,48 @@ const UsersPage = () => {
     } finally {
       setModalLoading(false);
     }
+  };
+  
+  // 處理用戶表單提交
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    if (modalMode === "create") {
+      const newUser = {
+        username: formData.get("username"),
+        email: formData.get("email"),
+        password: formData.get("password"),
+        firstName: formData.get("firstName"),
+        lastName: formData.get("lastName"),
+        roles: getSelectedRoles(formData),
+      };
+      handleCreateUser(newUser);
+    } else if (modalMode === "edit") {
+      const updatedUser = {
+        email: formData.get("email"),
+        firstName: formData.get("firstName"),
+        lastName: formData.get("lastName"),
+      };
+      // 更新用戶資料
+      handleUpdateUser(updatedUser);
+      
+      // 更新用戶角色
+      const roles = getSelectedRoles(formData);
+      handleUpdateRoles(selectedUser.id, roles);
+    } else if (modalMode === "reset-password") {
+      const newPassword = formData.get("newPassword");
+      handleResetPassword(selectedUser.id, newPassword);
+    }
+  };
+  
+  // 獲取選中的角色
+  const getSelectedRoles = (formData) => {
+    const roles = [];
+    if (formData.get("role-admin")) roles.push("ROLE_ADMIN");
+    if (formData.get("role-moderator")) roles.push("ROLE_MODERATOR");
+    if (formData.get("role-user")) roles.push("ROLE_USER");
+    return roles;
   };
 
   return (
@@ -252,7 +371,9 @@ const UsersPage = () => {
                             {user.username}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {user.name || "-"}
+                            {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 
+                             user.firstName ? user.firstName : 
+                             user.lastName ? user.lastName : "-"}
                           </div>
                         </div>
                       </div>
@@ -291,13 +412,22 @@ const UsersPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => openModal("edit", user)}
-                        className="text-teal-600 hover:text-teal-900 mr-4"
+                        className="text-teal-600 hover:text-teal-900 mr-3"
+                        title="編輯用戶"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
+                        onClick={() => openModal("reset-password", user)}
+                        className="text-amber-600 hover:text-amber-900 mr-3"
+                        title="重置密碼"
+                      >
+                        <Key size={18} />
+                      </button>
+                      <button
                         onClick={() => openModal("delete", user)}
                         className="text-red-600 hover:text-red-900"
+                        title="刪除用戶"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -317,9 +447,9 @@ const UsersPage = () => {
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">
                 {modalMode === "edit" && `編輯用戶: ${selectedUser?.username}`}
-                {modalMode === "delete" &&
-                  `刪除用戶: ${selectedUser?.username}`}
+                {modalMode === "delete" && `刪除用戶: ${selectedUser?.username}`}
                 {modalMode === "create" && "新增用戶"}
+                {modalMode === "reset-password" && `重置密碼: ${selectedUser?.username}`}
               </h2>
 
               {modalError && (
@@ -383,45 +513,140 @@ const UsersPage = () => {
                 </div>
               )}
 
-              {(modalMode === "edit" || modalMode === "create") && (
-                <div>
-                  {/* 這裡放置用戶編輯表單 */}
+              {modalMode === "reset-password" && (
+                <form onSubmit={handleFormSubmit}>
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertTriangle
+                        className="text-amber-500 mr-2 flex-shrink-0 mt-1"
+                        size={20}
+                      />
+                      <div>
+                        <p className="text-amber-700 font-medium">
+                          確定要重置此用戶的密碼嗎？
+                        </p>
+                        <p className="text-amber-600">
+                          此操作將會設置一個新密碼，舊密碼將無法使用。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="newPassword">
+                      新密碼
+                    </label>
+                    <input
+                      type="password"
+                      id="newPassword"
+                      name="newPassword"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      required
+                      minLength={6}
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="px-4 py-2 border border-gray-300 rounded-lg mr-2 hover:bg-gray-50"
+                      disabled={modalLoading}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center"
+                      disabled={modalLoading}
+                    >
+                      {modalLoading ? (
+                        <>
+                          <RefreshCw className="animate-spin mr-2" size={16} />
+                          處理中...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={16} className="mr-2" />
+                          確認重置
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+              
+              {(modalMode === "edit" || modalMode === "create") && (
+                <form onSubmit={handleFormSubmit}>
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="username">
                       用戶名
                     </label>
                     <input
                       type="text"
+                      id="username"
+                      name="username"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       defaultValue={selectedUser?.username || ""}
                       disabled={modalMode === "edit"}
+                      required={modalMode === "create"}
                     />
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="email">
                       電子郵件
                     </label>
                     <input
                       type="email"
+                      id="email"
+                      name="email"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       defaultValue={selectedUser?.email || ""}
+                      required
                     />
                   </div>
+                  
+                  {modalMode === "create" && (
+                    <div className="mb-4">
+                      <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="password">
+                        密碼
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        required={modalMode === "create"}
+                        minLength={6}
+                      />
+                    </div>
+                  )}
 
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1">
-                      狀態
+                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="firstName">
+                      名字
                     </label>
-                    <select
+                    <input
+                      type="text"
+                      id="firstName"
+                      name="firstName"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      defaultValue={
-                        selectedUser?.active ? "active" : "inactive"
-                      }
-                    >
-                      <option value="active">啟用</option>
-                      <option value="inactive">禁用</option>
-                    </select>
+                      defaultValue={selectedUser?.firstName || ""}
+                    />
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="lastName">
+                      姓氏
+                    </label>
+                    <input
+                      type="text"
+                      id="lastName"
+                      name="lastName"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      defaultValue={selectedUser?.lastName || ""}
+                    />
                   </div>
 
                   <div className="mb-4">
@@ -433,6 +658,7 @@ const UsersPage = () => {
                         <input
                           type="checkbox"
                           id="role-admin"
+                          name="role-admin"
                           className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
                           defaultChecked={selectedUser?.roles?.includes(
                             "ROLE_ADMIN"
@@ -449,6 +675,7 @@ const UsersPage = () => {
                         <input
                           type="checkbox"
                           id="role-moderator"
+                          name="role-moderator"
                           className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
                           defaultChecked={selectedUser?.roles?.includes(
                             "ROLE_MODERATOR"
@@ -465,10 +692,11 @@ const UsersPage = () => {
                         <input
                           type="checkbox"
                           id="role-user"
+                          name="role-user"
                           className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
                           defaultChecked={selectedUser?.roles?.includes(
                             "ROLE_USER"
-                          )}
+                          ) || modalMode === "create"}
                         />
                         <label
                           htmlFor="role-user"
@@ -482,6 +710,7 @@ const UsersPage = () => {
 
                   <div className="flex justify-end">
                     <button
+                      type="button"
                       onClick={closeModal}
                       className="px-4 py-2 border border-gray-300 rounded-lg mr-2 hover:bg-gray-50"
                       disabled={modalLoading}
@@ -489,14 +718,7 @@ const UsersPage = () => {
                       取消
                     </button>
                     <button
-                      onClick={() => {
-                        // 這裡只是示例，實際應該從表單收集數據
-                        const updatedUser = {
-                          ...selectedUser,
-                          // 添加表單收集的數據
-                        };
-                        handleUpdateUser(updatedUser);
-                      }}
+                      type="submit"
                       className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center"
                       disabled={modalLoading}
                     >
@@ -513,7 +735,7 @@ const UsersPage = () => {
                       )}
                     </button>
                   </div>
-                </div>
+                </form>
               )}
             </div>
           </div>
