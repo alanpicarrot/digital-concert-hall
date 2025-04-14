@@ -67,11 +67,35 @@ if pgrep -f "react-scripts start" > /dev/null; then
 fi
 
 # 清理占用的端口
-for port in 3000 3001 3100 8080; do
+clean_port() {
+    local port=$1
     if lsof -i:$port > /dev/null; then
-        echo -e "${YELLOW}清理端口 $port...${NC}"
+        echo -e "${YELLOW}發現占用端口 $port 的進程:${NC}"
+        lsof -i:$port
+        echo -e "${YELLOW}嘗試清理端口 $port...${NC}"
         fuser -k $port/tcp 2>/dev/null || true
+        sleep 1
+        if lsof -i:$port > /dev/null; then
+            echo -e "${RED}端口 $port 清理失敗，強制終止進程...${NC}"
+            lsof -t -i:$port | xargs -r kill -9
+            sleep 1
+            if lsof -i:$port > /dev/null; then
+                echo -e "${RED}端口 $port 強制清理仍然失敗:${NC}"
+                lsof -i:$port
+            else
+                echo -e "${GREEN}端口 $port 強制清理成功${NC}"
+            fi
+        else
+            echo -e "${GREEN}端口 $port 清理成功${NC}"
+        fi
+    else
+        echo -e "${GREEN}端口 $port 未被占用${NC}"
     fi
+}
+
+# 清理常用端口
+for port in 3000 3001 3100 8080; do
+    clean_port $port
 done
 
 echo -e "${GREEN}所有服務已停止${NC}"
