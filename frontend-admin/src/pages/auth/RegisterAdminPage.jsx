@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AdminUserService from '../../services/admin/adminUserService';
 
 const RegisterAdminPage = () => {
@@ -279,12 +279,12 @@ const RegisterAdminPage = () => {
           </button>
           
           <div className="mt-4 flex flex-col space-y-2">
-            <Link 
-              to="/auth/login" 
+            <a 
+              href="/auth/login" 
               className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
             >
               返回登入頁面
-            </Link>
+            </a>
           </div>
         </form>
       </div>

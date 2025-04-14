@@ -1,5 +1,4 @@
 import React from "react";
-import { Link } from "react-router-dom";
 
 const NotFoundPage = () => {
   return (
@@ -9,12 +8,12 @@ const NotFoundPage = () => {
       <p className="text-xl text-gray-600 mb-8">
         很抱歉，您要尋找的頁面不存在或已被移除。
       </p>
-      <Link
-        to="/dashboard"
+      <a
+        href="/dashboard"
         className="bg-teal-600 hover:bg-teal-700 text-white py-3 px-8 rounded-lg text-lg inline-block"
       >
         返回儀表板
-      </Link>
+      </a>
     </div>
   );
 };

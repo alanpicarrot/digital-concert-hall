@@ -1,12 +1,12 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AuthService from '../services/authService';
 
 /**
  * 管理員路由元件，用於保護管理後台頁面
  */
-const AdminRoute = ({ children }) => {
+const AdminRoute = () => {
   const { isAuthenticated, user, loading } = useAuth();
   const location = useLocation();
 
@@ -40,7 +40,7 @@ const AdminRoute = ({ children }) => {
 
   // 如果用戶已登入且權限正確，渲染子路由
   console.log('用戶已通過權限驗證，渲染子路由');
-  return children;
+  return <Outlet />;
 };
 
 export default AdminRoute;

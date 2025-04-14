@@ -89,9 +89,29 @@ echo "前台用戶界面目錄: $(pwd)"
 echo "確保前端依賴已安裝..."
 npm install --silent
 
+# 套用 React Router 修復
+echo -e "${YELLOW}套用 React Router 修復...${NC}"
+echo "檢查 App.js 是否已修復..."
+if ! grep -q "basename=\"/\"" src/App.js; then
+    echo "修正 App.js 中的 React Router 問題..."
+    sed -i '' 's/<BrowserRouter>/<BrowserRouter basename="\/">/' src/App.js
+    echo -e "${GREEN}React Router 修復已套用${NC}"
+else
+    echo -e "${GREEN}React Router 已修復${NC}"
+fi
+
 # 啟動前端
 echo -e "${GREEN}啟動前端服務...${NC}"
-PORT=3000 npm start > ../logs/client.log 2>&1 &
+
+# 檢查端口是否被占用
+if lsof -i:3000 > /dev/null; then
+    echo -e "${YELLOW}警告: 端口 3000 已被占用，嘗試使用端口 3100${NC}"
+    PORT=3100 npm start > ../logs/client.log 2>&1 &
+    echo -e "${GREEN}前端已啟動在端口 3100${NC}"
+else
+    PORT=3000 npm start > ../logs/client.log 2>&1 &
+    echo -e "${GREEN}前端已啟動在端口 3000${NC}"
+fi
 FRONTEND_CLIENT_PID=$!
 cd ..
 
@@ -119,7 +139,12 @@ ${YELLOW}==========================================${NC}"
 echo -e "${GREEN}  所有服務已啟動！  ${NC}"
 echo -e "${YELLOW}==========================================${NC}"
 echo -e "${YELLOW}- 後端 API:${NC} http://localhost:8080"
-echo -e "${YELLOW}- 用戶前台:${NC} http://localhost:3000"
+# 根據前端啟動的端口顯示正確的URL
+if lsof -i:3100 > /dev/null; then
+    echo -e "${YELLOW}- 用戶前台:${NC} http://localhost:3100"
+else
+    echo -e "${YELLOW}- 用戶前台:${NC} http://localhost:3000"
+fi
 echo -e "${YELLOW}- 後台管理:${NC} http://localhost:3001"
 echo -e "${YELLOW}- 日誌位置:${NC} $(pwd)/logs/"
 echo ""

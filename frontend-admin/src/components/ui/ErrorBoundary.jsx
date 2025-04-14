@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import { Link } from 'react-router-dom';
 import { Home, RefreshCw } from 'lucide-react';
 
 class ErrorBoundary extends Component {
@@ -59,13 +58,13 @@ class ErrorBoundary extends Component {
                   重新整理
                 </button>
                 
-                <Link
-                  to="/"
+                <a
+                  href="/"
                   className="flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
                 >
                   <Home size={16} className="mr-2" />
                   返回首頁
-                </Link>
+                </a>
               </div>
             </div>
           </div>

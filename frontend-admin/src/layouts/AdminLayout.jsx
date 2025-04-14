@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import AuthService from '../services/authService';
 import { Menu, X, LogOut, Home, Music, Calendar, Ticket, UserCheck } from 'lucide-react';
@@ -58,30 +58,30 @@ const AdminLayout = () => {
           
           <div className="mt-5 flex-1 h-0 overflow-y-auto">
             <nav className="px-2 space-y-1">
-              <Link to="/dashboard" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              <a href="/dashboard" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
                 <Home className="mr-3 h-6 w-6" />
                 儀表板
-              </Link>
-              <Link to="/concerts" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </a>
+              <a href="/concerts" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
                 <Music className="mr-3 h-6 w-6" />
                 音樂會管理
-              </Link>
-              <Link to="/performances" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </a>
+              <a href="/performances" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
                 <Calendar className="mr-3 h-6 w-6" />
                 演出場次管理
-              </Link>
-              <Link to="/ticket-types" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </a>
+              <a href="/ticket-types" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
                 <Ticket className="mr-3 h-6 w-6" />
                 票種管理
-              </Link>
-              <Link to="/tickets" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </a>
+              <a href="/tickets" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
                 <Ticket className="mr-3 h-6 w-6" />
                 票券管理
-              </Link>
-              <Link to="/users" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </a>
+              <a href="/users" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
                 <UserCheck className="mr-3 h-6 w-6" />
                 用戶管理
-              </Link>
+              </a>
             </nav>
           </div>
         </div>
@@ -98,30 +98,30 @@ const AdminLayout = () => {
             </div>
             <div className="flex-1 flex flex-col overflow-y-auto">
               <nav className="flex-1 px-2 py-4 space-y-1">
-                <Link to="/dashboard" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                <a href="/dashboard" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
                   <Home className="mr-3 h-6 w-6" />
                   儀表板
-                </Link>
-                <Link to="/concerts" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </a>
+                <a href="/concerts" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
                   <Music className="mr-3 h-6 w-6" />
                   音樂會管理
-                </Link>
-                <Link to="/performances" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </a>
+                <a href="/performances" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
                   <Calendar className="mr-3 h-6 w-6" />
                   演出場次管理
-                </Link>
-                <Link to="/ticket-types" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </a>
+                <a href="/ticket-types" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
                   <Ticket className="mr-3 h-6 w-6" />
                   票種管理
-                </Link>
-                <Link to="/tickets" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </a>
+                <a href="/tickets" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
                   <Ticket className="mr-3 h-6 w-6" />
                   票券管理
-                </Link>
-                <Link to="/users" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </a>
+                <a href="/users" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
                   <UserCheck className="mr-3 h-6 w-6" />
                   用戶管理
-                </Link>
+                </a>
               </nav>
             </div>
           </div>
@@ -161,11 +161,11 @@ const AdminLayout = () => {
                 </div>
               ) : (
                 <div className="relative flex items-center">
-                  <Link to="/auth/login"
+                  <a href="/auth/login"
                     className="bg-teal-500 text-white p-2 rounded-md hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 flex items-center px-4 py-2 font-medium"
                   >
                     <span>登入</span>
-                  </Link>
+                  </a>
                 </div>
               )}
             </div>

@@ -16,20 +16,20 @@ import AdminLayout from '../layouts/AdminLayout';
 import AuthLayout from '../layouts/AuthLayout';
 
 // 權限控制HOC
-import AdminRoute from './AdminRoute';
+// import AdminRoute from './AdminRoute';
 
 const AdminRoutes = () => {
   return (
     <Routes>
       {/* 管理後台頁面 */}
       <Route path="/" element={<AdminLayout />}>
-        <Route path="dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
-        <Route path="concerts" element={<AdminRoute><ConcertsPage /></AdminRoute>} />
-        <Route path="performances" element={<AdminRoute><PerformancesPage /></AdminRoute>} />
-        <Route path="ticket-types" element={<AdminRoute><TicketTypesPage /></AdminRoute>} />
-        <Route path="tickets" element={<AdminRoute><TicketsPage /></AdminRoute>} />
-        <Route path="users" element={<AdminRoute><UsersPage /></AdminRoute>} />
-        <Route index element={<Navigate to="/dashboard" />} />
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="concerts" element={<ConcertsPage />} />
+        <Route path="performances" element={<PerformancesPage />} />
+        <Route path="ticket-types" element={<TicketTypesPage />} />
+        <Route path="tickets" element={<TicketsPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route index element={<Navigate to="/dashboard" replace />} />
       </Route>
       
       {/* 登入頁面 */}

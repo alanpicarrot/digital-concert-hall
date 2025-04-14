@@ -125,19 +125,19 @@ const logout = () => {
   const beforeAdminUser = localStorage.getItem("adminUser");
   console.log("登出前狀態:", {
     token: beforeAdminToken ? "存在" : "不存在",
-    user: beforeAdminUser ? "存在" : "不存在"
+    user: beforeAdminUser ? "存在" : "不存在",
   });
 
   // 清除本地存儲
   localStorage.removeItem("adminToken");
   localStorage.removeItem("adminUser");
-  
+
   // 二次確認確實清除了登入狀態
   const afterAdminToken = localStorage.getItem("adminToken");
   const afterAdminUser = localStorage.getItem("adminUser");
   console.log("登出後狀態:", {
     token: afterAdminToken ? "存在" : "不存在",
-    user: afterAdminUser ? "存在" : "不存在"
+    user: afterAdminUser ? "存在" : "不存在",
   });
 
   // 確保清除任何測試用戶的痕跡
@@ -151,20 +151,21 @@ const logout = () => {
     try {
       // 使用主要的登出端點
       const endpoint = validateApiPath("/api/auth/logout");
-      
+
       // 設置請求直接的選項
       const options = {
         headers: {
-          "Authorization": `Bearer ${beforeAdminToken}`
+          Authorization: `Bearer ${beforeAdminToken}`,
         },
-        timeout: 2000 // 設置2秒逾時，防止卡住
+        timeout: 2000, // 設置2秒逾時，防止卡住
       };
-      
-      axiosInstance.post(endpoint, {}, options)
-        .then(response => {
+
+      axiosInstance
+        .post(endpoint, {}, options)
+        .then((response) => {
           console.log("登出 API 調用成功");
         })
-        .catch(err => {
+        .catch((err) => {
           console.log("登出 API 調用失敗，但本地存儲已清除");
         });
     } catch (error) {
@@ -294,7 +295,7 @@ const login = async (usernameOrEmail, password) => {
 
   // 嘗試檢查後端是否可用
   const isBackendAvailable = await checkBackendAvailability();
-  
+
   // 根據後端可用性決定是否使用模擬模式
   const useMockMode = !isBackendAvailable || FORCE_MOCK_MODE;
   console.log("登入操作正在" + (useMockMode ? "模擬" : "實際") + "狀態下進行");
@@ -307,7 +308,8 @@ const login = async (usernameOrEmail, password) => {
 
     // 檢查是否是管理員帳號
     if (
-      (usernameOrEmail === "admin" || usernameOrEmail === "admin@example.com") &&
+      (usernameOrEmail === "admin" ||
+        usernameOrEmail === "admin@example.com") &&
       password === "admin123"
     ) {
       user = MOCK_USERS.admin;
@@ -347,17 +349,17 @@ const login = async (usernameOrEmail, password) => {
         // 先清除再存入新令牌，確保無殘留狀態
         localStorage.removeItem("adminToken");
         localStorage.removeItem("adminUser");
-        
+
         // 設置新令牌和用戶信息
         localStorage.setItem("adminToken", user.accessToken);
         localStorage.setItem("adminUser", JSON.stringify(user));
-        
+
         // 記錄存入後的狀態，方便除錯
         console.log("已存入令牌和用戶信息:", {
           token: localStorage.getItem("adminToken") ? "存在" : "不存在",
-          user: localStorage.getItem("adminUser") ? "存在" : "不存在"
+          user: localStorage.getItem("adminUser") ? "存在" : "不存在",
         });
-        
+
         return { success: true, data: user };
       } else {
         // 如果不是管理員帳號，但我們在管理後台，則拒絕登入
@@ -368,54 +370,58 @@ const login = async (usernameOrEmail, password) => {
       console.error("模擬登入失敗：憑證不正確");
       throw new Error("登入失敗：用戶名或密碼不正確");
     }
-  } 
+  }
   // 使用實際後端API登入
   else {
     console.log("嘗試使用實際後端API登入");
     try {
       // 使用標準登入路徑
       const loginEndpoint = validateApiPath("/api/auth/signin");
-      
+
       const credentials = {
         username: usernameOrEmail,
-        password: password
+        password: password,
       };
-      
+
       // 設置請求選項
       const options = {
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        timeout: 5000 // 5秒超時
+        timeout: 5000, // 5秒超時
       };
-      
+
       // 嘗試登入
-      const response = await axiosInstance.post(loginEndpoint, credentials, options);
-      
+      const response = await axiosInstance.post(
+        loginEndpoint,
+        credentials,
+        options
+      );
+
       if (response.data && response.data.accessToken) {
         console.log("真實API登入成功", response.data);
-        
+
         // 確認用戶具有 ADMIN 角色
-        const hasAdminRole = 
-          response.data.roles && 
-          Array.isArray(response.data.roles) && 
+        const hasAdminRole =
+          response.data.roles &&
+          Array.isArray(response.data.roles) &&
           response.data.roles.includes("ROLE_ADMIN");
-          
+
         if (!hasAdminRole) {
           console.error("此帳戶沒有管理員權限");
           throw new Error("此帳戶沒有管理員權限，請使用管理員帳戶登入");
         }
-        
+
         // 將資料保存到 localStorage
         localStorage.setItem("adminToken", response.data.accessToken);
         localStorage.setItem("adminUser", JSON.stringify(response.data));
-        
+
         // 記錄存入後的狀態
         console.log("已存入令牌和用戶信息:", {
           token: localStorage.getItem("adminToken") ? "存在" : "不存在",
-          user: localStorage.getItem("adminUser") ? "存在" : "不存在"
+          user: localStorage.getItem("adminUser") ? "存在" : "不存在",
         });
-        
+
         return { success: true, data: response.data };
       } else {
         console.error("登入響應缺少 accessToken:", response);
@@ -423,13 +429,13 @@ const login = async (usernameOrEmail, password) => {
       }
     } catch (error) {
       console.error("後端登入請求失敗:", error);
-      
+
       // 檢查是否有詳細錯誤信息
-      const errorMessage = 
+      const errorMessage =
         error.response && error.response.data && error.response.data.message
           ? error.response.data.message
           : error.message || "登入失敗，請檢查您的帳號和密碼";
-          
+
       throw new Error(errorMessage);
     }
   }
@@ -467,7 +473,7 @@ const isAdminAuthenticated = () => {
   console.log("檢查管理員登入狀態:", {
     token: token ? "存在" : "不存在",
     user: adminUser ? "存在" : "不存在",
-    roles: adminUser.roles || "無角色信息"
+    roles: adminUser.roles || "無角色信息",
   });
 
   // 實行更嚴格的驗證

@@ -8,15 +8,15 @@ import './App.css';
 
 function App() {
   return (
-    <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <BrowserRouter>
+    <BrowserRouter basename="/">
+      <ErrorBoundary>
+        <ToastProvider>
+          <AuthProvider>
             <AppRoutes />
-          </BrowserRouter>
-        </AuthProvider>
-      </ToastProvider>
-    </ErrorBoundary>
+          </AuthProvider>
+        </ToastProvider>
+      </ErrorBoundary>
+    </BrowserRouter>
   );
 }
 

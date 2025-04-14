@@ -56,5 +56,25 @@ stop_process ".frontend-admin.pid" "前端管理面板"
 # 停止後端
 stop_process ".backend.pid" "後端服務"
 
+# 檢查並清理可能存在的殘留進程
+echo -e "${YELLOW}檢查殘留進程...${NC}"
+
+# 清理 Node.js 進程
+if pgrep -f "react-scripts start" > /dev/null; then
+    echo -e "${YELLOW}發現殘留的 React 進程，正在清理...${NC}"
+    pkill -f "react-scripts start"
+    echo -e "${GREEN}清理完成${NC}"
+fi
+
+# 清理占用的端口
+for port in 3000 3001 3100 8080; do
+    if lsof -i:$port > /dev/null; then
+        echo -e "${YELLOW}清理端口 $port...${NC}"
+        fuser -k $port/tcp 2>/dev/null || true
+    fi
+done
+
 echo -e "${GREEN}所有服務已停止${NC}"
+echo "====================================="
+echo -e "${GREEN}您現在可以安全地重新啟動系統${NC}"
 echo "====================================="

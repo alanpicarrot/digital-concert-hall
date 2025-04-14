@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import { Link } from 'react-router-dom';
 import { Home, RefreshCw } from 'lucide-react';
 
 class ErrorBoundary extends Component {
@@ -19,7 +18,8 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     // 可以將錯誤日誌發送到服務
-    console.error('ErrorBoundary 捕獲到錯誤:', error, errorInfo);
+    console.error('ErrorBoundary 捕獲到錯誤:', error);
+    console.error('詳細錯誤信息:', errorInfo);
     this.setState({ errorInfo });
     
     // 可選：將錯誤資訊發送到後端或分析服務
@@ -59,13 +59,13 @@ class ErrorBoundary extends Component {
                   重新整理
                 </button>
                 
-                <Link
-                  to="/"
+                <a
+                  href="/"
                   className="flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
                 >
                   <Home size={16} className="mr-2" />
                   返回首頁
-                </Link>
+                </a>
               </div>
             </div>
           </div>

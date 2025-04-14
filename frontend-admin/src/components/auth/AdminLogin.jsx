@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import axios from "axios";
 import authService from "../../services/authService";
@@ -262,12 +262,12 @@ const AdminLogin = () => {
         </button>
 
         <div className="mt-4 flex flex-col space-y-2">
-          <Link
-            to="/auth/register-admin"
+          <a
+            href="/auth/register-admin"
             className="text-center text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
             創建新管理員帳號
-          </Link>
+          </a>
         </div>
       </form>
     </div>
