@@ -1,0 +1,146 @@
+gray-300 rounded"
+                          defaultChecked={selectedUser?.roles?.includes(
+                            "ROLE_ADMIN"
+                          )}
+                        />
+                        <label
+                          htmlFor="role-admin"
+                          className="ml-2 text-gray-700"
+                        >
+                          管理員
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="role-moderator"
+                          name="role-moderator"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                          defaultChecked={selectedUser?.roles?.includes(
+                            "ROLE_MODERATOR"
+                          )}
+                        />
+                        <label
+                          htmlFor="role-moderator"
+                          className="ml-2 text-gray-700"
+                        >
+                          版主
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="role-user"
+                          name="role-user"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                          defaultChecked={selectedUser?.roles?.includes(
+                            "ROLE_USER"
+                          ) || modalMode === "create"}
+                        />
+                        <label
+                          htmlFor="role-user"
+                          className="ml-2 text-gray-700"
+                        >
+                          用戶
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      狀態
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="status-enabled"
+                          name="status"
+                          value="ENABLED"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                          defaultChecked={(selectedUser?.status === "ENABLED" || (!selectedUser?.status && selectedUser?.active)) || modalMode === "create"}
+                        />
+                        <label
+                          htmlFor="status-enabled"
+                          className="ml-2 text-gray-700 flex items-center"
+                        >
+                          <CheckCircle size={14} className="mr-1 text-green-600" />
+                          開啟
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="status-disabled"
+                          name="status"
+                          value="DISABLED"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                          defaultChecked={selectedUser?.status === "DISABLED" || (!selectedUser?.status && !selectedUser?.active && selectedUser?.status !== "ARCHIVED")}
+                        />
+                        <label
+                          htmlFor="status-disabled"
+                          className="ml-2 text-gray-700 flex items-center"
+                        >
+                          <XCircle size={14} className="mr-1 text-gray-600" />
+                          停用
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="status-archived"
+                          name="status"
+                          value="ARCHIVED"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                          defaultChecked={selectedUser?.status === "ARCHIVED"}
+                        />
+                        <label
+                          htmlFor="status-archived"
+                          className="ml-2 text-gray-700 flex items-center"
+                        >
+                          <Archive size={14} className="mr-1 text-red-600" />
+                          封存 <span className="text-xs text-gray-500 ml-1">(取代刪除功能)</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="px-4 py-2 border border-gray-300 rounded-lg mr-2 hover:bg-gray-50"
+                      disabled={modalLoading}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center"
+                      disabled={modalLoading}
+                    >
+                      {modalLoading ? (
+                        <>
+                          <RefreshCw className="animate-spin mr-2" size={16} />
+                          處理中...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle size={16} className="mr-2" />
+                          確認
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default UsersPage;

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AuthService from '../services/authService';
+import axios from 'axios';
 
 // 創建認證上下文
 const AuthContext = createContext();
@@ -213,7 +214,8 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     loading,
     login,
-    logout
+    logout,
+    axiosInstance: AuthService.axiosInstance
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

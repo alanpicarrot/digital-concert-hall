@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Key,
   User,
+  Archive,
 } from "lucide-react";
 import axios from "axios";
 import { validateApiPath } from "../utils/apiUtils";
@@ -36,6 +37,13 @@ const UsersPage = () => {
       setLoading(true);
       setError(null);
 
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setError("身份驗證失敗，請重新登入");
+        setLoading(false);
+        return;
+      }
+
       const response = await axiosInstance.get(
         validateApiPath("/api/admin/users")
       );
@@ -55,6 +63,8 @@ const UsersPage = () => {
 
   // 過濾用戶
   const filteredUsers = users.filter((user) => {
+    // 如果用戶狀態為ARCHIVED，則不顯示在列表中
+    if (user.status === "ARCHIVED") return false;
     if (!searchQuery) return true;
 
     const query = searchQuery.toLowerCase();
@@ -105,10 +115,14 @@ const UsersPage = () => {
       setModalLoading(true);
       setModalError(null);
 
-      await axiosInstance.post(
-        validateApiPath("/api/admin/users"),
-        newUser
-      );
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setModalError("身份驗證失敗，請重新登入");
+        setModalLoading(false);
+        return;
+      }
+
+      await axiosInstance.post(validateApiPath("/api/admin/users"), newUser);
 
       setModalSuccess("用戶創建成功！");
 
@@ -126,12 +140,19 @@ const UsersPage = () => {
       setModalLoading(false);
     }
   };
-  
+
   // 更新用戶
   const handleUpdateUser = async (updatedUser) => {
     try {
       setModalLoading(true);
       setModalError(null);
+
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setModalError("身份驗證失敗，請重新登入");
+        setModalLoading(false);
+        return;
+      }
 
       await axiosInstance.put(
         validateApiPath(`/api/admin/users/${selectedUser.id}`),
@@ -154,12 +175,50 @@ const UsersPage = () => {
       setModalLoading(false);
     }
   };
-  
+
+  // 更新用戶狀態
+  const handleUpdateUserStatus = async (userId, status) => {
+    try {
+      setModalLoading(true);
+      setModalError(null);
+
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setModalError("身份驗證失敗，請重新登入");
+        setModalLoading(false);
+        return;
+      }
+
+      await axiosInstance.patch(
+        validateApiPath(`/api/admin/users/${userId}/status?status=${status}`)
+      );
+
+      setModalSuccess("用戶狀態更新成功！");
+
+      // 重新獲取用戶列表
+      await fetchUsers();
+    } catch (err) {
+      console.error("更新用戶狀態失敗:", err);
+      setModalError(
+        err.response?.data?.message || "更新用戶狀態失敗，請稍後再試"
+      );
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   // 更新用戶角色
   const handleUpdateRoles = async (userId, roles) => {
     try {
       setModalLoading(true);
       setModalError(null);
+
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setModalError("身份驗證失敗，請重新登入");
+        setModalLoading(false);
+        return;
+      }
 
       await axiosInstance.put(
         validateApiPath(`/api/admin/users/${userId}/roles`),
@@ -167,25 +226,38 @@ const UsersPage = () => {
       );
 
       setModalSuccess("用戶角色更新成功！");
-      
+
       // 重新獲取用戶列表
       await fetchUsers();
     } catch (err) {
       console.error("更新用戶角色失敗:", err);
-      setModalError(err.response?.data?.message || "更新用戶角色失敗，請稍後再試");
+      setModalError(
+        err.response?.data?.message || "更新用戶角色失敗，請稍後再試"
+      );
     } finally {
       setModalLoading(false);
     }
   };
-  
+
   // 重置用戶密碼
   const handleResetPassword = async (userId, newPassword) => {
     try {
       setModalLoading(true);
       setModalError(null);
 
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setModalError("身份驗證失敗，請重新登入");
+        setModalLoading(false);
+        return;
+      }
+
       await axiosInstance.put(
-        validateApiPath(`/api/admin/users/${userId}/password-reset?newPassword=${encodeURIComponent(newPassword)}`)
+        validateApiPath(
+          `/api/admin/users/${userId}/password-reset?newPassword=${encodeURIComponent(
+            newPassword
+          )}`
+        )
       );
 
       setModalSuccess("用戶密碼重置成功！");
@@ -202,17 +274,22 @@ const UsersPage = () => {
     }
   };
 
-  // 刪除用戶
-  const handleDeleteUser = async () => {
+  // 封存用戶 (取代刪除功能)
+  const handleArchiveUser = async () => {
     try {
       setModalLoading(true);
       setModalError(null);
 
-      await axiosInstance.delete(
-        validateApiPath(`/api/admin/users/${selectedUser.id}`)
-      );
+      if (!axiosInstance) {
+        console.error("axiosInstance未定義，可能是因為身份驗證問題");
+        setModalError("身份驗證失敗，請重新登入");
+        setModalLoading(false);
+        return;
+      }
 
-      setModalSuccess("用戶已成功刪除！");
+      await handleUpdateUserStatus(selectedUser.id, "ARCHIVED");
+
+      setModalSuccess("用戶已成功封存！");
 
       // 重新獲取用戶列表
       await fetchUsers();
@@ -222,18 +299,18 @@ const UsersPage = () => {
         closeModal();
       }, 1500);
     } catch (err) {
-      console.error("刪除用戶失敗:", err);
-      setModalError(err.response?.data?.message || "刪除用戶失敗，請稍後再試");
+      console.error("封存用戶失敗:", err);
+      setModalError(err.response?.data?.message || "封存用戶失敗，請稍後再試");
     } finally {
       setModalLoading(false);
     }
   };
-  
+
   // 處理用戶表單提交
   const handleFormSubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
-    
+
     if (modalMode === "create") {
       const newUser = {
         username: formData.get("username"),
@@ -242,6 +319,7 @@ const UsersPage = () => {
         firstName: formData.get("firstName"),
         lastName: formData.get("lastName"),
         roles: getSelectedRoles(formData),
+        status: formData.get("status") || "ENABLED", // 預設為「開啟」
       };
       handleCreateUser(newUser);
     } else if (modalMode === "edit") {
@@ -252,16 +330,20 @@ const UsersPage = () => {
       };
       // 更新用戶資料
       handleUpdateUser(updatedUser);
-      
+
       // 更新用戶角色
       const roles = getSelectedRoles(formData);
       handleUpdateRoles(selectedUser.id, roles);
+
+      // 更新用戶狀態
+      const status = formData.get("status");
+      handleUpdateUserStatus(selectedUser.id, status);
     } else if (modalMode === "reset-password") {
       const newPassword = formData.get("newPassword");
       handleResetPassword(selectedUser.id, newPassword);
     }
   };
-  
+
   // 獲取選中的角色
   const getSelectedRoles = (formData) => {
     const roles = [];
@@ -371,9 +453,13 @@ const UsersPage = () => {
                             {user.username}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : 
-                             user.firstName ? user.firstName : 
-                             user.lastName ? user.lastName : "-"}
+                            {user.firstName && user.lastName
+                              ? `${user.firstName} ${user.lastName}`
+                              : user.firstName
+                              ? user.firstName
+                              : user.lastName
+                              ? user.lastName
+                              : "-"}
                           </div>
                         </div>
                       </div>
@@ -397,15 +483,27 @@ const UsersPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {user.active ? (
+                      {user.status === "ENABLED" ||
+                      (!user.status && user.active) ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           <CheckCircle size={14} className="mr-1" />
-                          啟用
+                          開啟
                         </span>
-                      ) : (
+                      ) : user.status === "DISABLED" ||
+                        (!user.status && !user.active) ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           <XCircle size={14} className="mr-1" />
-                          禁用
+                          停用
+                        </span>
+                      ) : user.status === "ARCHIVED" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <Archive size={14} className="mr-1" />
+                          封存
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircle size={14} className="mr-1" />
+                          開啟
                         </span>
                       )}
                     </td>
@@ -427,9 +525,9 @@ const UsersPage = () => {
                       <button
                         onClick={() => openModal("delete", user)}
                         className="text-red-600 hover:text-red-900"
-                        title="刪除用戶"
+                        title="封存用戶"
                       >
-                        <Trash2 size={18} />
+                        <Archive size={18} />
                       </button>
                     </td>
                   </tr>
@@ -447,9 +545,11 @@ const UsersPage = () => {
             <div className="p-6">
               <h2 className="text-xl font-bold mb-4">
                 {modalMode === "edit" && `編輯用戶: ${selectedUser?.username}`}
-                {modalMode === "delete" && `刪除用戶: ${selectedUser?.username}`}
+                {modalMode === "delete" &&
+                  `封存用戶: ${selectedUser?.username}`}
                 {modalMode === "create" && "新增用戶"}
-                {modalMode === "reset-password" && `重置密碼: ${selectedUser?.username}`}
+                {modalMode === "reset-password" &&
+                  `重置密碼: ${selectedUser?.username}`}
               </h2>
 
               {modalError && (
@@ -475,10 +575,10 @@ const UsersPage = () => {
                       />
                       <div>
                         <p className="text-amber-700 font-medium">
-                          確定要刪除此用戶嗎？
+                          確定要封存此用戶嗎？
                         </p>
                         <p className="text-amber-600">
-                          此操作無法撤銷，用戶的所有資料將被永久刪除。
+                          此操作會將用戶標記為封存狀態，用戶將無法登入系統，且不會顯示在用戶列表中，但其相關資料和操作紀錄將會保留。
                         </p>
                       </div>
                     </div>
@@ -493,8 +593,8 @@ const UsersPage = () => {
                       取消
                     </button>
                     <button
-                      onClick={handleDeleteUser}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+                      onClick={handleArchiveUser}
+                      className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center"
                       disabled={modalLoading}
                     >
                       {modalLoading ? (
@@ -504,15 +604,14 @@ const UsersPage = () => {
                         </>
                       ) : (
                         <>
-                          <Trash2 size={16} className="mr-2" />
-                          確認刪除
+                          <Archive size={16} className="mr-2" />
+                          確認封存
                         </>
                       )}
                     </button>
                   </div>
                 </div>
               )}
-
               {modalMode === "reset-password" && (
                 <form onSubmit={handleFormSubmit}>
                   <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -531,9 +630,12 @@ const UsersPage = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="newPassword">
+                    <label
+                      className="block text-gray-700 text-sm font-medium mb-1"
+                      htmlFor="newPassword"
+                    >
                       新密碼
                     </label>
                     <input
@@ -575,11 +677,14 @@ const UsersPage = () => {
                   </div>
                 </form>
               )}
-              
+
               {(modalMode === "edit" || modalMode === "create") && (
                 <form onSubmit={handleFormSubmit}>
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="username">
+                    <label
+                      className="block text-gray-700 text-sm font-medium mb-1"
+                      htmlFor="username"
+                    >
                       用戶名
                     </label>
                     <input
@@ -594,7 +699,10 @@ const UsersPage = () => {
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="email">
+                    <label
+                      className="block text-gray-700 text-sm font-medium mb-1"
+                      htmlFor="email"
+                    >
                       電子郵件
                     </label>
                     <input
@@ -606,10 +714,13 @@ const UsersPage = () => {
                       required
                     />
                   </div>
-                  
+
                   {modalMode === "create" && (
                     <div className="mb-4">
-                      <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="password">
+                      <label
+                        className="block text-gray-700 text-sm font-medium mb-1"
+                        htmlFor="password"
+                      >
                         密碼
                       </label>
                       <input
@@ -624,7 +735,10 @@ const UsersPage = () => {
                   )}
 
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="firstName">
+                    <label
+                      className="block text-gray-700 text-sm font-medium mb-1"
+                      htmlFor="firstName"
+                    >
                       名字
                     </label>
                     <input
@@ -635,9 +749,12 @@ const UsersPage = () => {
                       defaultValue={selectedUser?.firstName || ""}
                     />
                   </div>
-                  
+
                   <div className="mb-4">
-                    <label className="block text-gray-700 text-sm font-medium mb-1" htmlFor="lastName">
+                    <label
+                      className="block text-gray-700 text-sm font-medium mb-1"
+                      htmlFor="lastName"
+                    >
                       姓氏
                     </label>
                     <input
@@ -694,15 +811,90 @@ const UsersPage = () => {
                           id="role-user"
                           name="role-user"
                           className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
-                          defaultChecked={selectedUser?.roles?.includes(
-                            "ROLE_USER"
-                          ) || modalMode === "create"}
+                          defaultChecked={
+                            selectedUser?.roles?.includes("ROLE_USER") ||
+                            modalMode === "create"
+                          }
                         />
                         <label
                           htmlFor="role-user"
                           className="ml-2 text-gray-700"
                         >
                           用戶
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-gray-700 text-sm font-medium mb-1">
+                      狀態
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="status-enabled"
+                          name="status"
+                          value="ENABLED"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                          defaultChecked={
+                            selectedUser?.status === "ENABLED" ||
+                            (!selectedUser?.status && selectedUser?.active) ||
+                            modalMode === "create"
+                          }
+                        />
+                        <label
+                          htmlFor="status-enabled"
+                          className="ml-2 text-gray-700 flex items-center"
+                        >
+                          <CheckCircle
+                            size={14}
+                            className="mr-1 text-green-600"
+                          />
+                          開啟
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="status-disabled"
+                          name="status"
+                          value="DISABLED"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                          defaultChecked={
+                            selectedUser?.status === "DISABLED" ||
+                            (!selectedUser?.status &&
+                              !selectedUser?.active &&
+                              selectedUser?.status !== "ARCHIVED")
+                          }
+                        />
+                        <label
+                          htmlFor="status-disabled"
+                          className="ml-2 text-gray-700 flex items-center"
+                        >
+                          <XCircle size={14} className="mr-1 text-gray-600" />
+                          停用
+                        </label>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="status-archived"
+                          name="status"
+                          value="ARCHIVED"
+                          className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300"
+                          defaultChecked={selectedUser?.status === "ARCHIVED"}
+                        />
+                        <label
+                          htmlFor="status-archived"
+                          className="ml-2 text-gray-700 flex items-center"
+                        >
+                          <Archive size={14} className="mr-1 text-red-600" />
+                          封存{" "}
+                          <span className="text-xs text-gray-500 ml-1">
+                            (取代刪除功能)
+                          </span>
                         </label>
                       </div>
                     </div>
