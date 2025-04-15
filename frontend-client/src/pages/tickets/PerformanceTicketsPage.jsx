@@ -32,7 +32,30 @@ const PerformanceTicketsPage = () => {
         
         // 獲取該演出場次的所有可用票券
         const ticketsData = await ticketService.getTicketsByPerformance(id);
-        setTickets(ticketsData || []);
+        
+        // 如果票券數據中沒有完整的演出場次信息，需要進行補充
+        if (Array.isArray(ticketsData) && ticketsData.length > 0) {
+          const enhancedTickets = ticketsData.map(ticket => {
+            // 確保演出場次信息完整
+            if (ticket.performance && (!ticket.performance.startTime || !ticket.performance.venue)) {
+              // 將演出場次資訊填充到票券中
+              return {
+                ...ticket,
+                performance: {
+                  ...ticket.performance,
+                  startTime: performanceData.startTime,
+                  endTime: performanceData.endTime,
+                  venue: performanceData.venue,
+                  concertId: performanceData.concertId
+                }
+              };
+            }
+            return ticket;
+          });
+          setTickets(enhancedTickets);
+        } else {
+          setTickets(ticketsData || []);
+        }
       } catch (error) {
         console.error('Error fetching performance data:', error);
         setError('無法獲取演出場次資訊，請稍後再試');
@@ -210,36 +233,44 @@ const PerformanceTicketsPage = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tickets.map((ticket) => (
-            <div
-              key={ticket.id}
-              className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-bold">{ticket.ticketType.name}</h3>
-                  <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-medium">
-                    NT$ {ticket.price}
+          {tickets.map((ticket) => {
+            // 處理新的API返回格式
+            const ticketName = ticket.ticketType?.name || ticket.name;
+            const ticketDescription = ticket.ticketType?.description || ticket.description || '標準票種，良好的視聽體驗';
+            const ticketPrice = ticket.price;
+            const availableQuantity = ticket.availableQuantity;
+            
+            return (
+              <div
+                key={ticket.id}
+                className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition"
+              >
+                <div className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-bold">{ticketName}</h3>
+                    <div className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-medium">
+                      NT$ {ticketPrice}
+                    </div>
                   </div>
+                  
+                  <p className="text-gray-600 mb-4 h-12">
+                    {ticketDescription}
+                  </p>
+                  
+                  <div className="text-sm text-gray-500 mb-4">
+                    剩餘數量: <span className="font-medium">{availableQuantity} 張</span>
+                  </div>
+                  
+                  <Link
+                    to={`/tickets/${ticket.id}?type=${encodeURIComponent(ticketName)}`}
+                    className="block w-full py-2 bg-indigo-600 text-white rounded-lg text-center hover:bg-indigo-700 transition"
+                  >
+                    選擇此票種
+                  </Link>
                 </div>
-                
-                <p className="text-gray-600 mb-4 h-12">
-                  {ticket.ticketType.description || '標準票種，良好的視聽體驗'}
-                </p>
-                
-                <div className="text-sm text-gray-500 mb-4">
-                  剩餘數量: <span className="font-medium">{ticket.availableQuantity} 張</span>
-                </div>
-                
-                <Link
-                  to={`/tickets/${ticket.id}?type=${encodeURIComponent(ticket.ticketType.name)}`}
-                  className="block w-full py-2 bg-indigo-600 text-white rounded-lg text-center hover:bg-indigo-700 transition"
-                >
-                  選擇此票種
-                </Link>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       

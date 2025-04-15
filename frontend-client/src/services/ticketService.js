@@ -145,7 +145,47 @@ const getTicketById = async (ticketId) => {
   try {
     const path = validateApiPath(`${API_PUBLIC_TICKETS_PATH}/${ticketId}`);
     const response = await publicAxios.get(path);
-    return response.data;
+    
+    // 轉換API返回的數據為前端期望的格式
+    const ticketData = response.data;
+    
+    // 構建回應格式
+    const formattedTicket = {
+      id: ticketData.id,
+      ticketType: {
+        id: ticketData.ticketTypeId,
+        name: ticketData.name,
+        description: ticketData.description,
+        price: ticketData.price,
+        colorCode: ticketData.colorCode || '#4f46e5' // 使用票券顏色代碼或預設值
+      },
+      price: ticketData.price,
+      availableQuantity: ticketData.availableQuantity,
+      performance: {
+        id: ticketData.performanceId,
+        // 注意：這些欄位可能需要從其他API獲取
+        startTime: null, // 需要從performance API中獲取
+        endTime: null,   // 需要從performance API中獲取
+        venue: null,     // 需要從performance API中獲取
+        concertId: null  // 需要從performance API中獲取
+      }
+    };
+    
+    // 獲取演出場次信息來完善票券信息
+    try {
+      const performancePath = validateApiPath(`${API_PERFORMANCES_PATH}/${ticketData.performanceId}`);
+      const performanceResponse = await publicAxios.get(performancePath);
+      const performanceData = performanceResponse.data;
+      
+      formattedTicket.performance.startTime = performanceData.startTime;
+      formattedTicket.performance.endTime = performanceData.endTime;
+      formattedTicket.performance.venue = performanceData.venue;
+      formattedTicket.performance.concertId = performanceData.concertId;
+    } catch (perfError) {
+      console.error('Error fetching performance data:', perfError);
+    }
+    
+    return formattedTicket;
   } catch (error) {
     console.error('Error fetching ticket by ID:', error);
     
@@ -184,6 +224,33 @@ const getTicketsByPerformance = async (performanceId) => {
   try {
     const path = validateApiPath(`${API_PERFORMANCES_PATH}/${performanceId}/tickets`);
     const response = await publicAxios.get(path);
+    
+    // 將API返回的數據轉換為前端期望的格式
+    const ticketsData = response.data;
+    
+    if (Array.isArray(ticketsData)) {
+      return ticketsData.map(ticket => ({
+        id: ticket.id,
+        ticketType: {
+          id: ticket.ticketTypeId,
+          name: ticket.name,
+          description: ticket.description,
+          price: ticket.price,
+          colorCode: ticket.colorCode || '#4f46e5' // 使用票券顏色代碼或預設值
+        },
+        price: ticket.price,
+        availableQuantity: ticket.availableQuantity,
+        performance: {
+          id: ticket.performanceId,
+          // 注意：這些欄位可能需要從其他API獲取
+          startTime: null, // 需從performance中獲取
+          endTime: null,   // 需從performance中獲取
+          venue: null,     // 需從performance中獲取
+          concertId: null  // 需從performance中獲取
+        }
+      }));
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching tickets by performance:', error);
