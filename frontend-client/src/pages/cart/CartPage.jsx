@@ -29,8 +29,11 @@ const CartPage = () => {
   };
 
   const handleClearCart = () => {
-    const updatedCart = cartService.clearCart();
-    setCart(updatedCart);
+    // 添加確認對話框以防止意外清空
+    if (window.confirm('確定要清空購物車嗎？此操作不可撤銷。')) {
+      const updatedCart = cartService.clearCart();
+      setCart(updatedCart);
+    }
   };
 
   const handleCheckout = async () => {
@@ -56,7 +59,14 @@ const CartPage = () => {
       // 創建訂單
       const orderData = await cartService.checkout();
       
-      // 訂單創建成功，導向到結帳頁面
+      console.log('訂單創建成功，訂單號:', orderData.orderNumber);
+      
+      // 確保訂單號存在
+      if (!orderData || !orderData.orderNumber) {
+        throw new Error('訂單創建成功但未獲得訂單號');
+      }
+      
+      // 使用正確的導航路徑
       navigate(`/checkout/${orderData.orderNumber}`);
     } catch (error) {
       console.error('結帳失敗:', error);

@@ -8,9 +8,11 @@ import AuthLayout from '../layouts/AuthLayout';
 // 導入頁面組件
 import HomePage from '../pages/home/HomePage';
 import ConcertDetailPage from '../pages/concerts/ConcertDetailPage';
+import ConcertsPage from '../pages/concerts/ConcertsPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
 import PerformanceTicketsPage from '../pages/tickets/PerformanceTicketsPage';
 import CheckoutPage from '../pages/checkout/CheckoutPage';
+import CartPage from '../pages/cart/CartPage';
 import UserProfilePage from '../pages/user/UserProfilePage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
@@ -29,6 +31,7 @@ function AppRoutes() {
                     <Route path="/" element={<HomePage />} />
                     
                     {/* 音樂會和票券路由 */}
+                    <Route path="/concerts" element={<ConcertsPage />} />
                     <Route path="/concerts/:id" element={<ConcertDetailPage />} />
                     <Route path="/concerts/:concertId/tickets/:ticketType" element={<TicketDetailPage />} />
                     {/* 票券演出場次路由 */}
@@ -36,9 +39,12 @@ function AppRoutes() {
                     {/* 定向給 ID=1 的的春季交響音樂會 */}
                     <Route path="/spring-concert" element={<Navigate to="/concerts/1" replace />} />
                     
+                    {/* 購物車路由 */}
+                    <Route path="/cart" element={<CartPage />} />
+                    
                     {/* 需要登入的路由 */}
                     <Route 
-                        path="/checkout" 
+                        path="/checkout/:orderNumber" 
                         element={
                             <PrivateRoute>
                                 <CheckoutPage />

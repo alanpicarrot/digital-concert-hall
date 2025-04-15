@@ -22,7 +22,7 @@ const TicketInfoCard = ({ ticket, onAddToCart }) => {
         </div>
         
         <div className="bg-gray-100 px-3 py-1 rounded-full text-sm">
-          {ticket.available ? `剩餘 ${ticket.available} 張` : '售罄'}
+          {ticket.availableQuantity ? `剩餘 ${ticket.availableQuantity} 張` : '售罄'}
         </div>
       </div>
       
@@ -39,13 +39,13 @@ const TicketInfoCard = ({ ticket, onAddToCart }) => {
       
       <button
         onClick={onAddToCart}
-        disabled={!ticket.available}
+        disabled={!ticket.availableQuantity || ticket.availableQuantity <= 0}
         className={`w-full py-2 rounded-md font-medium text-white 
-          ${ticket.available 
+          ${ticket.availableQuantity && ticket.availableQuantity > 0
             ? 'bg-indigo-600 hover:bg-indigo-700' 
             : 'bg-gray-400 cursor-not-allowed'}`}
       >
-        {ticket.available ? '加入購物車' : '票券售罄'}
+        {ticket.availableQuantity && ticket.availableQuantity > 0 ? '加入購物車' : '票券售罄'}
       </button>
     </div>
   );

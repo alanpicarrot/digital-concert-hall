@@ -34,16 +34,31 @@ const ConcertsPage = () => {
 
         if (!concertsData || concertsData.length === 0) {
           // 如果沒有數據，添加一些模擬數據以便測試
-          concertsData = [
+          console.log("沒有獲取到音樂會數據，使用模擬數據...");
+          // 使用與 concertService 中相同的模擬數據
+          const mockConcerts = [
             {
               id: 1,
-              title: "測試音樂會",
-              startTime: new Date().toISOString(),
-              description: "這是一個測試音樂會",
-              venue: "數位音樂廳",
-              posterUrl: null,
+              title: "2025春季交響音樂會",
+              startTime: "2025-05-15T19:30:00",
+              description: "春季音樂盛宴，將為您帶來優美的音樂體驗。由著名指揮家帶領交響樂團，演奏經典曲目和當代作品。",
+              venue: "數位音樂廳主廳",
+              posterUrl: "/assets/images/concert-posters/spring-concert.jpg",
+              performer: "數位音樂廳交響樂團",
+              genre: "古典音樂"
             },
+            {
+              id: 2,
+              title: "貝多芬鋼琴妙境音樂會",
+              startTime: "2025-06-20T19:00:00",
+              description: "一場精彩的貝多芬鋼琴演出，展現音樂的深邃與優雅",
+              venue: "數位音樂廳主廳",
+              posterUrl: "/assets/images/concert-posters/beethoven.jpg",
+              performer: "李大方",
+              genre: "古典音樂"
+            }
           ];
+          concertsData = mockConcerts;
         }
 
         const formattedConcerts = concertsData.map((concert) => ({
@@ -245,7 +260,7 @@ const ConcertsPage = () => {
                         查看詳情
                       </Link>
                       <Link
-                        to={`/tickets/${concert.id}`}
+                        to={`/concerts/${concert.id}/tickets/standard`}
                         className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded text-sm font-medium"
                       >
                         購票
