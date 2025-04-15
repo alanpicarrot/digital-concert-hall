@@ -22,7 +22,7 @@ import com.digitalconcerthall.repository.UserRepository;
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
 import com.digitalconcerthall.repository.order.OrderRepository;
-import com.digitalconcerthall.repository.ticket.TicketRepository;
+import com.digitalconcerthall.repository.TicketRepository;
 import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 import com.digitalconcerthall.security.services.UserDetailsImpl;
 
@@ -46,10 +46,10 @@ public class TestController {
     // Add missing repository injections
     @Autowired
     private TicketTypeRepository ticketTypeRepository;
-    
+
     @Autowired
     private TicketRepository ticketRepository;
-    
+
     @GetMapping("/create-concert")
     @PreAuthorize("permitAll()")
     public ResponseEntity<ApiResponse> createTestConcert() {
@@ -76,7 +76,7 @@ public class TestController {
 
             // Fix variable name from savedPerformance to performance
             Performance savedPerformance = performanceRepository.save(performance);
-            
+
             // Create ticket type
             TicketType vipType = new TicketType();
             vipType.setName("VIP");
@@ -114,19 +114,18 @@ public class TestController {
     public ResponseEntity<List<String>> listPerformances() {
         List<Performance> performances = performanceRepository.findAll();
         List<String> result = new ArrayList<>();
-        
+
         for (Performance perf : performances) {
             Concert concert = perf.getConcert();
             String info = String.format(
-                "演出ID: %d, 音樂會: %s, 場地: %s, 時間: %s", 
-                perf.getId(), 
-                concert != null ? concert.getTitle() : "未知",
-                perf.getVenue(),
-                perf.getStartTime()
-            );
+                    "演出ID: %d, 音樂會: %s, 場地: %s, 時間: %s",
+                    perf.getId(),
+                    concert != null ? concert.getTitle() : "未知",
+                    perf.getVenue(),
+                    perf.getStartTime());
             result.add(info);
         }
-        
+
         return ResponseEntity.ok(result);
     }
 
@@ -136,7 +135,8 @@ public class TestController {
     public ResponseEntity<Order> createTestOrder(@RequestBody TestOrderRequest request) {
         try {
             // 獲取當前用戶
-            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication()
+                    .getPrincipal();
             User user = userRepository.findById(userDetails.getId())
                     .orElseThrow(() -> new RuntimeException("找不到當前用戶"));
 
@@ -156,7 +156,7 @@ public class TestController {
             return ResponseEntity.badRequest().body(null);
         }
     }
-    
+
     // 測試訂單請求類
     static class TestOrderRequest {
         private String orderNumber;

@@ -12,4 +12,6 @@ public class TicketRequest {
     private Long ticketTypeId;
     private Integer totalQuantity;
     private Integer availableQuantity;
+    private String description;
+    private String status;
 }

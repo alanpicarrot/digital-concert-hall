@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.digitalconcerthall.dto.response.ticket.TicketTypeClientResponse;
-import com.digitalconcerthall.repository.ticket.TicketRepository;
+import com.digitalconcerthall.repository.TicketRepository;
 import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 import com.digitalconcerthall.model.ticket.Ticket;
 import com.digitalconcerthall.model.ticket.TicketType;
@@ -41,7 +41,7 @@ public class ClientTicketController {
     public ResponseEntity<List<TicketTypeClientResponse>> getTicketsByPerformanceId(
             @PathVariable("performanceId") Long performanceId) {
         
-        List<Ticket> tickets = ticketRepository.findByPerformanceId(performanceId);
+        List<Ticket> tickets = ticketRepository.findByPerformance_Id(performanceId);
         
         List<TicketTypeClientResponse> responses = tickets.stream()
                 .filter(ticket -> ticket.getAvailableQuantity() > 0) // 只返回有庫存的票券

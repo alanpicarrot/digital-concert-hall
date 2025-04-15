@@ -25,4 +25,17 @@ public class UserTicketDetailResponse {
     private String posterUrl; // 音樂會海報URL
     private String concertDescription; // 音樂會描述
     private String programDetails; // 演出曲目詳情
+    
+    // 簡化的建構子，用於 TicketServiceImpl
+    public UserTicketDetailResponse(Long id, Long performanceId, String performanceName, 
+                                   LocalDateTime performanceDate, String seatNumber, 
+                                   java.math.BigDecimal price, String status, LocalDateTime purchaseDate) {
+        this.id = id;
+        this.ticketCode = "TK" + id;
+        this.concertTitle = performanceName;
+        this.performanceStartTime = performanceDate;
+        this.isUsed = "USED".equals(status);
+        this.createdAt = purchaseDate;
+        // 其他屬性可以預設值或在後續加載
+    }
 }

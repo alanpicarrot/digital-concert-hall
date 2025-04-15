@@ -46,11 +46,33 @@ public class Ticket {
     @Column(name = "status")
     private String status;
     
+    @Column(name = "username", nullable = false)
+    private String username;
+    
+    @Column(name = "purchase_date")
+    private LocalDateTime purchaseDate;
+    
+    @Column(name = "seat_number")
+    private String seatNumber;
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+    }
+    
+    // 便捷方法
+    public Long getPerformanceId() {
+        return performance != null ? performance.getId() : null;
+    }
+    
+    public String getPerformanceName() {
+        return performance != null ? performance.getName() : null;
+    }
+    
+    public LocalDateTime getPerformanceDate() {
+        return performance != null ? performance.getStartTime() : null;
     }
 }

@@ -59,4 +59,9 @@ public class Performance {
     public Long getId() {
         return this.id; // 確保 `id` 屬性存在
     }
+    
+    // 提供演出名稱
+    public String getName() {
+        return concert != null ? concert.getTitle() : null;
+    }
 }

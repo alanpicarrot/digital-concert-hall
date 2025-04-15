@@ -19,6 +19,7 @@ import java.util.Set;
 public class DigitalConcertHallApplication {
 
     public static void main(String[] args) {
+    	
         SpringApplication.run(DigitalConcertHallApplication.class, args);
     }
 

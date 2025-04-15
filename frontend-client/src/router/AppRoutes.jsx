@@ -10,6 +10,7 @@ import HomePage from '../pages/home/HomePage';
 import ConcertDetailPage from '../pages/concerts/ConcertDetailPage';
 import ConcertsPage from '../pages/concerts/ConcertsPage';
 import TicketDetailPage from '../pages/TicketDetailPage';
+import TicketsDetailPage from '../pages/tickets/TicketDetailPage';
 import PerformanceTicketsPage from '../pages/tickets/PerformanceTicketsPage';
 import CheckoutPage from '../pages/checkout/CheckoutPage';
 import CartPage from '../pages/cart/CartPage';
@@ -36,6 +37,7 @@ function AppRoutes() {
                     <Route path="/concerts/:concertId/tickets/:ticketType" element={<TicketDetailPage />} />
                     {/* 票券演出場次路由 */}
                     <Route path="/tickets/performance/:id" element={<PerformanceTicketsPage />} />
+                    <Route path="/tickets/:id" element={<TicketsDetailPage />} />
                     {/* 定向給 ID=1 的的春季交響音樂會 */}
                     <Route path="/spring-concert" element={<Navigate to="/concerts/1" replace />} />
                     
