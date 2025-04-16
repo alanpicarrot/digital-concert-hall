@@ -67,11 +67,9 @@ function AppRoutes() {
                 <Route element={<AuthLayout />}>
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/auth/login" element={<LoginPage />} />
+                    <Route path="/auth/register" element={<RegisterPage />} />
                 </Route>
-                
-                {/* 舊路徑重定向 */}
-                <Route path="/auth/login" element={<Navigate to="/login" replace />} />
-                <Route path="/auth/register" element={<Navigate to="/register" replace />} />
             </Routes>
         </ErrorBoundary>
     );

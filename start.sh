@@ -24,7 +24,7 @@ if ! command -v npm &> /dev/null; then
 fi
 
 # 檢查必要的目錄是否存在
-for dir in "backend" "frontend-admin"; do
+for dir in "backend" "frontend-admin" "frontend-client"; do
     if [ ! -d "$dir" ]; then
         echo -e "${RED}錯誤: $dir 目錄不存在。請確保您在正確的項目目錄中運行此腳本。${NC}"
         exit 1
@@ -91,28 +91,49 @@ cd ..
 
 echo -e "${GREEN}前端管理面板已啟動，PID: $FRONTEND_ADMIN_PID${NC}"
 
+# 啟動前端客戶界面
+echo -e "${YELLOW}啟動前端客戶界面...${NC}"
+cd frontend-client
+echo "前端客戶界面目錄: $(pwd)"
+
+# 安裝前端依賴
+echo "確保前端客戶依賴已安裝..."
+npm install --silent
+
+# 啟動前端
+echo -e "${GREEN}啟動前端客戶服務...${NC}"
+PORT=3000 npm start > ../logs/client.log 2>&1 &
+FRONTEND_CLIENT_PID=$!
+cd ..
+
+echo -e "${GREEN}前端客戶界面已啟動，PID: $FRONTEND_CLIENT_PID${NC}"
+
 echo -e "
 ${YELLOW}==========================================${NC}"
 echo -e "${GREEN}  用戶管理服務已啟動！  ${NC}"
 echo -e "${YELLOW}==========================================${NC}"
 echo -e "${YELLOW}- 後端 API:${NC} http://localhost:8080"
 echo -e "${YELLOW}- 後台管理:${NC} http://localhost:3001"
+echo -e "${YELLOW}- 前端客戶:${NC} http://localhost:3000"
 echo -e "${YELLOW}- 日誌位置:${NC} $(pwd)/logs/"
 echo ""
 echo "進程ID:"
 echo "- 後端 PID: $BACKEND_PID"
 echo "- 後台管理 PID: $FRONTEND_ADMIN_PID"
+echo "- 前端客戶 PID: $FRONTEND_CLIENT_PID"
 
 # 保存 PID 以便停止服務
 echo "$BACKEND_PID" > .backend.pid
 echo "$FRONTEND_ADMIN_PID" > .frontend-admin.pid
+echo "$FRONTEND_CLIENT_PID" > .frontend-client.pid
 
 echo -e "${YELLOW}
 使用說明:
-- 運行 ./stop_user_management.sh 停止用戶管理服務
+- 運行 ./stop.sh 停止用戶管理服務
 - 訪問 http://localhost:3001 進入管理後台
+- 訪問 http://localhost:3000 進入客戶前端界面
 - 用戶管理功能位於側邊欄「用戶管理」選項
-- 查看日誌: tail -f logs/backend.log | logs/admin.log
+- 查看日誌: tail -f logs/backend.log | logs/admin.log | logs/client.log
 ${NC}"
 
 # 等待任何按鍵以便查看輸出

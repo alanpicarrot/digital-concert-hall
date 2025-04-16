@@ -127,15 +127,39 @@ const calculateTotal = (items) => {
 // 創建訂單 (連接到後端 API)
 const checkout = async () => {
   try {
-    // 檢查用戶登入和令牌狀態
-    const currentUser = authService.getCurrentUser();
+    // 進行更詳細的登入狀態檢查
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('user');
     const isTokenValid = authService.isTokenValid();
     
-    console.log('用戶資訊:', currentUser);
-    console.log('令牌有效性:', isTokenValid);
+    console.log('結帳前的認證狀態檢查:', {
+      tokenExists: !!token,
+      userDataExists: !!userStr,
+      tokenValid: isTokenValid
+    });
     
-    if (!currentUser || !isTokenValid) {
-      throw new Error('用戶未登入或令牌無效');
+    // 如果有用戶數據，嘗試轉換並記錄
+    let currentUser = null;
+    if (userStr) {
+      try {
+        currentUser = JSON.parse(userStr);
+        console.log('從存儲的用戶數據:', { 
+          username: currentUser?.username, 
+          id: currentUser?.id 
+        });
+      } catch (e) {
+        console.error('用戶數據解析失敗:', e);
+      }
+    }
+    
+    // 統一的認證錯誤處理
+    if (!token || !currentUser || !isTokenValid) {
+      console.error('認證狀態檢查失敗:', { 
+        token: !!token, 
+        user: !!currentUser, 
+        valid: isTokenValid 
+      });
+      throw new Error('您需要登入才能繼續付款流程');
     }
     
     const cart = getCart();

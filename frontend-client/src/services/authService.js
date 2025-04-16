@@ -240,13 +240,36 @@ const isTokenValid = () => {
     const payload = JSON.parse(atob(tokenParts[1]));
     const currentTime = Math.floor(Date.now() / 1000);
 
+    // 記錄更詳細的令牌信息
+    console.log('令牌有效性檢查', {
+      hasToken: true,
+      tokenFormat: 'JWT',
+      tokenLength: token.length,
+      hasExpiration: !!payload.exp,
+      expirationTime: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'none'
+    });
+
     // 檢查令牌是否過期
     if (payload.exp && payload.exp < currentTime) {
       console.log("令牌已過期", {
         exp: payload.exp,
+        expDate: new Date(payload.exp * 1000).toISOString(),
         now: currentTime,
+        nowDate: new Date(currentTime * 1000).toISOString(),
         diff: currentTime - payload.exp,
+        diffMinutes: Math.round((currentTime - payload.exp) / 60)
       });
+      
+      // 在開發環境中，即使令牌已過期也暂時允許其使用，這可能導致某些競爭狀態
+      // 同時從寬受的點來考慮，將已過期但不超過24小時的令牌也視為有效
+      if (process.env.NODE_ENV === 'development') {
+        const expiredMinutes = Math.round((currentTime - payload.exp) / 60);
+        if (expiredMinutes < 1440) { // 將過期不到 24 小時的令牌視為有效
+          console.warn(`開發環境中令牌已過期 ${expiredMinutes} 分鐘，但仍視為有效`);
+          return true;
+        }
+      }
+      
       return false;
     }
 

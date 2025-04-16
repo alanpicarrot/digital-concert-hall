@@ -26,6 +26,41 @@ const CheckoutPage = () => {
     };
   }
 
+  // 添加額外的認證驗證邏輯和專用於結帳頁面的強化驗證
+  useEffect(() => {
+    // 在首次載入時進行認證狀態檢查和日誌記錄
+    const verifyAuth = () => {
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      const isTokenValid = authService.isTokenValid();
+      
+      // 更全面的狀態記錄
+      console.log('結帳頁面載入時詳細認證狀態:', { 
+        tokenExists: !!token, 
+        userExists: !!userStr,
+        tokenValid: isTokenValid,
+        tokenLength: token?.length,
+        locationState: JSON.stringify(location.state),
+        locationPathname: location.pathname,
+        fromDirect: location.state?.direct === true,
+        authenticated: location.state?.authenticated === true
+      });
+      
+      // 如果從路由狀態中檢測到authenticated=true且token存在，強制確認認證狀態
+      if (location.state?.authenticated === true && token && userStr) {
+        console.log('檢測到明確的認證狀態標記，跳過額外驗證');
+        return;
+      }
+      
+      // 如果無效，但有token，進行一次更新嘗試
+      if (token && userStr && !isTokenValid) {
+        console.warn('結帳頁面檢測到可能的認證問題，但存在token和用戶數據，繼續處理...');
+      }
+    };
+    
+    verifyAuth();
+  }, [location]);
+  
   // 確保獲取結帳數據並在卸載時清理全局函數
   useEffect(() => {
     const fetchOrderData = async () => {
@@ -117,24 +152,46 @@ const CheckoutPage = () => {
       // 再次詳細檢查登入狀態
       const currentUser = authService.getCurrentUser();
       const isTokenValid = authService.isTokenValid();
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
       
-      console.log('支付處理 - 用戶登入狀態:', {
+      // 更全面的狀態記錄
+      console.log('支付處理 - 用戶登入詳細狀態:', {
         user: currentUser ? currentUser.username : '未登入',
-        tokenValid: isTokenValid ? '有效' : '無效或過期'
+        tokenValid: isTokenValid ? '有效' : '無效或過期',
+        tokenExists: !!token,
+        userDataExists: !!userStr,
+        locationState: JSON.stringify(location.state)
       });
       
-      if (!currentUser || !isTokenValid) {
-        console.log('用戶未登入或令牌無效');
+      // 如果路由狀態中有authenticated標記且本地存儲有數據，则跳過驗證
+      if (location.state?.authenticated === true && token && userStr) {
+        console.log('從路由得到認證標記，直接處理支付');
+      }
+      // 如果沒有令牌或用戶數據，才需要重定向到登入頁面
+      else if (!token || !userStr) {
+        console.log('用戶未登入，缺少令牌或用戶數據');
         await authService.logout(); // 確保清理登入狀態
         
         // 導向登入並保留重定向信息
-        navigate('/auth/login', { 
-          state: { 
-            from: location.pathname, 
-            message: '您的登入已過期，請重新登入' 
-          } 
-        });
+        const currentPath = location.pathname;
+        toast.showInfo('需要登入', '我們將導引您登入後繼續結帳流程');
+        
+        // 使用延遲以確保通知消息可以顯示
+        setTimeout(() => {
+          navigate('/auth/login', { 
+            state: { 
+              from: currentPath, 
+              message: '您需要先登入才能完成支付', 
+              redirectAfterLogin: true
+            } 
+          });
+        }, 500);
         return;
+      }
+      // 令牌驗證失敗但仍然存在，嘗試繼續處理
+      else if (!isTokenValid && token && userStr) {
+        console.warn('令牌前端驗證失敗，但令牌和用戶數據存在，嘗試繼續處理');
       }
       
       setPaymentLoading(true);

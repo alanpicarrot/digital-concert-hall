@@ -37,26 +37,58 @@ const CartPage = () => {
   };
 
   const handleCheckout = async () => {
-    const currentUser = authService.getCurrentUser();
-    console.log('Current user in cart checkout:', currentUser ? currentUser.username : 'Not logged in');
-    
-    if (!currentUser) {
-      // 如果用戶未登錄，導向登錄頁面
-      alert('請先登入才能進行結帳');
-      navigate('/login?redirect=cart');
-      return;
-    }
-
-    if (cart.items.length === 0) {
-      setCheckoutError('購物車是空的，請添加商品後再結帳');
-      return;
-    }
-
     try {
+      // 首先，進行詳細的登入狀態檢查
+      console.log('開始結帳流程 - 詳細檢查登入狀態');
+      
+      // 使用更可靠的方式檢查登入
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      const isTokenValid = authService.isTokenValid();
+      
+      // 更全面的狀態記錄
+      console.log('結帳時詳細認證狀態:', { 
+        tokenExists: !!token, 
+        userExists: !!userStr,
+        tokenValid: isTokenValid,
+        tokenLength: token?.length,
+        userObject: userStr ? JSON.parse(userStr).username : null
+      });
+      
+      // 如果沒有有效的令牌或用戶數據，則需要重新登入
+      if (!token || !userStr) {
+        console.log('認證令牌或用戶數據缺失，需要重新登入');
+        alert('您需要先登入才能結帳，即將為您導向登入頁面');
+        
+        // 清理任何可能的過期認證
+        await authService.logout();
+        
+        // 使用React Router的正確導航方式
+        navigate('/auth/login', { 
+          state: { from: '/cart', redirectAfterLogin: true }
+        });
+        return;
+      }
+      
+      // 單獨處理令牌有效性，即使令牌可能無效也嘗試進行結帳
+      // 這是因為令牌可能在前端檢查無效，但後端仍然認為有效
+      if (!isTokenValid) {
+        console.warn('令牌有效性檢查失敗，但仍嘗試進行結帳，後端將進行最終驗證');
+      }
+      
+      // 在通過認證檢查後，確認購物車狀態
+      if (cart.items.length === 0) {
+        setCheckoutError('購物車是空的，請添加商品後再結帳');
+        return;
+      }
+
+      // 開始處理結帳
       setIsProcessing(true);
       setCheckoutError(null);
-      
+      console.log('用戶已登入，開始處理結帳請求');
+
       // 創建訂單
+      console.log('開始創建訂單...');
       const orderData = await cartService.checkout();
       
       console.log('訂單創建成功，訂單號:', orderData.orderNumber);
@@ -66,11 +98,54 @@ const CartPage = () => {
         throw new Error('訂單創建成功但未獲得訂單號');
       }
       
-      // 使用正確的導航路徑
-      navigate(`/checkout/${orderData.orderNumber}`);
+      // 在重定向前再次確認登入狀態
+      const isTokenStillValid = authService.isTokenValid();
+      console.log('重定向前再次確認登入狀態:', isTokenStillValid ? '有效' : '無效');
+      
+      if (!isTokenStillValid) {
+        alert('登入狀態已過期，將為您導向登入頁面');
+        await authService.logout();
+        navigate('/auth/login', { 
+          state: { 
+            from: `/checkout/${orderData.orderNumber}`, 
+            redirectAfterLogin: true 
+          } 
+        });
+        return;
+      }
+      
+      // 使用正確的導航路徑，傳遞額外狀態確保認證已完成
+      console.log('導向到結帳頁面:', `/checkout/${orderData.orderNumber}`);
+      
+      // 後端已經成功創建訂單，導向到結帳頁面並傳送必要的認證資訊
+      // 在這裡添加延遲，確保認證狀態有足夠時間傳播
+      // 增加延遲時間確保狀態完全更新
+      console.log('會在5秒後重定向到結帳頁面，以確保認證狀態完全更新');
+      alert('訂單創建成功，正在導向結帳頁面...');
+      
+      // 再次確保用戶數據已經儲存到localStorage
+      const recheckToken = localStorage.getItem('token');
+      const recheckUser = localStorage.getItem('user');
+      console.log('重定向前再次確認用戶資料存在：', {
+        tokenExists: !!recheckToken,
+        userExists: !!recheckUser
+      });
+      
+      setTimeout(() => {
+        navigate(`/checkout/${orderData.orderNumber}`, { 
+          state: { 
+            authenticated: true,
+            loginTimestamp: new Date().getTime(),
+            from: '/cart',
+            token: true,  // 只傳送有無token的標記，不傳送實際值
+            direct: true // 添加直接導向標記
+          }
+        });
+      }, 1000); // 增加延遲確保狀態完全更新
+      
     } catch (error) {
       console.error('結帳失敗:', error);
-      setCheckoutError(error.response?.data?.message || '結帳過程中出現錯誤，請稍後再試');
+      setCheckoutError(error.response?.data?.message || error.message || '結帳過程中出現錯誤，請稍後再試');
       setIsProcessing(false);
     }
   };

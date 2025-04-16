@@ -47,6 +47,9 @@ stop_process() {
 }
 
 # 停止順序：先前端，後後端
+# 停止前端客戶界面
+stop_process ".frontend-client.pid" "前端客戶界面"
+
 # 停止前端管理面板
 stop_process ".frontend-admin.pid" "前端管理面板"
 
@@ -91,7 +94,7 @@ clean_port() {
 }
 
 # 清理用戶管理服務使用的端口
-for port in 3001 8080; do
+for port in 3000 3001 8080; do
     clean_port $port
 done
 

@@ -103,13 +103,32 @@ const ConcertsPage = () => {
   }
 
   const filteredConcerts = concerts.filter((concert) => {
-    if (
-      filters.timeframe === "upcoming" &&
-      new Date(concert.date) < new Date()
-    ) {
-      return false;
+    // 修復日期過濾邏輯
+    const concertDate = new Date(concert.date);
+    const now = new Date();
+    
+    // 先檢查日期是否有效
+    if (isNaN(concertDate.getTime())) {
+      console.error('無效的音樂會日期:', concert.date, '音樂會ID:', concert.id);
+      return true; // 如果日期無效，默認顯示這個音樂會
     }
-    if (filters.timeframe === "past" && new Date(concert.date) >= new Date()) {
+    
+    // 修復「即將上演」的邏輯，確保未來的音樂會被正確過濾
+    if (filters.timeframe === "upcoming") {
+      // 比較日期的年月日，忽略時間部分
+      const concertYMD = new Date(concertDate.getFullYear(), concertDate.getMonth(), concertDate.getDate());
+      const nowYMD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // 如果音樂會日期在今日之前，不顯示
+      if (concertYMD < nowYMD) {
+        console.log('「即將上演」過濾排除了過去音樂會:', concert.title, concertDate);
+        return false;
+      }
+      return true; // 顯示今天及之後的音樂會
+    }
+    
+    if (filters.timeframe === "past" && concertDate >= now) {
+      console.log('「過去演出」過濾排除了未來音樂會:', concert.title, concertDate);
       return false;
     }
 
