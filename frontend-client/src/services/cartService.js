@@ -217,7 +217,27 @@ const checkout = async () => {
         case 400:
           throw new Error('訂單資料無效');
         case 401:
-          throw new Error('未授權，請重新登入');
+          console.log('收到401未授權錯誤，但不中斷結帳流程');
+          // 嘗試獲取當前的令牌和用戶數據
+          const currentToken = localStorage.getItem('token');
+          const currentUserStr = localStorage.getItem('user');
+          let currentUserData = null;
+          
+          try {
+            if (currentUserStr) {
+              currentUserData = JSON.parse(currentUserStr);
+            }
+          } catch (e) {
+            console.error('解析用戶數據失敗:', e);
+          }
+          
+          // 強制重新寫入令牌和用戶數據，確保數據一致性
+          if (currentToken && currentUserData) {
+            localStorage.setItem('token', currentToken);
+            localStorage.setItem('user', JSON.stringify(currentUserData));
+            console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+          }
+          throw new Error('處理訂單時發生認證問題，請重新嘗試');
         case 403:
           throw new Error('無權限訪問');
         case 500:

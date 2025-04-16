@@ -77,20 +77,21 @@ axiosInstance.interceptors.response.use(
       error.response ? error.response.status : error.message
     );
 
-    // 處理 401 未授權錯誤 (令牌過期或無效)
-    if (error.response && error.response.status === 401) {
-      console.log("偵測到 401 未授權錯誤，檢查當前路徑");
+  // 處理 401 未授權錯誤 (令牌過期或無效)
+  if (error.response && error.response.status === 401) {
+    console.log("偵測到 401 未授權錯誤，檢查當前路徑");
 
-      // 檢查當前路徑是否為結帳相關頁面
-      const currentPath = window.location.pathname;
-      const isCheckoutPath = currentPath.includes("/checkout/");
-      
-      if (isCheckoutPath) {
-        console.log("在結帳頁面收到401錯誤，但不清除登入狀態或重定向");
-        // 在結帳頁面收到401錯誤時，不清除登入狀態或重定向
-        // 這是為了避免結帳流程中的認證問題導致用戶被重定向到登入頁面
-        return Promise.reject(error);
-      }
+    // 檢查當前路徑是否為結帳相關頁面或購物車頁面
+    const currentPath = window.location.pathname;
+    const isCheckoutPath = currentPath.includes("/checkout/");
+    const isCartPath = currentPath.includes("/cart");
+    
+    if (isCheckoutPath || isCartPath) {
+      console.log("在結帳或購物車頁面收到401錯誤，但不清除登入狀態或重定向");
+      // 在結帳或購物車頁面收到401錯誤時，不清除登入狀態或重定向
+      // 這是為了避免結帳流程中的認證問題導致用戶被重定向到登入頁面
+      return Promise.reject(error);
+    }
 
       // 如果不是在結帳頁面，則正常處理401錯誤
       console.log("清除本地存儲中的無效令牌");
