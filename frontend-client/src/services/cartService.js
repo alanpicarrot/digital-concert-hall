@@ -130,12 +130,10 @@ const checkout = async () => {
     // 進行更詳細的登入狀態檢查
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
-    const isTokenValid = authService.isTokenValid();
     
     console.log('結帳前的認證狀態檢查:', {
       tokenExists: !!token,
-      userDataExists: !!userStr,
-      tokenValid: isTokenValid
+      userDataExists: !!userStr
     });
     
     // 如果有用戶數據，嘗試轉換並記錄
@@ -152,14 +150,20 @@ const checkout = async () => {
       }
     }
     
-    // 統一的認證錯誤處理
-    if (!token || !currentUser || !isTokenValid) {
+    // 統一的認證錯誤處理 - 不再檢查令牌有效性
+    if (!token || !currentUser) {
       console.error('認證狀態檢查失敗:', { 
         token: !!token, 
-        user: !!currentUser, 
-        valid: isTokenValid 
+        user: !!currentUser
       });
       throw new Error('您需要登入才能繼續付款流程');
+    }
+    
+    // 強制重新寫入令牌和用戶數據，確保數據一致性
+    if (token && currentUser) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(currentUser));
+      console.log('已重新寫入令牌和用戶數據，確保數據一致性');
     }
     
     const cart = getCart();

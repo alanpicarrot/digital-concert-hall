@@ -32,13 +32,11 @@ const CheckoutPage = () => {
     const verifyAuth = () => {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
-      const isTokenValid = authService.isTokenValid();
       
       // 更全面的狀態記錄
       console.log('結帳頁面載入時詳細認證狀態:', { 
         tokenExists: !!token, 
         userExists: !!userStr,
-        tokenValid: isTokenValid,
         tokenLength: token?.length,
         locationState: JSON.stringify(location.state),
         locationPathname: location.pathname,
@@ -52,9 +50,17 @@ const CheckoutPage = () => {
         return;
       }
       
-      // 如果無效，但有token，進行一次更新嘗試
-      if (token && userStr && !isTokenValid) {
-        console.warn('結帳頁面檢測到可能的認證問題，但存在token和用戶數據，繼續處理...');
+      // 如果有token和用戶數據，強制重新寫入以確保數據一致性
+      if (token && userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          // 重新寫入令牌和用戶數據
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(userData));
+          console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+        } catch (e) {
+          console.error('解析用戶數據失敗:', e);
+        }
       }
     };
     
@@ -151,14 +157,12 @@ const CheckoutPage = () => {
     try {
       // 再次詳細檢查登入狀態
       const currentUser = authService.getCurrentUser();
-      const isTokenValid = authService.isTokenValid();
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
       
       // 更全面的狀態記錄
       console.log('支付處理 - 用戶登入詳細狀態:', {
         user: currentUser ? currentUser.username : '未登入',
-        tokenValid: isTokenValid ? '有效' : '無效或過期',
         tokenExists: !!token,
         userDataExists: !!userStr,
         locationState: JSON.stringify(location.state)
@@ -189,9 +193,17 @@ const CheckoutPage = () => {
         }, 500);
         return;
       }
-      // 令牌驗證失敗但仍然存在，嘗試繼續處理
-      else if (!isTokenValid && token && userStr) {
-        console.warn('令牌前端驗證失敗，但令牌和用戶數據存在，嘗試繼續處理');
+      // 如果有令牌和用戶數據，強制重新寫入以確保數據一致性
+      else if (token && userStr) {
+        try {
+          const userData = JSON.parse(userStr);
+          // 重新寫入令牌和用戶數據
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(userData));
+          console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+        } catch (e) {
+          console.error('解析用戶數據失敗:', e);
+        }
       }
       
       setPaymentLoading(true);

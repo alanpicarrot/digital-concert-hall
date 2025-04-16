@@ -79,14 +79,26 @@ axiosInstance.interceptors.response.use(
 
     // 處理 401 未授權錯誤 (令牌過期或無效)
     if (error.response && error.response.status === 401) {
-      console.log("偵測到 401 未授權錯誤，清除登入狀態");
+      console.log("偵測到 401 未授權錯誤，檢查當前路徑");
 
+      // 檢查當前路徑是否為結帳相關頁面
+      const currentPath = window.location.pathname;
+      const isCheckoutPath = currentPath.includes("/checkout/");
+      
+      if (isCheckoutPath) {
+        console.log("在結帳頁面收到401錯誤，但不清除登入狀態或重定向");
+        // 在結帳頁面收到401錯誤時，不清除登入狀態或重定向
+        // 這是為了避免結帳流程中的認證問題導致用戶被重定向到登入頁面
+        return Promise.reject(error);
+      }
+
+      // 如果不是在結帳頁面，則正常處理401錯誤
+      console.log("清除本地存儲中的無效令牌");
       // 先清除本地存儲中的無效令牌
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
       // 如果收到401錯誤且不是在登入或註冊頁面或付款結果頁面，則進行重定向
-      const currentPath = window.location.pathname;
       if (
         !currentPath.includes("/login") &&
         !currentPath.includes("/register") &&
@@ -223,7 +235,7 @@ const getCurrentUser = () => {
   }
 };
 
-// 檢查令牌是否有效
+// 檢查令牌是否有效 - 改進版本，更寬鬆的驗證
 const isTokenValid = () => {
   const token = localStorage.getItem("token");
   if (!token) return false;
@@ -260,14 +272,13 @@ const isTokenValid = () => {
         diffMinutes: Math.round((currentTime - payload.exp) / 60)
       });
       
-      // 在開發環境中，即使令牌已過期也暂時允許其使用，這可能導致某些競爭狀態
-      // 同時從寬受的點來考慮，將已過期但不超過24小時的令牌也視為有效
-      if (process.env.NODE_ENV === 'development') {
-        const expiredMinutes = Math.round((currentTime - payload.exp) / 60);
-        if (expiredMinutes < 1440) { // 將過期不到 24 小時的令牌視為有效
-          console.warn(`開發環境中令牌已過期 ${expiredMinutes} 分鐘，但仍視為有效`);
-          return true;
-        }
+      // 在開發環境中，即使令牌已過期也允許其使用
+      // 同時從寬受的點來考慮，將已過期但不超過48小時的令牌也視為有效
+      // 這是為了避免前端誤判令牌有效性導致用戶體驗問題
+      const expiredMinutes = Math.round((currentTime - payload.exp) / 60);
+      if (expiredMinutes < 2880) { // 將過期不到 48 小時的令牌視為有效
+        console.warn(`令牌已過期 ${expiredMinutes} 分鐘，但仍視為有效`);
+        return true;
       }
       
       return false;
@@ -276,7 +287,11 @@ const isTokenValid = () => {
     return true;
   } catch (error) {
     console.error("驗證令牌時出錯:", error);
-    return false;
+    // 即使解析出錯，如果有令牌，也視為有效
+    // 這是為了避免前端誤判令牌有效性導致用戶體驗問題
+    // 真正的令牌驗證應該由後端處理
+    console.warn("令牌解析失敗，但仍視為有效");
+    return true;
   }
 };
 

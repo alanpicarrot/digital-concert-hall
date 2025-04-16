@@ -17,6 +17,11 @@ const PrivateRoute = ({ children }) => {
   const [verifiedAuth, setVerifiedAuth] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const hasLoginTimestamp = !!location.state?.loginTimestamp;
+  
+  // 直接檢查localStorage中的令牌和用戶數據
+  const token = localStorage.getItem('token');
+  const userStr = localStorage.getItem('user');
+  const hasLocalAuth = !!(token && userStr);
 
   // 更完整的認證驗證和詳細日誌
   useEffect(() => {
@@ -29,10 +34,11 @@ const PrivateRoute = ({ children }) => {
           stateAuth: stateAuthenticated,
           hasTimestamp: hasLoginTimestamp,
           pathname: location.pathname,
-          state: JSON.stringify(location.state)
+          state: JSON.stringify(location.state),
+          hasLocalAuth: hasLocalAuth
         });
         
-        // 如果傳入的狀態表示已認證，直接設為已驗證狀態
+        // 優先檢查：如果傳入的狀態表示已認證，直接設為已驗證狀態
         if (stateAuthenticated) {
           console.log('從其他頁面傳遞認證成功狀態，直接接受認證');
           updateAuthState(); // 嘗試更新內部狀態
@@ -41,11 +47,7 @@ const PrivateRoute = ({ children }) => {
           return;
         }
         
-        // 從localStorage直接驗證
-        const token = localStorage.getItem('token');
-        const userStr = localStorage.getItem('user');
-        const isTokenValid = authService.isTokenValid();
-        
+        // 從localStorage直接驗證 - 不依賴isTokenValid
         // 嘗試解析用戶數據以進行更詳細的日誌
         let userData = null;
         try {
@@ -60,22 +62,16 @@ const PrivateRoute = ({ children }) => {
           tokenExists: !!token,
           tokenLength: token?.length,
           userDataExists: !!userStr,
-          username: userData?.username,
-          tokenValid: isTokenValid
+          username: userData?.username
         });
         
-        // 修改驗證邏輯：只要有token和用戶數據就先認為有效
-        // 避免前端誤判令牌有效性造成的問題
+        // 修改驗證邏輯：只要有token和用戶數據就認為有效
+        // 完全避免前端令牌有效性驗證，交由後端處理
         if (token && userStr) {
           // 更新內部狀態
           updateAuthState();
           setVerifiedAuth(true);
           console.log('直接驗證成功，允許訪問受保護路由');
-          
-          // 如果前端認為令牌無效但仍有令牌，記錄警告但不阻止訪問
-          if (!isTokenValid) {
-            console.warn('警告: 令牌前端驗證失敗，但存在token和用戶數據，仍允許訪問');
-          }
         } else {
           console.log('驗證失敗，用戶未登入或登入資料缺失');
           setVerifiedAuth(false);
@@ -89,7 +85,7 @@ const PrivateRoute = ({ children }) => {
     };
 
     verifyAuthentication();
-  }, [isAuthenticated, stateAuthenticated, hasLoginTimestamp, updateAuthState]);
+  }, [isAuthenticated, stateAuthenticated, hasLoginTimestamp, updateAuthState, hasLocalAuth]);
 
   // 如果正在驗證，顯示載入指示器
   if (verifying || loading) {
@@ -100,19 +96,13 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  // 如果已驗證認證狀態、狀態認證或全局認證，則允許訪問
-  if (verifiedAuth || stateAuthenticated || isAuthenticated) {
+  // 如果已驗證認證狀態、狀態認證、全局認證或本地存儲有效，則允許訪問
+  if (verifiedAuth || stateAuthenticated || isAuthenticated || hasLocalAuth) {
     console.log('認證成功，允許訪問受保護路由');
-    return children;
-  }
-  
-  // 增加對本地存儲的直接檢查，作為最後的保障機制
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
-  if (token && userStr) {
-    console.warn('通過驗證狀態檢查失敗，但本地存儲中有令牌和用戶數據，仍允許訪問');
-    // 嘗試立即更新認證狀態
-    updateAuthState();
+    // 確保認證狀態已更新
+    if (!isAuthenticated && hasLocalAuth) {
+      updateAuthState();
+    }
     return children;
   }
 
