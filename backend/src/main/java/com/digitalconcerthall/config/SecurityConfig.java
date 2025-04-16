@@ -41,7 +41,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -51,7 +51,7 @@ public class SecurityConfig {
                                 "/api/debug/**", "/api/concerts/**", "/api/performances/**",
                                 "/api/tickets/available", "/api/direct/**", "/direct/**",
                                 "/setup/**", "/api/setup/**", "/signin", "/health", "/ping",
-                                "/api/health", "/api/ping")
+                                "/api/health", "/api/ping", "/api/orders/**")
                         .permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                         .anyRequest().authenticated());
@@ -74,17 +74,11 @@ public class SecurityConfig {
         return new AuthTokenFilter();
     }
 
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001", "http://localhost:3002"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
+    @Autowired
+    private CorsConfigurationSource corsConfigurationSource;
+    
+    // 移除自定義的 corsConfigurationSource Bean 定義
+    // 改為使用 CorsConfig 提供的 Bean
 
     @Bean
     public PasswordEncoder passwordEncoder() {

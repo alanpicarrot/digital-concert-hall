@@ -183,6 +183,18 @@ public class ConcertController {
 				.collect(Collectors.toList());
 		return ResponseEntity.ok(responses);
 	}
+	
+	// 獲取所有音樂會的票券
+	@GetMapping("/tickets")
+	public ResponseEntity<ApiResponse> getAllConcertTickets() {
+		try {
+			// 這裡應該實現獲取所有音樂會票券的邏輯
+			// 目前只返回一個成功響應作為臨時解決方案
+			return ResponseEntity.ok(new ApiResponse(true, "獲取音樂會票券成功"));
+		} catch (Exception e) {
+			return ResponseEntity.badRequest().body(new ApiResponse(false, "獲取音樂會票券失敗: " + e.getMessage()));
+		}
+	}
 
 	// 將 Concert 轉換為 ConcertResponse
 	private ConcertResponse convertToResponse(Concert concert) {

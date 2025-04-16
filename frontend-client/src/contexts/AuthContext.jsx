@@ -14,19 +14,25 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        console.log('開始初始化認證狀態');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('開始初始化認證狀態');
+        }
         
         // 直接檢查 localStorage 中的原始數據
         const userStr = localStorage.getItem('user');
         const token = localStorage.getItem('token');
         
-        console.log('原始 localStorage 中的數據:', { userStr: !!userStr, tokenExists: !!token });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('原始 localStorage 中的數據:', { userStr: !!userStr, tokenExists: !!token });
+        }
         
         // 首先確保用戶資料與令牌一致
         if (token && userStr) {
           try {
             const userData = JSON.parse(userStr);
-            console.log('從 localStorage 讀取的用戶:', userData.username);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('從 localStorage 讀取的用戶:', userData.username);
+            }
             
             // 驗證令牌格式
             const tokenParts = token.split('.');
@@ -44,7 +50,9 @@ export const AuthProvider = ({ children }) => {
             setUser(userData);
             setIsAuthenticated(true);
             
-            console.log('完成認證狀態設置', {username: userData.username, isAuthenticated: true});
+            if (process.env.NODE_ENV === 'development') {
+              console.log('完成認證狀態設置', {username: userData.username, isAuthenticated: true});
+            }
           } catch (e) {
             console.error('解析用戶數據時出錯:', e);
             // 清除無效數據
@@ -54,7 +62,9 @@ export const AuthProvider = ({ children }) => {
             setIsAuthenticated(false);
           }
         } else {
-          console.log('沒有有效用戶或令牌');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('沒有有效用戶或令牌');
+          }
           // 清除可能錯誤的存儲
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -251,7 +261,9 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     
-    console.log('手動更新認證狀態');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('手動更新認證狀態');
+    }
     
     if (token && userStr) {
       try {

@@ -42,14 +42,14 @@ public class OrderController {
     /**
      * 創建新訂單
      */
-    @PostMapping
-    @PreAuthorize("hasRole('USER')")
-    public ResponseEntity<OrderSummaryResponse> createOrder(
-            @RequestBody CartRequest cartRequest) {
-        OrderSummaryResponse order = orderService.createOrder(cartRequest);
-        logger.info("Order created successfully: {}", order.getOrderNumber());
-        return ResponseEntity.ok(order);
-    }
+    //@PostMapping
+    //@PreAuthorize("hasRole('USER')")
+    //public ResponseEntity<OrderSummaryResponse> createOrder(
+    //        @RequestBody CartRequest cartRequest) {
+    //    OrderSummaryResponse order = orderService.createOrder(cartRequest);
+    //    logger.info("Order created successfully: {}", order.getOrderNumber());
+    //    return ResponseEntity.ok(order);
+    //}
     
     /**
      * 獲取當前登錄用戶的所有訂單

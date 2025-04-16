@@ -46,7 +46,7 @@ public class Ticket {
     @Column(name = "status")
     private String status;
     
-    @Column(name = "username", nullable = false)
+    @Column(name = "username")
     private String username;
     
     @Column(name = "purchase_date")

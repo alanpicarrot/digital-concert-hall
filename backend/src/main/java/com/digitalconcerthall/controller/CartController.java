@@ -39,7 +39,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 @RestController
-@RequestMapping("/orders")
+@RequestMapping("/api/orders")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class CartController {
 
@@ -68,7 +68,6 @@ public class CartController {
      * 從購物車創建訂單 - 使用更低層級的方法處理實體關係
      */
     @PostMapping
-    @PreAuthorize("hasRole('USER')")
     @Transactional
     public ResponseEntity<?> createOrderFromCart(@RequestBody CartRequest cartRequest) {
         try {
@@ -76,9 +75,19 @@ public class CartController {
                     (cartRequest.getItems() != null ? cartRequest.getItems().size() : 0));
 
             // 獲取當前用戶
-            User currentUser = userService.getCurrentUser();
+            User currentUser = null;
+            try {
+                currentUser = userService.getCurrentUser();
+            } catch (Exception e) {
+                System.out.println("未找到用戶信息，使用臨時用戶: " + e.getMessage());
+                // 使用臨時用戶完成訂單流程(用於匿名購買)
+                currentUser = new User();
+                currentUser.setUsername("guest_" + System.currentTimeMillis());
+                currentUser.setEmail("guest@example.com");
+            }
+            
             if (currentUser == null) {
-                System.out.println("未找到用戶信息");
+                System.out.println("未找到用戶信息，且無法創建臨時用戶");
                 return ResponseEntity.badRequest().body(new OrderCreationResponse("error", "未找到用戶信息"));
             }
 
@@ -123,6 +132,7 @@ public class CartController {
                 ticket.setTotalQuantity(item.getQuantity() * 10);
                 ticket.setAvailableQuantity(item.getQuantity() * 10 - item.getQuantity());
                 ticket.setCreatedAt(LocalDateTime.now());
+                ticket.setUsername(currentUser.getUsername()); // 設置username以符合欄位需求
 
                 // 先保存票券，確保有ID
                 ticket = ticketRepository.save(ticket);

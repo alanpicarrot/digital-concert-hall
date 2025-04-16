@@ -19,12 +19,24 @@ const CheckoutPage = () => {
   
   // 全局暴露支付模擬函數，確保在開發環境中按鈕可以正常工作
   // 這個函數將在組件卸載時被清理
-  if (process.env.NODE_ENV === 'development') {
-    window.simulatePayment = () => {
-      // 使用新的分步模式支付流程
-      navigate(`/payment/steps/order?orderNumber=${orderNumber}&amount=${order?.totalAmount || directCheckout?.totalAmount || 1000}`);
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      window.simulatePayment = () => {
+        // 使用新的分步模式支付流程
+        navigate(`/payment/steps/order?orderNumber=${orderNumber}&amount=${order?.totalAmount || directCheckout?.totalAmount || 1000}`);
+      };
+    }
+    
+    // 組件卸載時清理全局函數
+    return () => {
+      if (window.simulatePayment) {
+        delete window.simulatePayment;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('已清理模擬支付函數');
+        }
+      }
     };
-  }
+  }, [orderNumber, navigate, order, directCheckout]);
 
   // 添加額外的認證驗證邏輯和專用於結帳頁面的強化驗證
   useEffect(() => {
@@ -33,20 +45,24 @@ const CheckoutPage = () => {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
       
-      // 更全面的狀態記錄
-      console.log('結帳頁面載入時詳細認證狀態:', { 
-        tokenExists: !!token, 
-        userExists: !!userStr,
-        tokenLength: token?.length,
-        locationState: JSON.stringify(location.state),
-        locationPathname: location.pathname,
-        fromDirect: location.state?.direct === true,
-        authenticated: location.state?.authenticated === true
-      });
+      // 僅在開發模式下記錄詳細狀態
+      if (process.env.NODE_ENV === 'development') {
+        console.log('結帳頁面載入時詳細認證狀態:', { 
+          tokenExists: !!token, 
+          userExists: !!userStr,
+          tokenLength: token?.length,
+          locationState: JSON.stringify(location.state),
+          locationPathname: location.pathname,
+          fromDirect: location.state?.direct === true,
+          authenticated: location.state?.authenticated === true
+        });
+      }
       
       // 如果從路由狀態中檢測到authenticated=true且token存在，強制確認認證狀態
       if (location.state?.authenticated === true && token && userStr) {
-        console.log('檢測到明確的認證狀態標記，跳過額外驗證');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('檢測到明確的認證狀態標記，跳過額外驗證');
+        }
         return;
       }
       
@@ -57,15 +73,18 @@ const CheckoutPage = () => {
           // 重新寫入令牌和用戶數據
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(userData));
-          console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+          }
         } catch (e) {
           console.error('解析用戶數據失敗:', e);
         }
       }
     };
     
+    // 僅執行一次驗證
     verifyAuth();
-  }, [location]);
+  }, []); // 空依賴數組確保只在组件掛載時驗證一次
   
   // 確保獲取結帳數據並在卸載時清理全局函數
   useEffect(() => {
@@ -76,10 +95,14 @@ const CheckoutPage = () => {
         
         if (orderNumber) {
           // 如果有訂單號，從API獲取訂單信息
-          console.log('Fetching order data for order number:', orderNumber);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Fetching order data for order number:', orderNumber);
+          }
           try {
             const orderData = await orderService.getOrderByNumber(orderNumber);
-            console.log('Order data fetched successfully:', orderData);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Order data fetched successfully');
+            }
             
             // 顯示訂單加載成功的通知
             toast.showSuccess('訂單已就緒', `訂單 #${orderNumber} 已成功加載，請確認資訊後進行付款`);
@@ -92,12 +115,14 @@ const CheckoutPage = () => {
               
               // 比較計算出的總價與API回傳的總價
               if (Math.abs(calculatedTotal - orderData.totalAmount) > 1) { // 允許 1 元誤差
-                console.warn(
-                  '訂單總價不一致，重新計算:', 
-                  calculatedTotal, 
-                  '但從API返回:', 
-                  orderData.totalAmount
-                );
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn(
+                    '訂單總價不一致，重新計算:', 
+                    calculatedTotal, 
+                    '但從API返回:', 
+                    orderData.totalAmount
+                  );
+                }
                 
                 // 使用前端計算的總價(注意，在實際環境中可能需要將差異報告給後端)
                 orderData.calculatedTotal = calculatedTotal;
@@ -112,24 +137,30 @@ const CheckoutPage = () => {
           }
         } else {
           // 從sessionStorage中獲取直接購買信息
-          console.log('Checking for direct checkout info in sessionStorage');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Checking for direct checkout info in sessionStorage');
+          }
           const checkoutInfoStr = sessionStorage.getItem('checkoutInfo');
           
           if (checkoutInfoStr) {
-          try {
-          const checkoutInfo = JSON.parse(checkoutInfoStr);
-          console.log('Direct checkout info found:', checkoutInfo);
-          setDirectCheckout(checkoutInfo);
-          setOrder(null);
-            
-            // 顯示購票資訊已就緒的通知
-            toast.showInfo('準備完成', '購票資訊已就緒，請確認後進行付款');
-          } catch (err) {
+            try {
+              const checkoutInfo = JSON.parse(checkoutInfoStr);
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Direct checkout info found');
+              }
+              setDirectCheckout(checkoutInfo);
+              setOrder(null);
+                
+              // 顯示購票資訊已就緒的通知
+              toast.showInfo('準備完成', '購票資訊已就緒，請確認後進行付款');
+            } catch (err) {
               console.error('Error parsing checkout info:', err);
               setError('購票資訊無效，請返回重新選擇');
             }
           } else {
-            console.log('No checkout information found');
+            if (process.env.NODE_ENV === 'development') {
+              console.log('No checkout information found');
+            }
             setError('找不到結帳資訊，請返回選擇音樂會');
           }
         }
@@ -142,15 +173,7 @@ const CheckoutPage = () => {
     };
 
     fetchOrderData();
-    
-    // 組件卸載時清理全局函數
-    return () => {
-      if (window.simulatePayment) {
-        delete window.simulatePayment;
-        console.log('已清理模擬支付函數');
-      }
-    };
-  }, [orderNumber]);
+  }, [orderNumber, toast]);
 
   // 使用 useCallback 包裝 handlePayment
   const handlePayment = useCallback(async () => {
@@ -160,21 +183,27 @@ const CheckoutPage = () => {
       const token = localStorage.getItem('token');
       const userStr = localStorage.getItem('user');
       
-      // 更全面的狀態記錄
-      console.log('支付處理 - 用戶登入詳細狀態:', {
-        user: currentUser ? currentUser.username : '未登入',
-        tokenExists: !!token,
-        userDataExists: !!userStr,
-        locationState: JSON.stringify(location.state)
-      });
+      // 僅在開發模式下記錄詳細狀態
+      if (process.env.NODE_ENV === 'development') {
+        console.log('支付處理 - 用戶登入詳細狀態:', {
+          user: currentUser ? currentUser.username : '未登入',
+          tokenExists: !!token,
+          userDataExists: !!userStr,
+          locationState: JSON.stringify(location.state)
+        });
+      }
       
       // 如果路由狀態中有authenticated標記且本地存儲有數據，则跳過驗證
       if (location.state?.authenticated === true && token && userStr) {
-        console.log('從路由得到認證標記，直接處理支付');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('從路由得到認證標記，直接處理支付');
+        }
       }
       // 如果沒有令牌或用戶數據，才需要重定向到登入頁面
       else if (!token || !userStr) {
-        console.log('用戶未登入，缺少令牌或用戶數據');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('用戶未登入，缺少令牌或用戶數據');
+        }
         await authService.logout(); // 確保清理登入狀態
         
         // 導向登入並保留重定向信息
@@ -200,7 +229,9 @@ const CheckoutPage = () => {
           // 重新寫入令牌和用戶數據
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(userData));
-          console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('已重新寫入令牌和用戶數據，確保數據一致性');
+          }
         } catch (e) {
           console.error('解析用戶數據失敗:', e);
         }
@@ -230,11 +261,15 @@ const CheckoutPage = () => {
             ]
           };
           
-          console.log('創建直接購買訂單:', cartRequest);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('創建直接購買訂單:', cartRequest);
+          }
           
           // 調用後端API創建訂單
           const createdOrder = await orderService.createOrder(cartRequest);
-          console.log('直接購買訂單創建成功:', createdOrder);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('直接購買訂單創建成功:', createdOrder);
+          }
           
           // 使用實際創建的訂單號替代模擬訂單號
           const realOrderNumber = createdOrder.orderNumber;
@@ -244,9 +279,9 @@ const CheckoutPage = () => {
           setTimeout(() => {
             // 在開發環境中使用模擬支付
             if (process.env.NODE_ENV === 'development') {
-            navigate(`/payment/steps/order?orderNumber=${realOrderNumber}&amount=${createdOrder.totalAmount}`);
-            setPaymentLoading(false);
-            return;
+              navigate(`/payment/steps/order?orderNumber=${realOrderNumber}&amount=${createdOrder.totalAmount}`);
+              setPaymentLoading(false);
+              return;
             }
             
             // 正式環境則重定向到真實支付頁面
@@ -281,7 +316,9 @@ const CheckoutPage = () => {
         // 如果測試環境, 直接跳轉到模擬支付頁面
         if (process.env.NODE_ENV === 'development') {
           // 在開發環境中直接跳轉到模擬綠界支付頁面，簡化整個流程
-          console.log('開發環境中，直接跳轉到模擬綠界支付頁面');
+          if (process.env.NODE_ENV === 'development') {
+            console.log('開發環境中，直接跳轉到模擬綠界支付頁面');
+          }
           
           // 短暫延遲以提供用戶視覺反饋
           setTimeout(() => {
@@ -318,7 +355,7 @@ const CheckoutPage = () => {
       setError(errorMessage);
       setPaymentLoading(false);
     }
-  }, [directCheckout, orderNumber, navigate, location]);
+  }, [directCheckout, orderNumber, navigate, location, toast, order]);
 
   // 渲染結帳頁面
   return (

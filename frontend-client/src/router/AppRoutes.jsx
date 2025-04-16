@@ -53,6 +53,15 @@ function AppRoutes() {
                             </PrivateRoute>
                         } 
                     />
+                    {/* 直接購買路由 */}
+                    <Route 
+                        path="/checkout" 
+                        element={
+                            <PrivateRoute>
+                                <CheckoutPage />
+                            </PrivateRoute>
+                        } 
+                    />
                     <Route 
                         path="/profile" 
                         element={

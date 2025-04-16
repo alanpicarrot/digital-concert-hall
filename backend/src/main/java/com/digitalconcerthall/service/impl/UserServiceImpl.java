@@ -101,7 +101,12 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("User is not authenticated");
         }
         
-        return (UserDetailsImpl) authentication.getPrincipal();
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetailsImpl)) {
+            throw new RuntimeException("Invalid authentication type");
+        }
+        
+        return (UserDetailsImpl) principal;
     }
     
     @Override

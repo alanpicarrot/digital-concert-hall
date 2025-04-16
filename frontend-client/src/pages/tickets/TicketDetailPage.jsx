@@ -173,7 +173,11 @@ const TicketDetailPage = () => {
 
   // 處理立即購買
   const handleBuyNow = () => {
-    if (!ticket) return;
+    if (!ticket) {
+      console.error('無法購買: 票券信息缺失');
+      alert('票券信息無效，請重新選擇票券');
+      return;
+    }
 
     // 檢查用戶登入狀態
     const currentUser = authService.getCurrentUser();
@@ -181,7 +185,9 @@ const TicketDetailPage = () => {
     
     console.log('票券頁面 - 用戶登入狀態:', {
       user: currentUser ? currentUser.username : '未登入',
-      tokenValid: isTokenValid ? '有效' : '無效或過期'
+      tokenValid: isTokenValid ? '有效' : '無效或過期',
+      ticketId: ticket.id,
+      concertId: concert?.id
     });
 
     // 檢查用戶是否已登入
@@ -198,23 +204,38 @@ const TicketDetailPage = () => {
       return;
     }
 
-    // 將購票信息存入 sessionStorage
-    const ticketInfo = {
-      concertId: concert.id,
-      concertTitle: concert.title,
-      ticketId: ticket.id,
-      ticketType: ticket.ticketType.name,
-      ticketPrice: ticket.price,
-      quantity: quantity,
-      totalAmount: calculateTotal(),
-      purchaseTime: new Date().toISOString()
-    };
+    try {
+      // 將購票信息存入 sessionStorage
+      const ticketInfo = {
+        concertId: concert.id,
+        concertTitle: concert.title,
+        ticketId: ticket.id,
+        ticketType: ticket.ticketType.name,
+        ticketPrice: ticket.price,
+        quantity: quantity,
+        totalAmount: calculateTotal(),
+        purchaseTime: new Date().toISOString(),
+        // 添加演出相關資訊
+        performanceTime: ticket.performance?.startTime,
+        venue: ticket.performance?.venue
+      };
 
-    sessionStorage.setItem("checkoutInfo", JSON.stringify(ticketInfo));
-    console.log('已將購票信息存入sessionStorage:', ticketInfo);
+      sessionStorage.setItem("checkoutInfo", JSON.stringify(ticketInfo));
+      console.log('已將購票信息存入sessionStorage:', ticketInfo);
+      console.log('準備導向到結帳頁面: /checkout');
 
-    // 導航到結帳頁面
-    navigate("/checkout");
+      // 導航到結帳頁面
+      navigate("/checkout", { 
+        state: { 
+          from: `/tickets/${id}`, 
+          direct: true,
+          authenticated: true
+        }
+      });
+    } catch (error) {
+      console.error('處理立即購買時發生錯誤:', error);
+      alert('處理購票資訊時發生錯誤，請重試');
+    }
   };
 
   // 格式化日期

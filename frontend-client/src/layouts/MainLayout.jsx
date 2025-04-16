@@ -65,10 +65,13 @@ const MainLayout = () => {
   
   // 監聽 localStorage 更新與認證狀態
   useEffect(() => {
-    console.log('MainLayout 渲染，當前認證狀態:', { 
-      isAuthenticated, 
-      username: user?.username
-    });
+    // 只在開發環境記錄
+    if (process.env.NODE_ENV === 'development') {
+      console.log('MainLayout 渲染，當前認證狀態:', { 
+        isAuthenticated, 
+        username: user?.username
+      });
+    }
 
     // 設置顯示名稱
     if (isAuthenticated && user) {
@@ -80,14 +83,18 @@ const MainLayout = () => {
     const userStr = localStorage.getItem('user');
     
     if (token && userStr && !isAuthenticated) {
-      console.log('發現 localStorage 有認證資料但狀態未更新，嘗試更新');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('發現 localStorage 有認證資料但狀態未更新，嘗試更新');
+      }
       updateAuthState();
     }
     
     // 監聽 storage 事件，處理在其他標籤頁登入/登出
     const handleStorageChange = (e) => {
       if (e.key === 'token' || e.key === 'user') {
-        console.log('檢測到 localStorage 認證資料變更');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('檢測到 localStorage 認證資料變更');
+        }
         updateAuthState();
       }
     };
@@ -168,10 +175,8 @@ const MainLayout = () => {
             </Link>
 
             {/* 使用者登入/註冊或下拉選單 */}
-            {console.log('渲染使用者選單狀態:', {isAuthenticated, hasUser: !!user, username: user?.username})}
-            {(isAuthenticated && user) ? (
+            {isAuthenticated && user ? (
               <>
-                {console.log('顯示已登入用戶選單')}
                 <div className="relative">
                   <button 
                     onClick={toggleMenu}
@@ -221,7 +226,6 @@ const MainLayout = () => {
               </>
             ) : (
               <>
-                {console.log('顯示登入按鈕')}
                 <div className="flex items-center space-x-4">
                   <Link to="/login" className="text-white hover:text-indigo-300 text-sm font-medium">登入</Link>
                   <Link to="/register" className="bg-indigo-600 text-white px-4 py-1.5 rounded hover:bg-indigo-500 text-sm font-medium">註冊</Link>

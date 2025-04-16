@@ -62,6 +62,6 @@ public class Performance {
     
     // 提供演出名稱
     public String getName() {
-        return concert != null ? concert.getTitle() : null;
+        return concert != null ? concert.getTitle() : "未命名演出";
     }
 }

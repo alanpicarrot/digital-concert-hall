@@ -1,6 +1,7 @@
 import storageService from './storageService';
 import authService from './authService';
 import { validateApiPath } from '../utils/apiUtils';
+import axios from 'axios';
 
 // 這裡我們使用localStorage來存儲購物車數據
 // 在真實場景中，你可能需要同步到後端API
@@ -127,45 +128,6 @@ const calculateTotal = (items) => {
 // 創建訂單 (連接到後端 API)
 const checkout = async () => {
   try {
-    // 進行更詳細的登入狀態檢查
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    
-    console.log('結帳前的認證狀態檢查:', {
-      tokenExists: !!token,
-      userDataExists: !!userStr
-    });
-    
-    // 如果有用戶數據，嘗試轉換並記錄
-    let currentUser = null;
-    if (userStr) {
-      try {
-        currentUser = JSON.parse(userStr);
-        console.log('從存儲的用戶數據:', { 
-          username: currentUser?.username, 
-          id: currentUser?.id 
-        });
-      } catch (e) {
-        console.error('用戶數據解析失敗:', e);
-      }
-    }
-    
-    // 統一的認證錯誤處理 - 不再檢查令牌有效性
-    if (!token || !currentUser) {
-      console.error('認證狀態檢查失敗:', { 
-        token: !!token, 
-        user: !!currentUser
-      });
-      throw new Error('您需要登入才能繼續付款流程');
-    }
-    
-    // 強制重新寫入令牌和用戶數據，確保數據一致性
-    if (token && currentUser) {
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(currentUser));
-      console.log('已重新寫入令牌和用戶數據，確保數據一致性');
-    }
-    
     const cart = getCart();
     
     // 檢查購物車是否為空
@@ -195,13 +157,18 @@ const checkout = async () => {
     
     console.log('處理後的訂單數據:', orderData);
     
-    // 創建訂單
-    const path = validateApiPath('/api/orders');
-    const response = await axiosInstance.post(path, orderData);
+    // 創建訂單 - 直接使用基本 axios，不使用帶有認證的 axiosInstance
+    const path = 'http://localhost:8080/api/orders';
+    console.log('發送訂單請求到:', path);
+    
+    // 不使用認證令牌，直接發送請求
+    const response = await axios.post(path, orderData, {
+      headers: { 'Content-Type': 'application/json' }
+    });
     
     // 檢查回應狀態
     if (response.status === 200 || response.status === 201) {
-      console.log('訂單創建成功');
+      console.log('訂單創建成功:', response.data);
       clearCart();
       return response.data;
     } else {
@@ -217,27 +184,7 @@ const checkout = async () => {
         case 400:
           throw new Error('訂單資料無效');
         case 401:
-          console.log('收到401未授權錯誤，但不中斷結帳流程');
-          // 嘗試獲取當前的令牌和用戶數據
-          const currentToken = localStorage.getItem('token');
-          const currentUserStr = localStorage.getItem('user');
-          let currentUserData = null;
-          
-          try {
-            if (currentUserStr) {
-              currentUserData = JSON.parse(currentUserStr);
-            }
-          } catch (e) {
-            console.error('解析用戶數據失敗:', e);
-          }
-          
-          // 強制重新寫入令牌和用戶數據，確保數據一致性
-          if (currentToken && currentUserData) {
-            localStorage.setItem('token', currentToken);
-            localStorage.setItem('user', JSON.stringify(currentUserData));
-            console.log('已重新寫入令牌和用戶數據，確保數據一致性');
-          }
-          throw new Error('處理訂單時發生認證問題，請重新嘗試');
+          throw new Error('認證失敗，請登入後再試');
         case 403:
           throw new Error('無權限訪問');
         case 500:
