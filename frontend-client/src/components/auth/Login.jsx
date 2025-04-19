@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -15,71 +15,90 @@ const Login = () => {
   const location = useLocation();
   const { login, updateAuthState } = useAuth();
   
-  // 更詳細地記錄登入頁面從哪裡進入
-  console.log('登入頁面加載，來源路徑:', location.pathname);
-  console.log('路由參數:', location.search);
-  console.log('路由狀態:', location.state);
+  // 使用 useEffect 來減少不必要的 console 輸出
+  useEffect(() => {
+    // 更詳細地記錄登入頁面從哪裡進入
+    console.log('登入頁面加載，來源路徑:', location.pathname);
+    console.log('路由參數:', location.search);
+    console.log('路由狀態:', location.state);
+  }, [location.pathname, location.search, location.state]);
   
   // 檢查是否有來自其他頁面的重定向
   const searchParams = new URLSearchParams(location.search);
   const redirectUrl = searchParams.get('redirect');
   
   // 確保重定向正確，避免循環
-  let from = '/';
-  let fromOrderNumber = null;
+  const [from, setFrom] = useState('/');
+  const [fromOrderNumber, setFromOrderNumber] = useState(null);
   const redirectAfterLogin = location.state?.redirectAfterLogin === true;
   
-  console.log('重定向後登入標記:', redirectAfterLogin ? '是' : '否');
+  useEffect(() => {
+    console.log('重定向後登入標記:', redirectAfterLogin ? '是' : '否');
+  }, [redirectAfterLogin]);
   
-  // 先判斷是否從購物車來直接設置購物車路徑
-  if (location.state?.from === '/cart') {
-    console.log('從購物車重定向來的登入');
-    from = '/cart';
-  }
-  // 從結帳頁面來的重定向
-  else if (location.state?.from && typeof location.state.from === 'string' && location.state.from.includes('/checkout/')) {
-    // 從 URL 中提取訂單號
-    const pathParts = location.state.from.split('/');
-    if (pathParts.length >= 3) {
-      fromOrderNumber = pathParts[2]; // 取得 orderNumber
-      console.log('從結帳頁面重定向，訂單號:', fromOrderNumber);
-      from = location.state.from;
+  // 決定重定向目標頁面的邏輯
+  useEffect(() => {
+    // 偵測來源並設置適當的重定向目標
+    let logMessage = '';
+    
+    // 先判斷是否從購物車來直接設置購物車路徑
+    if (location.state?.from === '/cart') {
+      logMessage = '從購物車重定向來的登入';
+      setFrom('/cart');
     }
-  } 
-  // 处理其他方式的路徑存储
-  else if (location.state?.from?.pathname && location.state.from.pathname.includes('/checkout/')) {
-    // 從 URL 中提取訂單號
-    const pathParts = location.state.from.pathname.split('/');
-    if (pathParts.length >= 3) {
-      fromOrderNumber = pathParts[2]; // 取得 orderNumber
-      console.log('從結帳頁面重定向，訂單號:', fromOrderNumber);
-      from = location.state.from.pathname;
+    // 從結帳頁面來的重定向
+    else if (location.state?.from && typeof location.state.from === 'string' && location.state.from.includes('/checkout/')) {
+      // 從 URL 中提取訂單號
+      const pathParts = location.state.from.split('/');
+      if (pathParts.length >= 3) {
+        const orderNumber = pathParts[2];
+        setFromOrderNumber(orderNumber);
+        logMessage = `從結帳頁面重定向，訂單號: ${orderNumber}`;
+        setFrom(location.state.from);
+      }
+    } 
+    // 处理其他方式的路徑存储
+    else if (location.state?.from?.pathname && location.state.from.pathname.includes('/checkout/')) {
+      // 從 URL 中提取訂單號
+      const pathParts = location.state.from.pathname.split('/');
+      if (pathParts.length >= 3) {
+        const orderNumber = pathParts[2]; // 取得 orderNumber
+        setFromOrderNumber(orderNumber);
+        logMessage = `從結帳頁面重定向，訂單號: ${orderNumber}`;
+        setFrom(location.state.from.pathname);
+      }
     }
-  }
-  // 如果有URL查詢參數的重定向
-  else if (redirectUrl) {
-    // 確保不是登入相關頁面
-    if (redirectUrl.includes('/login') || redirectUrl.includes('/auth/login')) {
-      console.log('避免重定向到登入頁面循環:', redirectUrl);
-      from = '/';
-    } else if (redirectUrl === 'cart') {
-      // 如果是從購物車頁面來的重定向，登入成功後回到購物車
-      from = '/cart';
-    } else {
-      from = redirectUrl;
+    // 如果有URL查詢參數的重定向
+    else if (redirectUrl) {
+      // 確保不是登入相關頁面
+      if (redirectUrl.includes('/login') || redirectUrl.includes('/auth/login')) {
+        logMessage = `避免重定向到登入頁面循環: ${redirectUrl}`;
+        setFrom('/');
+      } else if (redirectUrl === 'cart') {
+        // 如果是從購物車頁面來的重定向，登入成功後回到購物車
+        setFrom('/cart');
+      } else {
+        setFrom(redirectUrl);
+      }
+    } 
+    // 判斷其他形式的狀態存储
+    else if (location.state?.from?.pathname) {
+      setFrom(location.state.from.pathname);
+    } else if (location.state?.from && typeof location.state.from === 'string') {
+      setFrom(location.state.from);
     }
-  } 
-  // 判斷其他形式的狀態存储
-  else if (location.state?.from?.pathname) {
-    from = location.state.from.pathname;
-  } else if (location.state?.from && typeof location.state.from === 'string') {
-    from = location.state.from;
-  }
+    
+    // 僅當有需要記錄的訊息時才記錄
+    if (logMessage) {
+      console.log(logMessage);
+    }
+  }, [location.state, redirectUrl]);
   
   // 最後記錄最終將要重定向到哪裡
-  console.log('登入成功後將重定向到:', from);
-  
-  console.log('登入頁面 - 設定重定向到:', from);
+  useEffect(() => {
+    console.log('登入成功後將重定向到:', from);
+    console.log('登入頁面 - 設定重定向到:', from);
+  }, [from]);
 
   const { username, password } = formData;
 
@@ -101,20 +120,17 @@ const Login = () => {
     
     try {
       // 使用 useAuth 的 login 方法登入
-      console.log('===== 開始登入處理 =====');
+      // 注意：包裝控制台輸出的日誌信息，減少非必要的重複記錄
+      console.group('登入流程');
       console.log('嘗試登入用戶:', username);
       
-      console.log('提交登入表單，開始調用登入函數');
       const result = await login(username, password);
-      
-      console.log('登入函數返回結果:', result);
       
       if (!result.success) {
         console.error('登入失敗:', result.message);
+        console.groupEnd();
         throw new Error(result.message || '登入失敗');
       }
-      
-      console.log('登入成功，結果:', result);
       
       console.log('登入成功，狀態已更新');
       
@@ -142,19 +158,21 @@ const Login = () => {
           decodedPath = decodeURIComponent(from);
         }
         
-        console.log('解碼後的重定向路徑:', decodedPath);
+        // 使用日誌組來減少單獨的控制台輸出
+        console.group('重定向處理');
+        console.log('解碼後的路徑:', decodedPath);
         
         // 再次檢查防止重定向到登入頁面
         if (decodedPath.includes('/login') || decodedPath.includes('/auth/login')) {
           console.log('防止重定向循環，轉至首頁');
+          console.groupEnd();
           navigate('/', { replace: true });
           return;
         }
 
         // 特別處理從購物車來的登入
         if (decodedPath === '/cart' || location.state?.from === '/cart' || location.state?.redirectAfterLogin) {
-          console.log('從購物車來的登入，登入成功後返回購物車');
-          console.log('從購物車跳轉登入標記:', location.state?.redirectAfterLogin);
+          console.log('從購物車返回處理');
 
           // 登入成功後確保先更新全局登入狀態
           updateAuthState();
@@ -162,45 +180,36 @@ const Login = () => {
           // 添加成功訊息提示
           alert('登入成功，正在返回購物車...');
           
-          // 再次確認登入成功後的令牌狀態
-          const recheckToken = localStorage.getItem('token');
-          const recheckUser = localStorage.getItem('user');
-          console.log('將要重定向到購物車，確認認證狀態:', {
-            tokenExists: !!recheckToken,
-            userExists: !!recheckUser
-          });
-          
           // 使用更長的延遲確保登入狀態完全更新
-          console.log('將在1500ms後重定向到購物車');
           setTimeout(() => {
             navigate('/cart', { 
               replace: true, 
               state: { 
                 authenticated: true,
-                loginTimestamp: new Date().getTime(), // 包含登入時間戳停止系統綜合缓存
-                direct: true, // 添加直接導向標記
-                fromLogin: true // 添加登入來源標記
+                loginTimestamp: new Date().getTime(),
+                direct: true,
+                fromLogin: true
               } 
             });
           }, 1500);
+          console.groupEnd();
           return;
         }
         
+        // 處理各種路徑類型的重定向
         if (decodedPath.startsWith('/')) {
-          // 如果是完整的URL路徑，則直接導航
-          console.log('導航至絕對路徑:', decodedPath);
+          console.log('導航至絕對路徑');
           navigate(decodedPath, { replace: true, state: { authenticated: true } });
         } else if (decodedPath.startsWith('http')) {
-          // 如果是外部鏈接，重定向到首頁
-          console.log('檢測到外部鏈接，重定向至首頁');
+          console.log('外部鏈接重定向至首頁');
           navigate('/', { replace: true });
         } else {
-          // 否則作為相對路徑處理
-          console.log('導航至相對路徑:', '/' + decodedPath);
+          console.log('導航至相對路徑');
           navigate('/' + decodedPath, { replace: true, state: { authenticated: true } });
         }
+        console.groupEnd();
       } catch (e) {
-        console.error('Redirect error:', e);
+        console.error('重定向錯誤:', e);
         // 重定向發生錯誤時，預設導到首頁
         navigate('/', { replace: true });
       }
@@ -210,6 +219,7 @@ const Login = () => {
       const resMessage = error.message || '登入失敗，請檢查您的憑證';
       setError(resMessage);
     } finally {
+      console.groupEnd(); // 結束日誌組
       setIsSubmitting(false);
     }
   };

@@ -13,6 +13,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import com.digitalconcerthall.security.jwt.AuthEntryPointJwt;
 import com.digitalconcerthall.security.jwt.AuthTokenFilter;
@@ -51,9 +52,11 @@ public class SecurityConfig {
                                 "/api/debug/**", "/api/concerts/**", "/api/performances/**",
                                 "/api/tickets/available", "/api/direct/**", "/direct/**",
                                 "/setup/**", "/api/setup/**", "/signin", "/health", "/ping",
-                                "/api/health", "/api/ping", "/api/orders/**")
+                                "/api/health", "/api/ping")
                         .permitAll()
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                        // 讓所有 OPTIONS 請求通過，這對於 CORS 預檢很重要
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated());
 
         // For H2 Console

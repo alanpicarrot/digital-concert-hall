@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.digitalconcerthall.security.jwt.JwtUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -39,27 +38,50 @@ public class AuthTokenFilter extends OncePerRequestFilter {
         throws ServletException, IOException {
         try {
             String jwt = parseJwt(request);
-            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {  // Use instance method
-                String username = jwtUtils.getUserNameFromJwtToken(jwt);  // Use instance method
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                // 直接從 JWT 中提取角色
-                List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);
+            logger.debug("Parsed JWT from request: {}... (truncated)", jwt != null ? jwt.substring(0, Math.min(10, jwt.length())) + "..." : "null");
+            
+            if (jwt != null) {
+                logger.debug("Request URI: {}", request.getRequestURI());
                 
-                // 將角色轉換為GrantedAuthority
-                List<SimpleGrantedAuthority> authorities = roles.stream()
-                    .map(role -> new SimpleGrantedAuthority(role))
-                    .collect(Collectors.toList());
+                if (jwtUtils.validateJwtToken(jwt)) {
+                    logger.debug("JWT token is valid");
+                    String username = jwtUtils.getUserNameFromJwtToken(jwt);  // Use instance method
+                    logger.debug("Username from token: {}", username);
+                    
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    logger.debug("User details loaded, user ID: {}, authorities: {}", 
+                              ((UserDetailsImpl)userDetails).getId(), 
+                              userDetails.getAuthorities());
+                    
+                    // 直接從 JWT 中提取角色
+                    List<String> roles = jwtUtils.getRolesFromJwtToken(jwt);
+                    logger.debug("Roles from JWT: {}", roles);
                 
-                // 建立身份驗證令牌
-                UsernamePasswordAuthenticationToken authentication = 
-                    new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        authorities
-                    );
-                
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                    // 將角色轉換為GrantedAuthority
+                    List<SimpleGrantedAuthority> authorities = roles.stream()
+                        .map(role -> {
+                            // 確保角色名稱符合 Spring Security 的要求
+                            if (!role.startsWith("ROLE_")) {
+                                role = "ROLE_" + role.toUpperCase();
+                                logger.debug("Role name adjusted to: {}", role);
+                            }
+                            return new SimpleGrantedAuthority(role);
+                        })
+                        .collect(Collectors.toList());
+                    
+                    logger.debug("Final authorities for authentication: {}", authorities);
+                    
+                    // 建立身份驗證令牌
+                    UsernamePasswordAuthenticationToken authentication = 
+                        new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            authorities
+                        );
+                    
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                }
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());

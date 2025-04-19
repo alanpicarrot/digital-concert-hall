@@ -60,14 +60,29 @@ public class JwtUtils {
             List<String> roles = (List<String>) claims.get("roles");
             
             // 記錄提取到的角色信息
-            logger.info("Extracted roles from JWT token: {}", roles);
+            logger.debug("Raw roles from JWT: {}", roles);
             
             if (roles == null) {
                 logger.warn("No roles found in JWT token");
                 return List.of(); // 返回空列表而不是 null
             }
             
-            return roles;
+            // 確保角色格式正確 (Spring Security 期望 'ROLE_USER' 格式)
+            List<String> formattedRoles = roles.stream()
+                .map(role -> {
+                    // 如果角色已經是 ROLE_ 開頭的，則保留原樣
+                    if (role.startsWith("ROLE_")) {
+                        return role;
+                    }
+                    // 否則，檢查是否需要添加 ROLE_ 前綴
+                    else {
+                        return role.toUpperCase().startsWith("ROLE_") ? role.toUpperCase() : "ROLE_" + role.toUpperCase();
+                    }
+                })
+                .collect(Collectors.toList());
+            
+            logger.debug("Formatted roles for Spring Security: {}", formattedRoles);
+            return formattedRoles;
         } catch (Exception e) {
             logger.error("Error extracting roles from JWT token: {}", e.getMessage());
             e.printStackTrace(); // 打印完整堆疊跟蹤
@@ -77,18 +92,33 @@ public class JwtUtils {
 
     public boolean validateJwtToken(String authToken) {
         try {
+            logger.debug("Validating JWT token: {}... (truncated)", 
+                     authToken.substring(0, Math.min(10, authToken.length())) + "...");
+            
+            // Try to parse the token
             Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
+            
+            // If we get here, the token is valid
+            logger.debug("JWT token validation successful");
             return true;
         } catch (SecurityException e) {
             logger.error("Invalid JWT signature: {}", e.getMessage());
+            logger.debug("JWT signature validation failed", e);
         } catch (MalformedJwtException e) {
             logger.error("Invalid JWT token: {}", e.getMessage());
+            logger.debug("JWT token is malformed", e);
         } catch (ExpiredJwtException e) {
             logger.error("JWT token is expired: {}", e.getMessage());
+            logger.debug("JWT token has expired", e);
         } catch (UnsupportedJwtException e) {
             logger.error("JWT token is unsupported: {}", e.getMessage());
+            logger.debug("JWT token algorithm is unsupported", e);
         } catch (IllegalArgumentException e) {
             logger.error("JWT claims string is empty: {}", e.getMessage());
+            logger.debug("JWT claims string is empty or invalid", e);
+        } catch (Exception e) {
+            logger.error("Unexpected error during JWT validation: {}", e.getMessage());
+            logger.debug("Unexpected JWT validation error", e);
         }
 
         return false;

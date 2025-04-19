@@ -2,12 +2,21 @@ package com.digitalconcerthall.controller;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -39,6 +48,8 @@ import com.digitalconcerthall.repository.UserTicketRepository;
 @RequestMapping("/debug")
 @Profile("dev") // 只在開發環境中啟用
 public class DebugController {
+    
+    private static final Logger logger = LoggerFactory.getLogger(DebugController.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -126,5 +137,32 @@ public class DebugController {
         } catch (Exception e) {
             return "清除測試數據時發生錯誤：" + e.getMessage();
         }
+    }
+    
+    /**
+     * 檢查當前用戶的認證狀態和權限
+     */
+    @GetMapping("/auth-status")
+    public ResponseEntity<Map<String, Object>> getAuthStatus() {
+        Map<String, Object> response = new HashMap<>();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (auth != null) {
+            response.put("authenticated", auth.isAuthenticated());
+            response.put("principal", auth.getPrincipal().toString());
+            response.put("principal_type", auth.getPrincipal().getClass().getName());
+            response.put("authorities", auth.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .collect(Collectors.toList()));
+            response.put("details", auth.getDetails() != null ? auth.getDetails().toString() : "null");
+            
+            logger.debug("Debug auth-status: {}", response);
+        } else {
+            response.put("authenticated", false);
+            response.put("message", "No authentication found in security context");
+            logger.warn("Debug auth-status: No authentication in context");
+        }
+        
+        return ResponseEntity.ok(response);
     }
 }

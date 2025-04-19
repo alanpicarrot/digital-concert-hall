@@ -158,7 +158,7 @@ const checkout = async () => {
     console.log('處理後的訂單數據:', orderData);
     
     // 創建訂單 - 直接使用基本 axios，不使用帶有認證的 axiosInstance
-    const path = 'http://localhost:8080/api/orders';
+    const path = 'http://localhost:8080/api/cart';
     console.log('發送訂單請求到:', path);
     
     // 不使用認證令牌，直接發送請求

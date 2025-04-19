@@ -171,21 +171,29 @@ public class OrderServiceImpl implements OrderService {
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
+            logger.error("User not authenticated - SecurityContext authentication is null or not authenticated");
             throw new AuthenticationFailedException("用户未认证");
         }
 
         // 增强类型检查日志
         Object principal = authentication.getPrincipal();
         logger.debug("Authentication principal type: {}", principal.getClass().getName());
+        logger.debug("Authentication details: principal={}, isAuthenticated={}, authorities={}", 
+                 principal, authentication.isAuthenticated(), authentication.getAuthorities());
 
         if (!(principal instanceof UserDetailsImpl)) {
-            logger.error("无效的principal类型: {}", principal.getClass().getName());
-            throw new AuthenticationFailedException("无效的用户认证类型");
+            logger.error("Invalid principal type: {}", principal.getClass().getName());
+            throw new AuthenticationFailedException("Invalid user authentication type");
         }
 
         UserDetailsImpl userDetails = (UserDetailsImpl) principal;
+        logger.debug("User details from SecurityContext: id={}, username={}", userDetails.getId(), userDetails.getUsername());
+        
         return userRepository.findById(userDetails.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("用户不存在"));
+                .orElseThrow(() -> {
+                    logger.error("User not found in database with ID: {}", userDetails.getId());
+                    return new ResourceNotFoundException("User not found with ID: " + userDetails.getId());
+                });
     }
 
     @Override

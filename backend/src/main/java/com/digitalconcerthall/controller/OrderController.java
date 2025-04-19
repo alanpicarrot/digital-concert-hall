@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,14 +44,57 @@ public class OrderController {
     /**
      * 創建新訂單
      */
-    //@PostMapping
-    //@PreAuthorize("hasRole('USER')")
-    //public ResponseEntity<OrderSummaryResponse> createOrder(
-    //        @RequestBody CartRequest cartRequest) {
-    //    OrderSummaryResponse order = orderService.createOrder(cartRequest);
-    //    logger.info("Order created successfully: {}", order.getOrderNumber());
-    //    return ResponseEntity.ok(order);
-    //}
+    @PostMapping
+    @PreAuthorize("hasRole('USER') or hasAuthority('ROLE_USER')")
+    public ResponseEntity<OrderSummaryResponse> createOrder(
+            @RequestBody CartRequest cartRequest) {
+        try {
+            logger.info("Received create order request with {} items", 
+                     cartRequest.getItems() != null ? cartRequest.getItems().size() : 0);
+            
+            // 獲取當前認證信息並記錄
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) {
+                logger.debug("Authentication: principal={}, authenticated={}, authorities={}", 
+                          auth.getPrincipal(), auth.isAuthenticated(), auth.getAuthorities());
+            } else {
+                logger.warn("No authentication found in SecurityContext");
+            }
+            
+            OrderSummaryResponse order = orderService.createOrder(cartRequest);
+            logger.info("Order created successfully: {}", order.getOrderNumber());
+            return ResponseEntity.ok(order);
+        } catch (Exception e) {
+            logger.error("Error creating order: {}", e.getMessage(), e);
+            throw e;
+        }
+    }
+    
+    /**
+     * 測試訂單權限 - 無需實際權限即可訪問，用於調試
+     */
+    @GetMapping("/auth-test")
+    public ResponseEntity<Map<String, Object>> testOrderAuth() {
+        Map<String, Object> response = new HashMap<>();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (auth != null) {
+            response.put("authenticated", auth.isAuthenticated());
+            response.put("principal_type", auth.getPrincipal().getClass().getName());
+            response.put("authorities", auth.getAuthorities());
+            response.put("can_create_order", auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_USER") || 
+                          a.getAuthority().equals("USER")));
+            
+            logger.info("Order auth test called: {}", response);
+        } else {
+            response.put("authenticated", false);
+            response.put("message", "No authentication found");
+            logger.warn("Order auth test: No authentication in context");
+        }
+        
+        return ResponseEntity.ok(response);
+    }
     
     /**
      * 獲取當前登錄用戶的所有訂單
