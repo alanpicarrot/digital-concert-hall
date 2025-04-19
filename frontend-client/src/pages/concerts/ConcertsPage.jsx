@@ -19,8 +19,9 @@ const ConcertsPage = () => {
       try {
         setLoading(true);
         setError(null);
-        console.log("Fetching concerts..."); // 調試日誌
+        console.log("正在獲取音樂會數據..."); 
 
+        // 根據時間範圍過濾獲取音樂會
         let concertsData;
         if (filters.timeframe === "past") {
           concertsData = await concertService.getPastConcerts();
@@ -30,37 +31,18 @@ const ConcertsPage = () => {
           concertsData = await concertService.getAllConcerts();
         }
 
-        console.log("Received concerts data:", concertsData); // 調試日誌
+        console.log("獲取的音樂會數據:", concertsData);
 
+        // 檢查是否沒有數據
         if (!concertsData || concertsData.length === 0) {
-          // 如果沒有數據，添加一些模擬數據以便測試
-          console.log("沒有獲取到音樂會數據，使用模擬數據...");
-          // 使用與 concertService 中相同的模擬數據
-          const mockConcerts = [
-            {
-              id: 1,
-              title: "2025春季交響音樂會",
-              startTime: "2025-05-15T19:30:00",
-              description: "春季音樂盛宴，將為您帶來優美的音樂體驗。由著名指揮家帶領交響樂團，演奏經典曲目和當代作品。",
-              venue: "數位音樂廳主廳",
-              posterUrl: "/assets/images/concert-posters/spring-concert.jpg",
-              performer: "數位音樂廳交響樂團",
-              genre: "古典音樂"
-            },
-            {
-              id: 2,
-              title: "貝多芬鋼琴妙境音樂會",
-              startTime: "2025-06-20T19:00:00",
-              description: "一場精彩的貝多芬鋼琴演出，展現音樂的深邃與優雅",
-              venue: "數位音樂廳主廳",
-              posterUrl: "/assets/images/concert-posters/beethoven.jpg",
-              performer: "李大方",
-              genre: "古典音樂"
-            }
-          ];
-          concertsData = mockConcerts;
+          console.warn("後端返回空數據集");
+          setConcerts([]);
+          setError("目前沒有音樂會數據。請確保管理後台已創建資料並正確寫入 H2 資料庫。");
+          setLoading(false);
+          return;
         }
 
+        // 格式化數據用於顯示
         const formattedConcerts = concertsData.map((concert) => ({
           id: concert.id,
           title: concert.title,
@@ -73,11 +55,11 @@ const ConcertsPage = () => {
           description: concert.description,
         }));
 
-        console.log("Formatted concerts:", formattedConcerts); // 調試日誌
+        console.log("格式化後的音樂會數據:", formattedConcerts.length);
         setConcerts(formattedConcerts);
       } catch (error) {
-        console.error("Error fetching concerts:", error);
-        setError("無法載入音樂會資料，請稍後再試");
+        console.error("獲取音樂會數據失敗:", error);
+        setError("無法載入音樂會資料。請確認後端服務運行正常，並且資料已正確寫入資料庫。");
       } finally {
         setLoading(false);
       }
@@ -86,6 +68,7 @@ const ConcertsPage = () => {
     fetchConcerts();
   }, [filters.timeframe]);
 
+  // 顯示錯誤信息
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -102,36 +85,36 @@ const ConcertsPage = () => {
     );
   }
 
+  // 根據過濾條件過濾音樂會
   const filteredConcerts = concerts.filter((concert) => {
-    // 修復日期過濾邏輯
+    // 日期過濾
     const concertDate = new Date(concert.date);
     const now = new Date();
     
-    // 先檢查日期是否有效
+    // 檢查日期有效性
     if (isNaN(concertDate.getTime())) {
       console.error('無效的音樂會日期:', concert.date, '音樂會ID:', concert.id);
-      return true; // 如果日期無效，默認顯示這個音樂會
+      return true; // 如果日期無效，默認顯示
     }
     
-    // 修復「即將上演」的邏輯，確保未來的音樂會被正確過濾
+    // 「即將上演」過濾邏輯
     if (filters.timeframe === "upcoming") {
       // 比較日期的年月日，忽略時間部分
       const concertYMD = new Date(concertDate.getFullYear(), concertDate.getMonth(), concertDate.getDate());
       const nowYMD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       
-      // 如果音樂會日期在今日之前，不顯示
       if (concertYMD < nowYMD) {
-        console.log('「即將上演」過濾排除了過去音樂會:', concert.title, concertDate);
         return false;
       }
-      return true; // 顯示今天及之後的音樂會
+      return true;
     }
     
+    // 「過去演出」過濾邏輯
     if (filters.timeframe === "past" && concertDate >= now) {
-      console.log('「過去演出」過濾排除了未來音樂會:', concert.title, concertDate);
       return false;
     }
 
+    // 藝術家過濾
     if (
       filters.artist &&
       !concert.performer.toLowerCase().includes(filters.artist.toLowerCase())
@@ -139,6 +122,7 @@ const ConcertsPage = () => {
       return false;
     }
 
+    // 類型過濾
     if (filters.genre && concert.genre !== filters.genre) {
       return false;
     }
@@ -294,6 +278,9 @@ const ConcertsPage = () => {
               <div className="text-gray-500 text-lg">
                 沒有找到符合條件的音樂會
               </div>
+              <p className="text-gray-400 mt-2">
+                請嘗試調整過濾條件或確認後端數據是否已正確寫入
+              </p>
             </div>
           )}
         </div>

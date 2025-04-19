@@ -1,6 +1,7 @@
 import authService from './authService';
 import axios from 'axios';
 import { validateApiPath } from '../utils/apiUtils';
+import { markAsMockData } from '../utils/mockDataUtils';
 
 const API_USER_TICKETS_PATH = '/api/users/me/tickets';
 const API_PUBLIC_TICKETS_PATH = '/api/tickets';
@@ -223,10 +224,12 @@ const getTicketById = async (ticketId) => {
 const getTicketsByPerformance = async (performanceId) => {
   try {
     const path = validateApiPath(`${API_PERFORMANCES_PATH}/${performanceId}/tickets`);
+    console.log(`獲取演出場次票券: ${path}`);
     const response = await publicAxios.get(path);
     
     // 將API返回的數據轉換為前端期望的格式
     const ticketsData = response.data;
+    console.log(`成功獲取票券數據:`, ticketsData);
     
     if (Array.isArray(ticketsData)) {
       return ticketsData.map(ticket => ({
@@ -258,6 +261,10 @@ const getTicketsByPerformance = async (performanceId) => {
     // 模擬數據，服務器端API尚未實現或出錯時使用
     console.log('使用模擬演出場次票券數據');
     
+    // 為了確保日期格式正確，使用更穩定的方式創建日期
+    const date = new Date();
+    date.setDate(date.getDate() + 7); // 設置為7天後
+    
     // 為演出場次提供兩種票券類型的模擬數據
     const mockTickets = [
       {
@@ -272,9 +279,9 @@ const getTicketsByPerformance = async (performanceId) => {
         price: 2000,
         availableQuantity: 100,
         performance: {
-          id: performanceId,
-          startTime: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
-          endTime: new Date(new Date().setDate(new Date().getDate() + 7) + 7200000).toISOString(),
+          id: parseInt(performanceId),
+          startTime: date.toISOString(),
+          endTime: new Date(date.getTime() + 2 * 60 * 60 * 1000).toISOString(), // 2小時後
           venue: '數位音樂廳主廳',
           concertId: 1
         }
@@ -291,16 +298,17 @@ const getTicketsByPerformance = async (performanceId) => {
         price: 1000,
         availableQuantity: 200,
         performance: {
-          id: performanceId,
-          startTime: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
-          endTime: new Date(new Date().setDate(new Date().getDate() + 7) + 7200000).toISOString(),
+          id: parseInt(performanceId),
+          startTime: date.toISOString(),
+          endTime: new Date(date.getTime() + 2 * 60 * 60 * 1000).toISOString(), // 2小時後
           venue: '數位音樂廳主廳',
           concertId: 1
         }
       }
     ];
     
-    return mockTickets;
+    // 標記為模擬數據並返回
+    return markAsMockData('ticket', mockTickets);
   }
 };
 
@@ -308,6 +316,7 @@ const getTicketsByPerformance = async (performanceId) => {
 const getPerformanceById = async (performanceId) => {
   try {
     const path = validateApiPath(`${API_PERFORMANCES_PATH}/${performanceId}`);
+    console.log(`Fetching performance data for ID: ${performanceId}, path: ${path}`);
     const response = await publicAxios.get(path);
     return response.data;
   } catch (error) {
@@ -316,16 +325,21 @@ const getPerformanceById = async (performanceId) => {
     // 模擬數據，服務器端API尚未實現或出錯時使用
     console.log('使用模擬演出場次數據');
     
+    // 創建更穩定的日期格式
+    const date = new Date();
+    date.setDate(date.getDate() + 7); // 設置為未來7天
+    
     const mockPerformance = {
-      id: performanceId,
-      startTime: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
-      endTime: new Date(new Date().setDate(new Date().getDate() + 7) + 7200000).toISOString(),
+      id: parseInt(performanceId),
+      startTime: date.toISOString(),
+      endTime: new Date(date.getTime() + 2 * 60 * 60 * 1000).toISOString(), // 2小時後
       venue: '數位音樂廳主廳',
       status: 'scheduled',
       concertId: 1
     };
     
-    return mockPerformance;
+    // 標記為模擬數據
+    return markAsMockData('performance', mockPerformance);
   }
 };
 

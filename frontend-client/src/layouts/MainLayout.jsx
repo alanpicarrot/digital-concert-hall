@@ -3,6 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ShoppingCart, User, ChevronDown, Music, Ticket, CalendarDays, Video, Mail } from 'lucide-react';
 import cartService from '../services/cartService';
+import MockDataIndicator from '../components/ui/MockDataIndicator';
 
 const MainLayout = () => {
   const { isAuthenticated, user, logout, updateAuthState } = useAuth();
@@ -240,6 +241,9 @@ const MainLayout = () => {
       <main className="flex-grow">
         <Outlet />
       </main>
+      
+      {/* 模擬數據指示器 */}
+      <MockDataIndicator position="bottom-right" />
       
       {/* 頁腳 */}
       <footer className="bg-indigo-900 text-white py-8">

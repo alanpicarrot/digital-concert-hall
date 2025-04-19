@@ -29,33 +29,60 @@ export const validateApiPath = (path) => {
     return '/api';
   }
   
-  // 前端請求統一使用 /api 前綴
-  // 先檢查是否已經有 /api 前綴
+  // 產生詳細日誌用於追蹤 API 路徑
+  console.log(`原始 API 路徑: ${path}`);
+  
+  // ---------- 路徑前綴處理 ----------
+  // 注意：concertService 和其他服務已經在路徑前添加了 /api 前綴
+  // 檢查是否已經有 /api 前綴，避免重複添加
   if (path.startsWith('/api/')) {
-    // 保留 /auth 路徑
-    console.log(`路徑已有 /api 前綴: ${path}`);
-    return path; // 已有 /api 前綴
+    console.log(`路徑已有 /api 前綴，直接使用: ${path}`);
+    return path; // 已有前綴，直接返回
   }
   
-  // 無 /api 前綴的請求
-  // 檢查是否為認證相關路徑
+  // 處理沒有開頭斜線的 api 路徑
+  if (path.startsWith('api/')) {
+    const correctedPath = '/' + path;
+    console.log(`修正 api 路徑格式: ${path} -> ${correctedPath}`);
+    return correctedPath;
+  }
+  
+  // ---------- 認證路徑處理 ----------
+  // 處理認證相關路徑
   if (path.startsWith('/signin') || path.startsWith('/register') || 
       path.startsWith('/logout') || path.startsWith('/forgot-password') || 
       path.startsWith('/reset-password')) {
-    console.log(`將認證路徑 "${path}" 轉換為 /api/auth 路徑`);
-    return `/api/auth${path}`;
+    
+    // 特殊處理登入路徑
+    if (path === '/signin') {
+      console.log('將 /signin 轉換為 /api/auth/signin');
+      return '/api/auth/signin';
+    }
+    
+    // 兼容 auth/signin 的格式
+    if (path === 'auth/signin' || path === '/auth/signin') {
+      console.log('檢測到 auth/signin 格式路徑，轉換為 /api/auth/signin');
+      return '/api/auth/signin';
+    }
+    
+    // 其他認證路徑處理
+    const authPath = `/api/auth${path}`;
+    console.log(`將認證路徑格式化: ${path} -> ${authPath}`);
+    return authPath;
   }
   
-  // 其他保留 auth 路徑
-  if (path.includes('/auth/')) {
-    console.log(`保留 auth 路徑: ${path}`);
-    path = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
-    return path;
+  // 處理已有 auth 但沒有 api 前綴的路徑
+  if (path.includes('/auth/') || path.startsWith('auth/')) {
+    const authPath = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
+    console.log(`格式化 auth 路徑: ${path} -> ${authPath}`);
+    return authPath;
   }
   
-  // 添加 /api 前綴
-  console.log(`將路徑 "${path}" 轉換為正確的 API 路徑`);
-  return path.startsWith('/') ? `/api${path}` : `/api/${path}`;
+  // ---------- 標準路徑處理 ----------
+  // 添加 /api 前綴到所有其他路徑
+  const normalizedPath = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
+  console.log(`標準化 API 路徑: ${path} -> ${normalizedPath}`);
+  return normalizedPath;
 };
 
 /**

@@ -97,39 +97,57 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
       
       // 調用 AuthService 的登入方法
-      const userData = await AuthService.login(username, password);
-      console.log('登入成功，用戶數據:', userData.username);
-      
-      if (!userData || !userData.accessToken) {
-        console.error('登入返回的數據不完整，缺少令牌');
-        return { 
-          success: false, 
-          message: '登入失敗，伺服器回應不完整' 
-        };
+      console.log('開始調用 AuthService.login 方法');
+      try {
+        const userData = await AuthService.login(username, password);
+        console.log('登入成功，用戶數據:', userData.username);
+        
+        if (!userData || !userData.accessToken) {
+          console.error('登入返回的數據不完整，缺少令牌');
+          return { 
+            success: false, 
+            message: '登入失敗，伺服器回應不完整' 
+          };
+        }
+        
+        // 檢查令牌格式
+        const tokenParts = userData.accessToken.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('收到不正確格式的令牌');
+          return { 
+            success: false, 
+            message: '登入失敗，認證令牌格式不正確' 
+          };
+        }
+        
+        // 更新狀態
+        setUser(userData);
+        setIsAuthenticated(true);
+        
+        console.log('登入後認證狀態已更新:', { 
+          isAuthenticated: true, 
+          username: userData.username 
+        });
+        
+        return { success: true, data: userData };
+      } catch (loginError) {
+        // 特別處理 401 錯誤
+        if (loginError.response && loginError.response.status === 401) {
+          console.error('登入失敗，401 未經授權:', loginError.response.data);
+          return { 
+            success: false, 
+            message: '用戶名或密碼錯誤，請重新輸入' 
+          };
+        }
+        // 處理其他登入錯誤
+        console.error('登入中發生錯誤:', loginError);
+        const errorMessage = loginError.response?.data?.message || 
+                           loginError.message || 
+                           '登入失敗，請檢查您的帳號和密碼';
+        return { success: false, message: errorMessage };
       }
-      
-      // 檢查令牌格式
-      const tokenParts = userData.accessToken.split('.');
-      if (tokenParts.length !== 3) {
-        console.error('收到不正確格式的令牌');
-        return { 
-          success: false, 
-          message: '登入失敗，認證令牌格式不正確' 
-        };
-      }
-      
-      // 更新狀態
-      setUser(userData);
-      setIsAuthenticated(true);
-      
-      console.log('登入後認證狀態已更新:', { 
-        isAuthenticated: true, 
-        username: userData.username 
-      });
-      
-      return { success: true, data: userData };
     } catch (error) {
-      console.error('登入失敗', error);
+      console.error('登入處理失敗', error);
       // 確保重設狀態
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -137,7 +155,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       return { 
         success: false, 
-        message: error.response?.data?.message || '登入失敗，請檢查您的帳號和密碼'
+        message: error.response?.data?.message || '登入失敗，請稍後再試'
       };
     } finally {
       setLoading(false);

@@ -12,13 +12,28 @@ const HomePage = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // 檢查環境變量
+    console.log("REACT_APP_API_URL:", process.env.REACT_APP_API_URL || "未設置");
+    console.log("目前網頁域名:", window.location.origin);
+    
     const fetchConcerts = async () => {
       try {
         setLoading(true);
+        console.log("開始獲取音樂會數據…");
 
         // 從後端獲取所有活躍音樂會
         const activeConcerts = await concertService.getAllConcerts();
-        console.log("Received concerts:", activeConcerts);
+        console.log("音樂會數據回應:", activeConcerts);
+        
+        // 如果沒有數據，顯示空列表並提示用戶
+        if (!activeConcerts || activeConcerts.length === 0) {
+          console.warn('沒有音樂會數據可顯示');
+          setUpcomingConcerts([]);
+          setPastConcerts([]);
+          setError('後端資料庫中無音樂會數據。請確保管理後台已經創建資料並正確寫入到 H2 資料庫。');
+          setLoading(false);
+          return;
+        }
 
         // 將API返回的數據格式化為頁面需要的格式
         const formattedUpcomingConcerts = activeConcerts.map((concert) => ({
@@ -64,7 +79,15 @@ const HomePage = () => {
         setLoading(false);
       } catch (err) {
         console.error("Error fetching concerts:", err);
-        setError("無法載入音樂會數據，請稍後再試。");
+        // 顯示更詳細的錯誤信息
+        const errorMsg = err.response ? 
+          `錯誤代碼: ${err.response.status} - ${err.response.statusText}` : 
+          `網絡錯誤: ${err.message}`;
+          
+        console.error('後端要求詳細錯誤:', errorMsg);
+        console.error('後端 URL:', process.env.REACT_APP_API_URL || "http://localhost:8080");
+        
+        setError(`無法載入音樂會數據 - ${errorMsg}\n請確認後端服務器在端口 8080 運行。`);
         setLoading(false);
       }
     };

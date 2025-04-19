@@ -11,6 +11,7 @@ const publicAxios = axios.create({
   },
 });
 
+// 添加錯誤攔截器，提供詳細的診斷信息
 publicAxios.interceptors.response.use(
   (response) => {
     console.debug(
@@ -21,65 +22,57 @@ publicAxios.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error("Concert API Error:", error.config?.url, error.message);
+    console.error("API 錯誤:", error.config?.url);
+    console.error("錯誤消息:", error.message);
+    
+    if (error.response) {
+      console.error("響應狀態碼:", error.response.status);
+      console.error("響應數據:", error.response.data);
+    } else {
+      console.error("無響應數據，可能是網絡問題或後端服務器未運行");
+      console.error("請確保後端服務器在 http://localhost:8080 運行");
+    }
+    
     return Promise.reject(error);
   }
 );
 
 const concertService = {
+  // 獲取所有音樂會
   getAllConcerts: async () => {
     try {
-      console.debug("Fetching all concerts...");
-      const path = validateApiPath("/api/concerts");
+      console.debug("正在獲取音樂會列表...");
+      
+      const path = "/api/concerts";
+      console.debug(`請求音樂會列表: ${API_URL}${path}`);
+      
       const response = await publicAxios.get(path);
-      console.debug("Concerts fetched successfully:", response.data.length);
-      return response.data;
+      
+      if (response.data && Array.isArray(response.data)) {
+        console.debug(`成功獲取音樂會列表，數量: ${response.data.length}`);
+        
+        if (response.data.length === 0) {
+          console.warn('警告: 音樂會列表為空，管理後台(3001)創建的資料可能未寫入 H2 資料庫');
+          console.warn('請確保管理後台已正確寫入數據到 H2 資料庫');
+        }
+        
+        // 即使是空數組也返回，避免使用過多模擬數據干擾測試
+        return response.data;
+      } else {
+        console.error('響應格式不正確，預期數組但收到:', response.data);
+        return []; // 返回空數組
+      }
     } catch (error) {
       console.error("獲取音樂會列表失敗:", error.message);
+      console.error("請求URL:", `${API_URL}/api/concerts`);
+      console.error("請確認後端服務是否啟動並可在端口 8080 訪問");
+      
+      // 返回空數組，避免使用模擬數據
       return [];
     }
   },
 
-  // 模擬數據 - 用於前端開發測試時的備用數據
-  _getMockConcerts: () => {
-    return {
-      '1': {
-        id: 1,
-        title: "2025春季交響音樂會",
-        description: "春季音樂盛宴，將為您帶來優美的音樂體驗。由著名指揮家帶領交響樂團，演奏經典曲目和當代作品。",
-        programDetails: "貓與老鼠 - 幻想之舞\n柴可夫斯基 - 第五交響曲\n德布西 - 月光\n莫札特 - 小星星變奏曲",
-        posterUrl: "/assets/images/concert-posters/spring-concert.jpg",
-        status: "active",
-        performances: [
-          {
-            id: 101,
-            startTime: "2025-05-15T19:30:00",
-            endTime: "2025-05-15T21:30:00",
-            venue: "數位音樂廳主廳",
-            status: "scheduled"
-          }
-        ]
-      },
-      '2': {
-        id: 2,
-        title: "貝多芬鋼琴妙境音樂會",
-        description: "一場精彩的貝多芬鋼琴演出，展現音樂的深邃與優雅",
-        programDetails: "第一部分: 月光奏鳴曲\n第二部分: 悲壯英雄\n第三部分: 田園交響曲",
-        posterUrl: "/assets/images/concert-posters/beethoven.jpg",
-        status: "active",
-        performances: [
-          {
-            id: 201,
-            startTime: "2025-06-20T19:00:00",
-            endTime: "2025-06-20T21:00:00",
-            venue: "數位音樂廳主廳",
-            status: "scheduled"
-          }
-        ]
-      }
-    };
-  },
-
+  // 根據ID獲取音樂會詳情
   getConcertById: async (id) => {
     if (!id) {
       throw new Error("Concert ID is required");
@@ -89,43 +82,36 @@ const concertService = {
       const path = validateApiPath(`/api/concerts/${id}`);
       console.log(`獲取音樂會詳情: ${path}`);
       const response = await publicAxios.get(path);
-      console.log(`音樂會數據回應:`, response.data);
+      console.log(`成功獲取音樂會詳情`);
       return response.data;
     } catch (error) {
       console.error(`獲取音樂會 ${id} 詳情失敗:`, error);
-      
-      // 嘗試創建測試數據
-      try {
-        console.log('嘗試創建測試數據...');
-        await fetch('http://localhost:8080/api/concerts/create-spring-concert');
-      } catch (createError) {
-        console.error('創建測試數據失敗:', createError);
-      }
-      
-      // 如果 API 應答失敗，則使用模擬數據
-      const mockConcerts = concertService._getMockConcerts();
-      if (mockConcerts[id]) {
-        console.log(`使用模擬數據用於音樂會ID ${id}`);
-        return mockConcerts[id];
-      }
-      
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw error;
+      return null; // 返回 null 而不是模擬數據
     }
   },
 
+  // 獲取即將上演的音樂會
   getUpcomingConcerts: async () => {
-    const path = validateApiPath("/api/concerts/upcoming");
-    const response = await publicAxios.get(path);
-    return response.data;
+    try {
+      const path = validateApiPath("/api/concerts/upcoming");
+      const response = await publicAxios.get(path);
+      return response.data;
+    } catch (error) {
+      console.error("獲取即將上演音樂會失敗:", error);
+      return []; // 返回空數組
+    }
   },
 
+  // 獲取過去的音樂會
   getPastConcerts: async () => {
-    const path = validateApiPath("/api/concerts/past");
-    const response = await publicAxios.get(path);
-    return response.data;
+    try {
+      const path = validateApiPath("/api/concerts/past");
+      const response = await publicAxios.get(path);
+      return response.data;
+    } catch (error) {
+      console.error("獲取過去音樂會失敗:", error);
+      return []; // 返回空數組
+    }
   },
 
   // 獲取特定音樂會的票券詳情
@@ -133,114 +119,84 @@ const concertService = {
     try {
       console.log(`開始獲取音樂會 ${concertId} 的 ${ticketType} 票券詳情...`);
       
-      // 根據音樂會ID獲取音樂會詳情
+      // 獲取音樂會詳情
       const concertPath = validateApiPath(`/api/concerts/${concertId}`);
       console.log(`請求音樂會詳情: ${API_URL}${concertPath}`);
       
-      // 用 publicAxios 代替 axios 以保持错誤處理一致性
       const concertResponse = await publicAxios.get(concertPath);
       const concertData = concertResponse.data;
-      console.log(`成功獲取音樂會詳情:`, concertData.title);
-
-      // 獲取該音樂會的可用票券
+      
+      // 獲取表演場次
       const performanceId = concertData.performances?.[0]?.id;
       if (!performanceId) {
         console.error("此音樂會無可用表演場次");
-        // 直接使用模擬數據
-        return _createMockTicketDetails(concertId, ticketType, concertData);
+        return null;
       }
 
-      // 根據表演場次獲取票券
-      const ticketsPath = validateApiPath(`/api/performances/${performanceId}/tickets`);
-      console.log(`請求票券詳情: ${API_URL}${ticketsPath}`);
+      // 獲取表演場次詳情
+      const performancePath = validateApiPath(`/api/performances/${performanceId}`);
+      const performanceResponse = await publicAxios.get(performancePath);
+      const performanceData = performanceResponse.data;
       
-      try {
-        const ticketsResponse = await publicAxios.get(ticketsPath);
-        const tickets = ticketsResponse.data;
-        console.log(`成功獲取票券數據, 共 ${tickets.length} 種票券`);
-
-        // 尋找匹配票券類型的票券
-        const ticketDetails = tickets.find(
-          (ticket) =>
-            ticket.ticketType?.name?.toLowerCase() === ticketType?.toLowerCase()
-        );
-
-        if (!ticketDetails) {
-          console.log(`未找到匹配的 ${ticketType} 票券，使用模擬數據`);
-          return _createMockTicketDetails(concertId, ticketType, concertData);
-        }
-
-        // 格式化返回數據
-        return {
-          id: ticketDetails.id,
-          type: ticketDetails.ticketType.name,
-          price: ticketDetails.price,
-          description: ticketDetails.ticketType.description,
-          availableQuantity: ticketDetails.availableQuantity || 50,
-          available: ticketDetails.availableQuantity > 0,
-          colorCode: ticketDetails.ticketType.colorCode || "#4f46e5",
-          concert: concertData,
-          performance: ticketDetails.performance,
-        };
-      } catch (ticketError) {
-        console.error(`獲取票券數據失敗:`, ticketError);
-        return _createMockTicketDetails(concertId, ticketType, concertData);
+      // 獲取票券數據
+      const ticketsPath = validateApiPath(`/api/performances/${performanceId}/tickets`);
+      const ticketsResponse = await publicAxios.get(ticketsPath);
+      const tickets = ticketsResponse.data;
+      
+      if (!tickets || tickets.length === 0) {
+        console.log(`未找到任何票券`);
+        return null;
       }
+
+      // 尋找匹配票券類型的票券
+      let ticketDetails = tickets.find(
+        (ticket) => ticket.name?.toLowerCase() === ticketType?.toLowerCase()
+      );
+
+      // 嘗試其他匹配方式
+      if (!ticketDetails) {
+        ticketDetails = tickets.find(
+          (ticket) => ticket.ticketType?.name?.toLowerCase() === ticketType?.toLowerCase()
+        );
+      }
+
+      // 如果仍然沒找到，使用第一個可用票券
+      if (!ticketDetails) {
+        console.log(`未找到匹配的 ${ticketType} 票券，使用第一個可用票券`);
+        ticketDetails = tickets[0];
+      }
+
+      // 格式化數據
+      const ticketName = ticketDetails.name || ticketDetails.ticketType?.name || ticketType || "一般票";
+      const ticketDescription = ticketDetails.description || ticketDetails.ticketType?.description || "";
+      const ticketPrice = ticketDetails.price || ticketDetails.ticketType?.price || 1000;
+      const ticketColorCode = ticketDetails.colorCode || ticketDetails.ticketType?.colorCode || "#4f46e5";
+      const ticketQuantity = ticketDetails.availableQuantity || 50;
+
+      // 返回格式化的票券數據
+      return {
+        id: ticketDetails.id,
+        type: ticketName,
+        price: ticketPrice,
+        description: ticketDescription,
+        availableQuantity: ticketQuantity,
+        available: ticketQuantity > 0,
+        colorCode: ticketColorCode,
+        concert: concertData,
+        performance: {
+          id: performanceData.id,
+          startTime: performanceData.startTime,
+          endTime: performanceData.endTime,
+          venue: performanceData.venue,
+          status: performanceData.status,
+          duration: performanceData.duration
+        }
+      };
     } catch (error) {
       console.error("獲取票券詳情失敗:", error);
-      // 創建模擬數據而不是返回 null
-      return _createMockTicketDetails(concertId, ticketType);
+      return null; // 返回 null 而不是模擬數據
     }
-  },
-};
-
-// 創建模擬票券詳情的輔助函數
-function _createMockTicketDetails(concertId, ticketType, concertData = null) {
-  console.log(`創建 ${ticketType} 票券的模擬數據`);
-  
-  // 如果沒有音樂會數據，創建一個模擬的
-  if (!concertData) {
-    concertData = {
-      id: concertId,
-      title: `模擬音樂會 ${concertId}`,
-      description: "此為模擬數據，僅供前端測試使用",
-      performances: [
-        {
-          id: 101,
-          startTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          endTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
-          venue: "數位音樂廳主廳",
-        }
-      ]
-    };
   }
-  
-  // 根據票券類型創建不同的模擬數據
-  const isVip = ticketType?.toLowerCase() === "vip";
-  
-  return {
-    id: isVip ? 2 : 1,
-    type: ticketType?.charAt(0).toUpperCase() + ticketType?.slice(1) || "Standard",
-    price: isVip ? 2000 : 1000,
-    description: isVip
-      ? "前排最佳視聽位置，附贈節目冊"
-      : "標準座位區，良好視聽體驗",
-    availableQuantity: 50,
-    available: true,
-    colorCode: isVip ? "#4f46e5" : "#22c55e",
-    concert: concertData,
-    performance: {
-      startTime: concertData.performances?.[0]?.startTime || 
-                new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      endTime: concertData.performances?.[0]?.endTime || 
-              new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000).toISOString(),
-      venue: concertData.performances?.[0]?.venue || "數位音樂廳主廳",
-    },
-    perks: isVip ? [
-      "限量紅酒可免費享用",
-      "贈送限量級店家商品"
-    ] : []
-  };
-}
+};
 
 export default concertService;

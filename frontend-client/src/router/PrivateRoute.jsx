@@ -24,6 +24,13 @@ const PrivateRoute = ({ children }) => {
   const hasLocalAuth = !!(token && userStr);
 
   // 更完整的認證驗證和詳細日誌
+  // 處理非認證狀態下的認證更新
+  useEffect(() => {
+    if (!isAuthenticated && hasLocalAuth) {
+      updateAuthState();
+    }
+  }, [isAuthenticated, hasLocalAuth, updateAuthState]);
+
   useEffect(() => {
     const verifyAuthentication = async () => {
       try {
@@ -39,9 +46,8 @@ const PrivateRoute = ({ children }) => {
         });
         
         // 優先檢查：如果傳入的狀態表示已認證，直接設為已驗證狀態
-        if (stateAuthenticated) {
+        if (stateAuthenticated && !verifiedAuth) {
           console.log('從其他頁面傳遞認證成功狀態，直接接受認證');
-          updateAuthState(); // 嘗試更新內部狀態
           setVerifiedAuth(true);
           setVerifying(false);
           return;
@@ -85,7 +91,7 @@ const PrivateRoute = ({ children }) => {
     };
 
     verifyAuthentication();
-  }, [isAuthenticated, stateAuthenticated, hasLoginTimestamp, updateAuthState, hasLocalAuth]);
+  }, [isAuthenticated, stateAuthenticated, hasLoginTimestamp, hasLocalAuth, verifiedAuth]);
 
   // 如果正在驗證，顯示載入指示器
   if (verifying || loading) {
@@ -99,10 +105,6 @@ const PrivateRoute = ({ children }) => {
   // 如果已驗證認證狀態、狀態認證、全局認證或本地存儲有效，則允許訪問
   if (verifiedAuth || stateAuthenticated || isAuthenticated || hasLocalAuth) {
     console.log('認證成功，允許訪問受保護路由');
-    // 確保認證狀態已更新
-    if (!isAuthenticated && hasLocalAuth) {
-      updateAuthState();
-    }
     return children;
   }
 

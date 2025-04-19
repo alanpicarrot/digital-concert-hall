@@ -1,6 +1,19 @@
 import axios from "axios";
 import { validateApiPath } from "../utils/apiUtils";
 
+// 添加額外的調試輸出
+axios.interceptors.request.use(request => {
+  console.log('開始新請求:', { 
+    url: request.url,
+    method: request.method,
+    headers: request.headers
+  });
+  return request;
+}, error => {
+  console.error('請求配置錯誤:', error);
+  return Promise.reject(error);
+});
+
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
 const axiosInstance = axios.create({
@@ -80,12 +93,25 @@ axiosInstance.interceptors.response.use(
   // 處理 401 未授權錯誤 (令牌過期或無效)
   if (error.response && error.response.status === 401) {
     console.log("偵測到 401 未授權錯誤，檢查當前路徑");
+    console.log('錯誤發生的請求:', {
+      url: error.config.url,
+      method: error.config.method,
+      headers: error.config.headers
+    });
 
     // 檢查當前路徑是否為結帳相關頁面或購物車頁面
     const currentPath = window.location.pathname;
     const isCheckoutPath = currentPath.includes("/checkout/");
     const isCartPath = currentPath.includes("/cart");
+    const isLoginPath = currentPath.includes("/login") || currentPath.includes("/register");
     
+    // 如果是登入相關頁面收到401，可能是登入失敗的預期錯誤，直接顯示錯誤
+    if (isLoginPath) {
+      console.log('在登入相關頁面收到401錯誤，可能是資訊錯誤');
+      return Promise.reject(error);
+    }
+    
+    // 在結帳或購物車頁面先不處理登出或重定向
     if (isCheckoutPath || isCartPath) {
       console.log("在結帳或購物車頁面收到401錯誤，但不清除登入狀態或重定向");
       // 在結帳或購物車頁面收到401錯誤時，不清除登入狀態或重定向
@@ -161,12 +187,22 @@ const login = async (username, password) => {
   console.log("發送登入請求:", { username, password: "******" });
 
   try {
-    // 使用validateApiPath確保路徑一致性，包含 /auth 路徑
-    const endpoint = validateApiPath("/signin");
+    // 調整登入端點路徑
+    // 使用後端實際期望的路徑 - 可能後端期望的是 /api/auth/signin 或 /auth/signin
+    // 嘗試使用相對路徑 - 避免路徑前綴問題
+    const endpoint = "auth/signin";
     console.log("API URL:", API_URL);
-    console.log("完整請求 URL:", `${API_URL}${endpoint}`);
+    console.log("完整請求 URL:", `${API_URL}/api/${endpoint}`);
+    
+    // 添加更多調試信息
+    console.log("請求詳情:", {
+      url: `${API_URL}/api/${endpoint}`,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      data: { username, password: "[PROTECTED]" }
+    });
 
-    const response = await axiosInstance.post(endpoint, {
+    const response = await axiosInstance.post(`/api/${endpoint}`, {
       username,
       password,
     });
@@ -185,9 +221,9 @@ const login = async (username, password) => {
       const userData = {
         ...response.data,
         username: response.data.username || username,
-        id: response.data.id,
-        email: response.data.email,
-        roles: response.data.roles,
+        id: response.data.id || 0, // 確保至少有一個 ID 值
+        email: response.data.email || "",
+        roles: response.data.roles || ["user"],
         accessToken: response.data.accessToken,
       };
 
@@ -205,9 +241,37 @@ const login = async (username, password) => {
       });
 
       return userData;
+    } else if (response.data) {
+      // 如果有回應數據但沒有 accessToken
+      console.warn("登入回應中沒有令牌，但有其他數據", response.data);
+      
+      // 因為伺服器可能返回不同的欄位名稱，嘗試尋找可能的令牌欄位
+      const possibleTokenFields = ['accessToken', 'token', 'jwt', 'id_token', 'auth_token'];
+      
+      // 尋找可能的令牌欄位
+      for (const field of possibleTokenFields) {
+        if (response.data[field]) {
+          console.log(`找到可能的令牌欄位: ${field}`);
+          
+          // 存入令牌
+          localStorage.setItem("token", response.data[field]);
+          
+          // 建立使用者資料
+          const userData = {
+            ...response.data,
+            username: response.data.username || username,
+            accessToken: response.data[field],
+          };
+          
+          localStorage.setItem("user", JSON.stringify(userData));
+          return userData;
+        }
+      }
+      
+      throw new Error("登入回應中沒有認可的令牌格式");
     } else {
-      console.error("登入回應中沒有令牌:", response.data);
-      throw new Error("登入回應中沒有令牌");
+      console.error("登入回應中沒有數據");
+      throw new Error("登入回應中沒有數據");
     }
   } catch (error) {
     console.error("登入錯誤:", error.message);
