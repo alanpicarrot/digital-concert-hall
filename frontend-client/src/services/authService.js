@@ -90,34 +90,50 @@ axiosInstance.interceptors.response.use(
       error.response ? error.response.status : error.message
     );
 
-  // 處理 401 未授權錯誤 (令牌過期或無效)
-  if (error.response && error.response.status === 401) {
-    console.log("偵測到 401 未授權錯誤，檢查當前路徑");
-    console.log('錯誤發生的請求:', {
-      url: error.config.url,
-      method: error.config.method,
-      headers: error.config.headers
-    });
+    // 處理 401 未授權錯誤 (令牌過期或無效)
+    if (error.response && error.response.status === 401) {
+      console.log("偵測到 401 未授權錯誤，檢查當前路徑");
+      console.log("錯誤發生的請求:", {
+        url: error.config.url,
+        method: error.config.method,
+        headers: error.config.headers,
+      });
 
-    // 檢查當前路徑是否為結帳相關頁面或購物車頁面
-    const currentPath = window.location.pathname;
-    const isCheckoutPath = currentPath.includes("/checkout/");
-    const isCartPath = currentPath.includes("/cart");
-    const isLoginPath = currentPath.includes("/login") || currentPath.includes("/register");
-    
-    // 如果是登入相關頁面收到401，可能是登入失敗的預期錯誤，直接顯示錯誤
-    if (isLoginPath) {
-      console.log('在登入相關頁面收到401錯誤，可能是資訊錯誤');
-      return Promise.reject(error);
-    }
-    
-    // 在結帳或購物車頁面先不處理登出或重定向
-    if (isCheckoutPath || isCartPath) {
-      console.log("在結帳或購物車頁面收到401錯誤，但不清除登入狀態或重定向");
-      // 在結帳或購物車頁面收到401錯誤時，不清除登入狀態或重定向
-      // 這是為了避免結帳流程中的認證問題導致用戶被重定向到登入頁面
-      return Promise.reject(error);
-    }
+      // 檢查當前路徑是否為結帳相關頁面、購物車頁面或票券頁面
+      const currentPath = window.location.pathname;
+      const isCheckoutPath = currentPath.includes("/checkout/");
+      const isCartPath = currentPath.includes("/cart");
+      const isTicketPath = currentPath.includes("/tickets/");
+      const isLoginPath =
+        currentPath.includes("/login") || currentPath.includes("/register");
+
+      // 如果是登入相關頁面收到401，可能是登入失敗的預期錯誤，直接顯示錯誤
+      if (isLoginPath) {
+        console.log("在登入相關頁面收到401錯誤，可能是資訊錯誤");
+        return Promise.reject(error);
+      }
+
+      // 檢查是否為票券API錯誤，特別處理
+      const isTicketApiError =
+        error.config.url.includes("/api/concerts") ||
+        error.config.url.includes("/api/tickets") ||
+        error.config.url.includes("/api/performances");
+
+      // 在票券頁面或票券API錯誤時特殊處理
+      if (isTicketPath || isTicketApiError) {
+        console.log("票券相關操作收到401錯誤，但不清除登入狀態或重定向");
+        // 在收到票券相關401錯誤時，不立即清除登入狀態或重定向
+        // 這是因為某些票券信息可能不需要登入即可查看
+        return Promise.reject(error);
+      }
+
+      // 在結帳或購物車頁面先不處理登出或重定向
+      if (isCheckoutPath || isCartPath) {
+        console.log("在結帳或購物車頁面收到401錯誤，但不清除登入狀態或重定向");
+        // 在結帳或購物車頁面收到401錯誤時，不清除登入狀態或重定向
+        // 這是為了避免結帳流程中的認證問題導致用戶被重定向到登入頁面
+        return Promise.reject(error);
+      }
 
       // 如果不是在結帳頁面，則正常處理401錯誤
       console.log("清除本地存儲中的無效令牌");
@@ -130,7 +146,9 @@ axiosInstance.interceptors.response.use(
         !currentPath.includes("/login") &&
         !currentPath.includes("/register") &&
         !currentPath.includes("/reset-password") &&
-        !currentPath.includes("/payment")
+        !currentPath.includes("/payment") &&
+        !isTicketPath && // 避免在票券頁面重定向
+        !isTicketApiError // 避免在票券API錯誤時重定向
       ) {
         // 顯示通知
         alert("您的登入已過期，請重新登入");

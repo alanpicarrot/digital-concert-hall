@@ -33,7 +33,6 @@ export const validateApiPath = (path) => {
   console.log(`原始 API 路徑: ${path}`);
   
   // ---------- 路徑前綴處理 ----------
-  // 注意：concertService 和其他服務已經在路徑前添加了 /api 前綴
   // 檢查是否已經有 /api 前綴，避免重複添加
   if (path.startsWith('/api/')) {
     console.log(`路徑已有 /api 前綴，直接使用: ${path}`);
@@ -45,6 +44,17 @@ export const validateApiPath = (path) => {
     const correctedPath = '/' + path;
     console.log(`修正 api 路徑格式: ${path} -> ${correctedPath}`);
     return correctedPath;
+  }
+  
+  // ---------- 票券路徑特殊處理 ----------
+  // 票券路徑特殊處理，確保 concerts, tickets, performances 路徑的一致性
+  const ticketsPatterns = ['/tickets/', '/concerts/', '/performances/'];
+  for (const pattern of ticketsPatterns) {
+    if (path.includes(pattern)) {
+      const ticketsPath = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
+      console.log(`標準化票券API路徑: ${path} -> ${ticketsPath}`);
+      return ticketsPath;
+    }
   }
   
   // ---------- 認證路徑處理 ----------

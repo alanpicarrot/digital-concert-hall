@@ -20,12 +20,26 @@ const CheckoutPage = () => {
   // 全局暴露支付模擬函數，確保在開發環境中按鈕可以正常工作
   // 這個函數將在組件卸載時被清理
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      window.simulatePayment = () => {
-        // 使用新的分步模式支付流程
-        navigate(`/payment/steps/order?orderNumber=${orderNumber}&amount=${order?.totalAmount || directCheckout?.totalAmount || 1000}`);
-      };
-    }
+    const setupSimulatePayment = () => {
+      if (process.env.NODE_ENV === 'development') {
+        // 先檢查並清除可能存在的舊函數
+        if (window.simulatePayment) {
+          delete window.simulatePayment;
+        }
+        
+        // 創建新的模擬支付函數
+        window.simulatePayment = () => {
+          // 使用新的分步模式支付流程
+          navigate(`/payment/steps/order?orderNumber=${orderNumber}&amount=${order?.totalAmount || directCheckout?.totalAmount || 1000}`);
+        };
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('已設置模擬支付函數');
+        }
+      }
+    };
+    
+    setupSimulatePayment();
     
     // 組件卸載時清理全局函數
     return () => {
@@ -88,6 +102,15 @@ const CheckoutPage = () => {
   
   // 確保獲取結帳數據並在卸載時清理全局函數
   useEffect(() => {
+    // 為避免無窮迴圈，在組件初次載入或訂單號變更時才執行
+    const hasDataLoaded = Boolean(order || directCheckout);
+    const isFirstLoad = loading && !error && !hasDataLoaded;
+
+    // 如果已經有數據且訂單號未變更，則跳過重複加載
+    if (!isFirstLoad && !orderNumber) {
+      return;
+    }
+
     const fetchOrderData = async () => {
       try {
         setLoading(true);
@@ -148,6 +171,15 @@ const CheckoutPage = () => {
               if (process.env.NODE_ENV === 'development') {
                 console.log('Direct checkout info found');
               }
+              // 清理購物車數據，避免重複處理
+              const wasCleanupPerformed = sessionStorage.getItem('checkoutInfoProcessed');
+              if (!wasCleanupPerformed) {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('已清理暫時之付款數');
+                }
+                sessionStorage.setItem('checkoutInfoProcessed', 'true');
+              }
+              
               setDirectCheckout(checkoutInfo);
               setOrder(null);
                 
@@ -173,6 +205,11 @@ const CheckoutPage = () => {
     };
 
     fetchOrderData();
+    
+    // 組件卸載時清除臨時狀態標記
+    return () => {
+      sessionStorage.removeItem('checkoutInfoProcessed');
+    };
   }, [orderNumber, toast]);
 
   // 使用 useCallback 包裝 handlePayment

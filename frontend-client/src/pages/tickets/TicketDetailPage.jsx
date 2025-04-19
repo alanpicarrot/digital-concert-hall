@@ -32,13 +32,14 @@ const TicketDetailPage = () => {
         
         if (expectedTicketType) {
           try {
-            // 從 URL 中提取音樂會ID，假設ticketing/:id/type形式的URL
-            const pathSegments = window.location.pathname.split('/');
-            const concertId = pathSegments[pathSegments.length - 2]; // 假設音樂會ID在URL的個別位置
+            console.log(`嘗試使用 concertService.getTicketDetails 獲取 ${expectedTicketType} 票券`);
             
-            // 使用concertService.getTicketDetails獲取票券信息
-            const details = await concertService.getTicketDetails(concertId, expectedTicketType);
+            // 直接使用路由參數中的 id 獲取票券信息
+            const details = await concertService.getTicketDetails(id, expectedTicketType);
+            
             if (details) {
+              console.log(`成功獲取票券詳情:`, details);
+              
               ticketData = {
                 id: details.id,
                 ticketType: {
@@ -52,40 +53,103 @@ const TicketDetailPage = () => {
               };
               concertData = details.concert;
               
-              // 票券類型驗證 - 忽略大小寫和空格差異
-              const normalizedRequestType = expectedTicketType.toLowerCase().replace(/\s+/g, '');
-              const normalizedResponseType = details.type.toLowerCase().replace(/\s+/g, '');
+              // 票券類型驗證 - 使用更健壯的比較邏輯
+              const normalizeString = (str) => {
+                if (!str) return '';
+                return str.toLowerCase().replace(/[\s-_]/g, '');
+              };
+              
+              const normalizedRequestType = normalizeString(expectedTicketType);
+              const normalizedResponseType = normalizeString(details.type);
               
               if (normalizedResponseType !== normalizedRequestType) {
-                console.warn('票券類型不匹配，期望:', expectedTicketType, '實際:', details.type);
-                setTypeMismatch(true);
+                // 檢查是否包含關鍵字（如VIP或標準）
+                const isVipRequest = normalizedRequestType.includes('vip');
+                const isVipResponse = normalizedResponseType.includes('vip');
+                const isStandardRequest = normalizedRequestType.includes('標準') || normalizedRequestType.includes('一般');
+                const isStandardResponse = normalizedResponseType.includes('標準') || normalizedResponseType.includes('一般');
+                
+                // 只有當票券類型完全不匹配時才設置不匹配狀態
+                if ((isVipRequest && !isVipResponse) || (isStandardRequest && !isStandardResponse)) {
+                  console.warn('票券類型不匹配，期望:', expectedTicketType, '實際:', details.type);
+                  setTypeMismatch(true);
+                } else {
+                  setTypeMismatch(false);
+                }
               } else {
                 setTypeMismatch(false);
               }
+            } else {
+              console.log(`未能通過 concertService.getTicketDetails 獲取票券詳情`);
             }
           } catch (detailsError) {
-            console.error('無法使用getTicketDetails:', detailsError);
-            // 如果getTicketDetails失敗，嘗試使用原始方法
+            console.error('使用getTicketDetails獲取票券時發生錯誤:', detailsError);
+            
+            // 檢查是否是授權問題（401錯誤）
+            if (detailsError.response && detailsError.response.status === 401) {
+              console.log('收到401錯誤，可能需要登入才能查看VIP票券');
+              
+              // 提示用戶登入以查看VIP票券詳情
+              const shouldLogin = window.confirm('查看VIP票券需要登入。是否前往登入頁面？');
+              if (shouldLogin) {
+                navigate('/login?redirect=' + encodeURIComponent(`/tickets/${id}?type=${expectedTicketType}`));
+                return; // 提前返回，避免繼續執行
+              }
+            }
+            
+            // 如果getTicketDetails失敗，將繼續嘗試使用原始方法
+            console.log('將嘗試使用原始ticketService.getTicketById方法');
           }
         }
         
         // 如果未能使用getTicketDetails獲取數據，則使用原始方法
         if (!ticketData) {
-          ticketData = await ticketService.getTicketById(id);
-          
-          // 如果URL中有期望的票券類型，進行驗證 - 忽略大小寫和空格差異
-          if (expectedTicketType && ticketData && ticketData.ticketType) {
-            const normalizedRequestType = expectedTicketType.toLowerCase().replace(/\s+/g, '');
-            const normalizedResponseType = ticketData.ticketType.name.toLowerCase().replace(/\s+/g, '');
+          console.log(`使用ticketService.getTicketById(${id})獲取票券數據`);
+          try {
+            ticketData = await ticketService.getTicketById(id);
             
-            if (normalizedResponseType !== normalizedRequestType) {
-              console.warn('票券類型不匹配，期望:', expectedTicketType, '實際:', ticketData.ticketType.name);
-              setTypeMismatch(true);
+            // 如果URL中有期望的票券類型，進行驗證 - 使用更健壯的比較邏輯
+            if (expectedTicketType && ticketData && ticketData.ticketType) {
+              const normalizeString = (str) => {
+                if (!str) return '';
+                return str.toLowerCase().replace(/[\s-_]/g, '');
+              };
+              
+              const normalizedRequestType = normalizeString(expectedTicketType);
+              const normalizedResponseType = normalizeString(ticketData.ticketType.name);
+              
+              // 檢查票券類型是否匹配
+              if (normalizedResponseType !== normalizedRequestType) {
+                // 檢查是否包含關鍵字（如VIP或標準）
+                const isVipRequest = normalizedRequestType.includes('vip');
+                const isVipResponse = normalizedResponseType.includes('vip');
+                const isStandardRequest = normalizedRequestType.includes('標準') || normalizedRequestType.includes('一般');
+                const isStandardResponse = normalizedResponseType.includes('標準') || normalizedResponseType.includes('一般');
+                
+                // 只有當票券類型完全不匹配時才設置不匹配狀態
+                if ((isVipRequest && !isVipResponse) || (isStandardRequest && !isStandardResponse)) {
+                  console.warn('票券類型不匹配，期望:', expectedTicketType, '實際:', ticketData.ticketType.name);
+                  setTypeMismatch(true);
+                } else {
+                  setTypeMismatch(false);
+                }
+              } else {
+                setTypeMismatch(false);
+              }
             } else {
               setTypeMismatch(false);
             }
-          } else {
-            setTypeMismatch(false);
+          } catch (ticketError) {
+            console.error('使用ticketService.getTicketById獲取票券時發生錯誤:', ticketError);
+            // 如果是401錯誤，提示用戶登入
+            if (ticketError.response && ticketError.response.status === 401) {
+              const shouldLogin = window.confirm('查看票券需要登入。是否前往登入頁面？');
+              if (shouldLogin) {
+                navigate('/login?redirect=' + encodeURIComponent(`/tickets/${id}?type=${expectedTicketType}`));
+                return; // 提前返回，避免繼續執行
+              }
+            }
+            throw ticketError; // 重新拋出錯誤，讓外層catch處理
           }
         }
         
@@ -97,8 +161,14 @@ const TicketDetailPage = () => {
         } 
         // 否則從原始方法獲取音樂會詳情
         else if (ticketData && ticketData.performance && ticketData.performance.concertId) {
-          concertData = await concertService.getConcertById(ticketData.performance.concertId);
-          setConcert(concertData);
+          console.log(`獲取音樂會資訊: concertId=${ticketData.performance.concertId}`);
+          try {
+            concertData = await concertService.getConcertById(ticketData.performance.concertId);
+            setConcert(concertData);
+          } catch (concertError) {
+            console.error('獲取音樂會詳情時發生錯誤:', concertError);
+            throw new Error('無法獲取相關音樂會資訊');
+          }
         } else {
           throw new Error('無法獲取票券相關的音樂會資訊');
         }
@@ -111,7 +181,7 @@ const TicketDetailPage = () => {
     };
     
     fetchTicketDetail();
-  }, [id]);
+  }, [id, expectedTicketType, navigate]);
   
   // 處理數量變更
   const handleQuantityChange = (newQuantity) => {
