@@ -54,7 +54,7 @@ const TicketsPage = () => {
     totalQuantity: 100,
     availableQuantity: 100,
     description: '',
-    status: 'active'
+    status: 'inactive'  // 預設為「未上架」狀態，與表格初始狀態保持一致
   });
   const [isEditing, setIsEditing] = useState(false);
   
@@ -155,12 +155,13 @@ const TicketsPage = () => {
       setLoading(true);
       const response = await TicketService.getTicketsByPerformanceId(performanceId);
       
-      // 為每個票券添加当前演出場次的ID，因為@JsonBackReference注解可能导致前端收不到performanceId
+      // 為每個票券添加当前演出場次的ID，確保狀態正確處理
       const ticketsWithPerformanceId = response.data.map(ticket => ({
         ...ticket,
         price: ticket.ticketType?.price || 0,
         performanceId: parseInt(performanceId), // 確保每個票券都有正確的演出場次ID
-        ticketTypeId: ticket.ticketType?.id // 確保每個票券都有正確的票種ID
+        ticketTypeId: ticket.ticketType?.id, // 確保每個票券都有正確的票種ID
+        status: ticket.status || 'inactive' // 確保狀態欄位有預設值
       }));
       
       console.log('加載到的票券数据:', ticketsWithPerformanceId);
@@ -210,26 +211,44 @@ const TicketsPage = () => {
         return;
       }
       
-      // 確保數字欄位為整數
+      // 確保數字欄位為整數，確保狀態值正確
       const ticketData = {
         ...currentTicket,
         performanceId: parseInt(currentTicket.performanceId),
         ticketTypeId: parseInt(currentTicket.ticketTypeId),
         price: parseFloat(currentTicket.price) || 0,
         totalQuantity: parseInt(currentTicket.totalQuantity) || 0,
-        availableQuantity: parseInt(currentTicket.availableQuantity) || 0
+        availableQuantity: parseInt(currentTicket.availableQuantity) || 0,
+        status: currentTicket.status // 確保狀態正確傳遞
       };
       
       console.log('準備提交的票券數據:', ticketData);
+      console.log('票券狀態值:', ticketData.status);
       
+      let response;
       if (isEditing) {
-        await TicketService.updateTicket(ticketData.id, ticketData);
+        response = await TicketService.updateTicket(ticketData.id, ticketData);
+        console.log('更新票券回應:', response.data);
+        
+        // 更新本地状态，避免等待後端同步
+        const updatedTickets = tickets.map(ticket => 
+          ticket.id === ticketData.id ? { ...ticket, ...ticketData } : ticket
+        );
+        setTickets(updatedTickets);
       } else {
-        await TicketService.createTicket(ticketData);
+        response = await TicketService.createTicket(ticketData);
+        console.log('創建票券回應:', response.data);
+        
+        // 如果後端返回了完整數據，則直接添加到列表
+        if (response.data && response.data.id) {
+          setTickets([...tickets, response.data]);
+        }
       }
       
-      // 重新加載數據
-      loadTickets(ticketData.performanceId);
+      // 延遲重新加載數據，以確保後端處理完成
+      setTimeout(() => {
+        loadTickets(ticketData.performanceId);
+      }, 500);
       
       // 關閉模態框
       setShowModal(false);
@@ -242,7 +261,7 @@ const TicketsPage = () => {
         totalQuantity: 100,
         availableQuantity: 100,
         description: '',
-        status: 'active'
+        status: 'inactive'  // 預設為「未上架」狀態，與表格初始狀態保持一致
       });
       
       setIsEditing(false);
@@ -265,8 +284,13 @@ const TicketsPage = () => {
     }
     
     console.log('編輯票券數據:', ticket);
+    console.log('票券狀態:', ticket.status);
     
     // 添加防禦性程式設計，確保值存在且能夠轉換為字符串
+    // 標準化狀態值，確保使用明確的 'active' 或 'inactive'
+    const status = ticket.status === 'active' ? 'active' : 'inactive';
+    console.log('設定票券狀態為:', status);
+    
     setCurrentTicket({
       id: ticket.id,
       performanceId: ticket.performanceId ? ticket.performanceId.toString() : '',
@@ -275,7 +299,7 @@ const TicketsPage = () => {
       totalQuantity: ticket.totalQuantity || 0,
       availableQuantity: ticket.availableQuantity || 0,
       description: ticket.description || '',
-      status: ticket.status || 'active'
+      status: status // 使用標準化的狀態值
     });
     
     setShowModal(true);
@@ -363,7 +387,7 @@ const TicketsPage = () => {
               totalQuantity: 100,
               availableQuantity: 100,
               description: '',
-              status: 'active'
+              status: 'inactive'  // 預設為「未上架」狀態，與表格初始狀態保持一致
             });
             setShowModal(true);
           }}
@@ -539,8 +563,8 @@ const TicketsPage = () => {
                       : 'bg-gray-100 text-gray-800'
                       }`}
                       >
-                      {/* 票券狀態可能不存在，預設設置為上架中 */}
-                        {ticket.status ? (ticket.status === 'active' ? '上架中' : '未上架') : '上架中'}
+                      {/* 直接基於當前狀態顯示，不使用複雜判斷 */}
+                      {ticket.status === 'active' ? '上架中' : '未上架'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
