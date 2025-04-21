@@ -2,17 +2,20 @@ import axios from "axios";
 import { validateApiPath } from "../utils/apiUtils";
 
 // 添加額外的調試輸出
-axios.interceptors.request.use(request => {
-  console.log('開始新請求:', { 
-    url: request.url,
-    method: request.method,
-    headers: request.headers
-  });
-  return request;
-}, error => {
-  console.error('請求配置錯誤:', error);
-  return Promise.reject(error);
-});
+axios.interceptors.request.use(
+  (request) => {
+    console.log("開始新請求:", {
+      url: request.url,
+      method: request.method,
+      headers: request.headers,
+    });
+    return request;
+  },
+  (error) => {
+    console.error("請求配置錯誤:", error);
+    return Promise.reject(error);
+  }
+);
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
@@ -34,16 +37,22 @@ const PUBLIC_PATHS = [
 // 請求攔截器，為每個請求添加JWT令牌
 axiosInstance.interceptors.request.use(
   (config) => {
+    // 添加更詳細的日誌
+    console.log(`發送請求到: ${config.url}`);
     const isPublicPath = PUBLIC_PATHS.some((path) =>
       config.url?.includes(path)
     );
-    if (isPublicPath) {
-      return config;
-    }
-
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers["Authorization"] = "Bearer " + token;
+    // 如果不是公開路徑，添加令牌
+    if (!isPublicPath) {
+      const token = localStorage.getItem("token");
+      if (token) {
+        console.log(`為請求添加令牌: ${config.url}`);
+        config.headers["Authorization"] = "Bearer " + token;
+      } else {
+        console.warn(`無法為請求添加令牌，令牌不存在: ${config.url}`);
+      }
+    } else {
+      console.log(`公開路徑無需令牌: ${config.url}`);
     }
     return config;
   },
@@ -56,26 +65,26 @@ const logout = async () => {
     // 先清除本地存儲
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    
+
     // 嘗試發送登出請求到伺服器
     const token = localStorage.getItem("token");
     if (token) {
       try {
         const path = validateApiPath("/logout");
-        console.log('發送登出請求到伺服器');
+        console.log("發送登出請求到伺服器");
         await axiosInstance.post(path);
-        console.log('成功發送登出請求');
+        console.log("成功發送登出請求");
       } catch (error) {
         console.error("發送登出請求失敗:", error);
       }
     }
   } catch (error) {
-    console.error('登出處理發生錯誤:', error);
+    console.error("登出處理發生錯誤:", error);
   } finally {
     // 再次確保本地存儲被清除
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    console.log('本地認證狀態已清除');
+    console.log("本地認證狀態已清除");
   }
 };
 
@@ -150,15 +159,42 @@ axiosInstance.interceptors.response.use(
         !isTicketPath && // 避免在票券頁面重定向
         !isTicketApiError // 避免在票券API錯誤時重定向
       ) {
-        // 顯示通知
-        alert("您的登入已過期，請重新登入");
+        // 使用 window 全局 ToastManager（如果存在）
+        // 如果全局有 ToastManager 實例，則使用它顯示通知
+        if (typeof window.ToastManager !== 'undefined' && window.ToastManager) {
+          window.ToastManager.showWarning('登入狀態', '您的登入已過期，需重新登入。您可以手動點擊登入按鈕或者查看控制台錯誤訊息。');
+        } else {
+          // 如果 ToastManager 不可用，則使用 console
+          console.warn("登入已過期，將重新導向到登入頁面");
+        }
 
-        // 保存當前頁面路徑用於登入後重定向
+        // 在 console 中顯示詳細的錯誤訊息，方便開發人員調試
+        console.error('401 未授權錯誤詳細資訊:', {
+          url: error.config.url,
+          method: error.config.method,
+          headers: JSON.stringify(error.config.headers),
+          responseStatus: error.response?.status,
+          responseData: error.response?.data,
+          timestamp: new Date().toISOString()
+        });
+        
+        // 清除本地存儲，但不立即重定向
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        
+        // 將重定向都進行記錄，但不實際執行
         const redirectPath = encodeURIComponent(currentPath);
-
-        // 重定向到登入頁面，並帶上當前頁面作為重定向參數
-        console.log(`重定向到登入頁面，幫訂重定向到: ${redirectPath}`);
-        window.location.href = `/login?redirect=${redirectPath}`;
+        console.log(`已將重定向設定為不自動執行，您可以在控制台調整測試完成後手動導向到: /login?redirect=${redirectPath}`);
+        
+        // 將重定向網址添加到 window 上，但不實際執行重定向
+        window.loginRedirectUrl = `/login?redirect=${redirectPath}`;
+        
+        // 添加一個自動重定向的函數，但不主動調用
+        window.executeLoginRedirect = function() {
+          if (window.loginRedirectUrl) {
+            window.location.href = window.loginRedirectUrl;
+          }
+        };
       }
     }
     return Promise.reject(error);
@@ -211,13 +247,13 @@ const login = async (username, password) => {
     const endpoint = "auth/signin";
     console.log("API URL:", API_URL);
     console.log("完整請求 URL:", `${API_URL}/api/${endpoint}`);
-    
+
     // 添加更多調試信息
     console.log("請求詳情:", {
       url: `${API_URL}/api/${endpoint}`,
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      data: { username, password: "[PROTECTED]" }
+      data: { username, password: "[PROTECTED]" },
     });
 
     const response = await axiosInstance.post(`/api/${endpoint}`, {
@@ -262,30 +298,36 @@ const login = async (username, password) => {
     } else if (response.data) {
       // 如果有回應數據但沒有 accessToken
       console.warn("登入回應中沒有令牌，但有其他數據", response.data);
-      
+
       // 因為伺服器可能返回不同的欄位名稱，嘗試尋找可能的令牌欄位
-      const possibleTokenFields = ['accessToken', 'token', 'jwt', 'id_token', 'auth_token'];
-      
+      const possibleTokenFields = [
+        "accessToken",
+        "token",
+        "jwt",
+        "id_token",
+        "auth_token",
+      ];
+
       // 尋找可能的令牌欄位
       for (const field of possibleTokenFields) {
         if (response.data[field]) {
           console.log(`找到可能的令牌欄位: ${field}`);
-          
+
           // 存入令牌
           localStorage.setItem("token", response.data[field]);
-          
+
           // 建立使用者資料
           const userData = {
             ...response.data,
             username: response.data.username || username,
             accessToken: response.data[field],
           };
-          
+
           localStorage.setItem("user", JSON.stringify(userData));
           return userData;
         }
       }
-      
+
       throw new Error("登入回應中沒有認可的令牌格式");
     } else {
       console.error("登入回應中沒有數據");
@@ -336,12 +378,14 @@ const isTokenValid = () => {
     const currentTime = Math.floor(Date.now() / 1000);
 
     // 記錄更詳細的令牌信息
-    console.log('令牌有效性檢查', {
+    console.log("令牌有效性檢查", {
       hasToken: true,
-      tokenFormat: 'JWT',
+      tokenFormat: "JWT",
       tokenLength: token.length,
       hasExpiration: !!payload.exp,
-      expirationTime: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'none'
+      expirationTime: payload.exp
+        ? new Date(payload.exp * 1000).toISOString()
+        : "none",
     });
 
     // 檢查令牌是否過期
@@ -352,18 +396,19 @@ const isTokenValid = () => {
         now: currentTime,
         nowDate: new Date(currentTime * 1000).toISOString(),
         diff: currentTime - payload.exp,
-        diffMinutes: Math.round((currentTime - payload.exp) / 60)
+        diffMinutes: Math.round((currentTime - payload.exp) / 60),
       });
-      
+
       // 在開發環境中，即使令牌已過期也允許其使用
       // 同時從寬受的點來考慮，將已過期但不超過48小時的令牌也視為有效
       // 這是為了避免前端誤判令牌有效性導致用戶體驗問題
       const expiredMinutes = Math.round((currentTime - payload.exp) / 60);
-      if (expiredMinutes < 2880) { // 將過期不到 48 小時的令牌視為有效
+      if (expiredMinutes < 2880) {
+        // 將過期不到 48 小時的令牌視為有效
         console.warn(`令牌已過期 ${expiredMinutes} 分鐘，但仍視為有效`);
         return true;
       }
-      
+
       return false;
     }
 
