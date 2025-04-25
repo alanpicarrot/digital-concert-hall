@@ -10,6 +10,30 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 設置請求前的認證配置
+  const setupPreRequestAuth = (config) => {
+    // 獲取本地存儲中的令牌
+    const token = localStorage.getItem('token');
+    
+    // 如果令牌存在，將其添加到請求頭中
+    if (token) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('為請求添加認證令牌');
+      }
+      
+      // 確保 config 和 headers 物件存在
+      config = config || {};
+      config.headers = config.headers || {};
+      
+      // 添加 Authorization 頭
+      config.headers['Authorization'] = `Bearer ${token}`;
+    } else if (process.env.NODE_ENV === 'development') {
+      console.log('沒有令牌可用於請求認證');
+    }
+    
+    return config;
+  };
+
   // 初始化時從 localStorage 獲取用戶信息
   useEffect(() => {
     const initAuth = async () => {
@@ -17,6 +41,9 @@ export const AuthProvider = ({ children }) => {
         if (process.env.NODE_ENV === 'development') {
           console.log('開始初始化認證狀態');
         }
+        
+        // 初始化請求認證配置
+        setupPreRequestAuth();
         
         // 直接檢查 localStorage 中的原始數據
         const userStr = localStorage.getItem('user');
@@ -182,9 +209,14 @@ export const AuthProvider = ({ children }) => {
 
   // 登出函數
   const logout = () => {
-    // 先清除本地存儲
+    console.log('開始執行登出操作');
+    
+    // 先清除本地存儲狀態
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // 清除從某些頁面可能存儲的臨時資訊
+    sessionStorage.removeItem('checkoutInfo');
     
     // 再清除狀態
     setUser(null);
@@ -192,10 +224,25 @@ export const AuthProvider = ({ children }) => {
     
     // 嘗試發送登出請求到伺服器，但不受到伺服器回應的影響
     try {
-      AuthService.logout();
+      AuthService.logout()
+        .then(() => console.log('登出請求成功'))
+        .catch(err => console.warn('登出請求失敗，但已在本地登出：', err.message));
     } catch (error) {
-      console.error('發送登出請求失敗，已在本地登出', error);
+      console.error('執行登出請求失敗，但已在本地完成登出', error);
     }
+    
+    // 再次確認清除本地存儲
+    setTimeout(() => {
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      if (token || userStr) {
+        console.warn('登出後仍發現本地存儲中有認證資訊，再次清除');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      } else {
+        console.log('登出後本地存儲確認已清除');
+      }
+    }, 100);
     
     console.log('用戶已登出，認證狀態已清除');
   };
@@ -311,7 +358,8 @@ export const AuthProvider = ({ children }) => {
     updatePassword,
     updateAuthState,
     setUser, // 暴露這些方法以便在必要時直接操作
-    setIsAuthenticated
+    setIsAuthenticated,
+    setupPreRequestAuth // 添加設置請求認證的函數
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

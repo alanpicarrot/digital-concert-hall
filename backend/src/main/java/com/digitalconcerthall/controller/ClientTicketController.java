@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * 客戶端票券控制器
  * 處理前台客戶查詢票券相關的請求
  */
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600)
 @RestController
 @RequestMapping("/api")
 public class ClientTicketController {

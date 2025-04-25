@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
 
@@ -10,6 +11,19 @@ const API_URL = process.env.REACT_APP_API_URL || "http://localhost:8080";
 const AppInitializer = ({ children }) => {
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState(null);
+  
+  // 獲取認證上下文
+  const auth = useAuth();
+
+  // 暴露 setupPreRequestAuth 函數到全局物件
+  useEffect(() => {
+    if (auth && auth.setupPreRequestAuth) {
+      // 將 setupPreRequestAuth 函數暴露到全局物件
+      window.__AUTH_CONTEXT__ = window.__AUTH_CONTEXT__ || {};
+      window.__AUTH_CONTEXT__.setupPreRequestAuth = auth.setupPreRequestAuth;
+      console.log('認證相關函數已暴露到全局物件');
+    }
+  }, [auth]);
 
   useEffect(() => {
     const initializeApp = async () => {

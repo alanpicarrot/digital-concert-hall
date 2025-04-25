@@ -20,7 +20,7 @@ import com.digitalconcerthall.service.ticket.TicketService;
 
 import java.util.List;
 
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600)
 @RestController
 @RequestMapping("/api/users/me")
 public class TicketController {

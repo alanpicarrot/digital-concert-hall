@@ -1,7 +1,18 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { setupAuthHeaders } from '../utils/authPersistUtils';
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
+
+  // 處理導航點擊
+  const handleNavLinkClick = (path, e) => {
+    e.preventDefault(); // 阻止默認行為
+    
+    // 使用 React Router 的 navigate 進行導航
+    navigate(path);
+  };
+
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6">數位音樂廳後台管理</h1>
@@ -10,30 +21,34 @@ const DashboardPage = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-3">快速導航</h2>
           <div className="space-y-2">
-            <Link 
-              to="/concerts" 
+            <a 
+              href="/concerts" 
+              onClick={(e) => handleNavLinkClick('/concerts', e)}
               className="block bg-teal-50 hover:bg-teal-100 p-3 rounded-md border-l-4 border-teal-500"
             >
               音樂會管理
-            </Link>
-            <Link 
-              to="/performances" 
+            </a>
+            <a 
+              href="/performances" 
+              onClick={(e) => handleNavLinkClick('/performances', e)}
               className="block bg-green-50 hover:bg-green-100 p-3 rounded-md border-l-4 border-green-500"
             >
               演出場次管理
-            </Link>
-            <Link 
-              to="/ticket-types" 
+            </a>
+            <a 
+              href="/ticket-types" 
+              onClick={(e) => handleNavLinkClick('/ticket-types', e)}
               className="block bg-purple-50 hover:bg-purple-100 p-3 rounded-md border-l-4 border-purple-500"
             >
               票種管理
-            </Link>
-            <Link 
-              to="/tickets" 
+            </a>
+            <a 
+              href="/tickets" 
+              onClick={(e) => handleNavLinkClick('/tickets', e)}
               className="block bg-orange-50 hover:bg-orange-100 p-3 rounded-md border-l-4 border-orange-500"
             >
               票券管理
-            </Link>
+            </a>
           </div>
         </div>
         

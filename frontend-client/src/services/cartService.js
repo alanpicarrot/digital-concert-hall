@@ -157,20 +157,35 @@ const checkout = async () => {
     
     console.log('處理後的訂單數據:', orderData);
     
-    // 創建訂單 - 直接使用基本 axios，不使用帶有認證的 axiosInstance
-    const path = 'http://localhost:8080/api/cart';
+    // 確保認證資訊存在
+    const token = localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    
+    if (!token || !userStr) {
+      console.error('結帳前無效的認證資訊');
+      throw new Error('您需要先登入才能完成結帳。');
+    }
+    
+    // 設置請求頁頭
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+    
+    // 創建訂單 - 使用帶有認證的 axiosInstance
+    const path = validateApiPath('/orders');
     console.log('發送訂單請求到:', path);
     
-    // 不使用認證令牌，直接發送請求
-    const response = await axios.post(path, orderData, {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    // 直接使用 axiosInstance 發送請求，已有8acb認證商產
+    const response = await axiosInstance.post(path, orderData);
     
     // 檢查回應狀態
     if (response.status === 200 || response.status === 201) {
       console.log('訂單創建成功:', response.data);
+      // 先儲存訂單資訊，再清除購物車
+      const orderInfo = response.data;
       clearCart();
-      return response.data;
+      return orderInfo;
     } else {
       console.error('訂單創建失敗:', response);
       throw new Error('無法創建訂單');

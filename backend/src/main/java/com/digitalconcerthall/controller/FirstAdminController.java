@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.digitalconcerthall.dto.request.SignupRequest;
+import com.digitalconcerthall.dto.request.AdminUserCreateRequest;
 import com.digitalconcerthall.dto.response.MessageResponse;
 import com.digitalconcerthall.service.FirstAdminService;
 
@@ -34,7 +34,7 @@ public class FirstAdminController {
      * 此註冊過程將繞過某些後續註冊才需要的驗證，例如電子郵件確認、額外的密碼強度驗證等
      */
     @PostMapping("/first-admin")
-    public ResponseEntity<?> registerFirstAdmin(@Valid @RequestBody SignupRequest signUpRequest) {
+    public ResponseEntity<?> registerFirstAdmin(@Valid @RequestBody AdminUserCreateRequest signUpRequest) {
         // 檢查系統是否已有管理員
         if (firstAdminService.isFirstAdmin()) {
             // 系統中還沒有管理員，可以創建

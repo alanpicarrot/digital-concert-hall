@@ -49,9 +49,46 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderSummaryResponse createOrder(CartRequest cartRequest) {
-        logger.info("Starting order creation for cart: {}", cartRequest);
-        User currentUser = getCurrentUser();
-        logger.debug("Current user: {}", currentUser.getId());
+        // 詳細記錄訂單創建請求
+        try {
+            logger.info("Starting order creation with detailed request: {}", cartRequest);
+        } catch (Exception e) {
+            logger.info("Starting order creation with request that cannot be serialized");
+        }
+        
+        // 1. 檢查購物車請求
+        if (cartRequest == null) {
+            logger.error("Cart request is null");
+            throw new IllegalArgumentException("購物車請求不能為空");
+        }
+        
+        if (cartRequest.getItems() == null || cartRequest.getItems().isEmpty()) {
+            logger.error("Cart items are null or empty");
+            throw new IllegalArgumentException("購物車項目不能為空");
+        }
+        
+        // 2. 取得並驗證當前用戶
+        User currentUser;
+        try {
+            currentUser = getCurrentUser();
+            if (currentUser == null) {
+                logger.error("Current user is null after getCurrentUser()");
+                throw new AuthenticationFailedException("無法取得用戶信息");
+            }
+            
+            if (currentUser.getId() == null) {
+                logger.error("User ID is null for user: {}", currentUser.getUsername());
+                throw new IllegalStateException("用戶ID為空，無法建立訂單");
+            }
+            
+            logger.debug("Current authenticated user: ID={}, username={}", currentUser.getId(), currentUser.getUsername());
+        } catch (AuthenticationFailedException e) {
+            logger.error("Authentication failed: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            logger.error("Error getting current user: {}", e.getMessage(), e);
+            throw new AuthenticationFailedException("驗證用戶時發生錯誤: " + e.getMessage());
+        }
 
         Order order = new Order();
 
@@ -69,20 +106,82 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         List<OrderItem> orderItems = new ArrayList<>();
 
-        for (CartItemRequest cartItem : cartRequest.getItems()) {
-            // 嘗試將ID轉換為長整數，使用更健壯的方法
-            Long ticketId;
+        // 3. 驗證所有購物車項目
+        for (int i = 0; i < cartRequest.getItems().size(); i++) {
+            CartItemRequest cartItem = cartRequest.getItems().get(i);
             try {
-                ticketId = Long.parseLong(cartItem.getId());
-                logger.info("Processing ticket with ID: {}", ticketId);
-            } catch (NumberFormatException e) {
-                // 處理非數字格式的ID
-                logger.error("Invalid ticket ID format: {}", cartItem.getId(), e);
-                throw new IllegalArgumentException("Ticket ID must be a number: " + cartItem.getId());
+                // 先詳細記錄每個購物車項目
+                logger.debug("Processing cart item [{}]: {}", i, cartItem);
+                
+                // 嚴格檢查ID是否為空
+                if (cartItem.getId() == null) {
+                    logger.error("Ticket ID is null in cart item at index {}", i);
+                    throw new IllegalArgumentException("票券ID不能為空 (項目 #" + (i+1) + ")");
+                }
+                
+                if (cartItem.getId().trim().isEmpty()) {
+                    logger.error("Ticket ID is empty string in cart item at index {}", i);
+                    throw new IllegalArgumentException("票券ID不能為空白字串 (項目 #" + (i+1) + ")");
+                }
+                
+                // 檢查數量是否有效
+                if (cartItem.getQuantity() <= 0) {
+                    logger.error("Invalid quantity for ticket ID {} at index {}: {}", cartItem.getId(), i, cartItem.getQuantity());
+                    throw new IllegalArgumentException("票券數量必須大於0 (項目 #" + (i+1) + ")");
+                }
+                
+                // 嚴格地將ID轉換為長整數
+                Long ticketId;
+                try {
+                    ticketId = Long.parseLong(cartItem.getId());
+                    logger.info("Processing ticket ID: {}, Concert ID: {}, Type: {}, Quantity: {}", 
+                        ticketId, cartItem.getConcertId(), cartItem.getType(), cartItem.getQuantity());
+                } catch (NumberFormatException e) {
+                    // 詳細記錄格式錯誤
+                    logger.error("Invalid ticket ID format at index {}: '{}'", i, cartItem.getId(), e);
+                    throw new IllegalArgumentException("票券ID必須是數字 (項目 #" + (i+1) + "): " + cartItem.getId());
+                }
+            } catch (Exception e) {
+                logger.error("Error processing cart item at index {}: {}", i, e.getMessage());
+                throw e;
             }
 
-            Ticket ticket = ticketRepository.findById(ticketId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + cartItem.getId()));
+            // 取得票券
+            Ticket ticket;
+            try {
+                ticket = ticketRepository.findById(Long.parseLong(cartItem.getId()))
+                        .orElseThrow(() -> {
+                            logger.error("Ticket not found with ID: {}", cartItem.getId());
+                            return new ResourceNotFoundException("找不到ID為" + cartItem.getId() + "的票券");
+                        });
+                
+                // 確認票券不為空
+                if (ticket == null) {
+                    logger.error("Ticket is null even though found in repository for ID: {}", cartItem.getId());
+                    throw new IllegalStateException("票券對象不能為空");
+                }
+                
+                // 確保票券關聯的資訊完整性
+                if (ticket.getPerformance() == null) {
+                    logger.error("Ticket has no associated performance. Ticket ID: {}", ticket.getId());
+                    throw new IllegalStateException("票券缺少關聯的演出信息");
+                }
+                
+                if (ticket.getPerformance().getConcert() == null) {
+                    logger.error("Ticket's performance has no associated concert. Ticket ID: {}", ticket.getId());
+                    throw new IllegalStateException("票券的演出缺少關聯的音樂會信息");
+                }
+                
+                if (ticket.getTicketType() == null) {
+                    logger.error("Ticket has no associated ticket type. Ticket ID: {}", ticket.getId());
+                    throw new IllegalStateException("票券缺少票券類型信息");
+                }
+            } catch (ResourceNotFoundException e) {
+                throw e;
+            } catch (Exception e) {
+                logger.error("Error retrieving ticket with ID {}: {}", cartItem.getId(), e.getMessage());
+                throw new IllegalStateException("取得票券時發生錯誤: " + e.getMessage());
+            }
 
             OrderItem orderItem = new OrderItem();
             orderItem.setTicket(ticket);
@@ -175,7 +274,6 @@ public class OrderServiceImpl implements OrderService {
             throw new AuthenticationFailedException("用户未认证");
         }
 
-        // 增强类型检查日志
         Object principal = authentication.getPrincipal();
         logger.debug("Authentication principal type: {}", principal.getClass().getName());
         logger.debug("Authentication details: principal={}, isAuthenticated={}, authorities={}", 

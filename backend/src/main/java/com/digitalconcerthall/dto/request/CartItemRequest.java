@@ -1,13 +1,14 @@
 package com.digitalconcerthall.dto.request;
 
 public class CartItemRequest {
-    private String id;
-    private String type;
-    private int quantity;
-    private double price;
-    private String name;
-    private String image;
-    private String date;
+    private String id;          // 票券ID，保存為字串但可轉換為數字
+    private String type;        // 票券類型
+    private int quantity;       // 數量
+    private double price;       // 價格
+    private String name;        // 名稱
+    private String image;       // 圖片路徑
+    private String date;        // 日期
+    private Long concertId;     // 音樂會ID
 
     public String getId() {
         return id;
@@ -65,6 +66,14 @@ public class CartItemRequest {
         this.date = date;
     }
     
+    public Long getConcertId() {
+        return concertId;
+    }
+    
+    public void setConcertId(Long concertId) {
+        this.concertId = concertId;
+    }
+    
     @Override
     public String toString() {
         return "CartItemRequest{" +
@@ -74,7 +83,8 @@ public class CartItemRequest {
                 ", price=" + price +
                 ", name='" + name + '\'' +
                 ", image='" + image + '\'' +
-                ", date=" + date +
+                ", date='" + date + '\'' +
+                ", concertId=" + concertId +
                 '}';
     }
 }

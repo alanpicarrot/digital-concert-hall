@@ -18,7 +18,7 @@ import java.time.Duration;
  * 表演場次公開控制器
  * 處理客戶端獲取表演場次相關的請求
  */
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600)
 @RestController
 @RequestMapping("/api/performances")
 public class PerformanceController {

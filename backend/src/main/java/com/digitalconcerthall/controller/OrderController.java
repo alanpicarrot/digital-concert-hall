@@ -1,8 +1,17 @@
 package com.digitalconcerthall.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import com.digitalconcerthall.dto.request.CartItemRequest;
+import com.digitalconcerthall.security.services.UserDetailsImpl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +54,7 @@ public class OrderController {
      * 創建新訂單
      */
     @PostMapping
-    @PreAuthorize("hasRole('USER') or hasAuthority('ROLE_USER')")
+    @PreAuthorize("hasAuthority('ROLE_USER')") // 簡化為單一檔查，符合JWT中的角色格式
     public ResponseEntity<OrderSummaryResponse> createOrder(
             @RequestBody CartRequest cartRequest) {
         try {
@@ -83,10 +92,17 @@ public class OrderController {
             response.put("principal_type", auth.getPrincipal().getClass().getName());
             response.put("authorities", auth.getAuthorities());
             response.put("can_create_order", auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_USER") || 
-                          a.getAuthority().equals("USER")));
+                .anyMatch(a -> a.getAuthority().equals("ROLE_USER")));
             
-            logger.info("Order auth test called: {}", response);
+            // 詳細記錄所有認證細節
+            if (auth.getPrincipal() instanceof UserDetailsImpl) {
+                UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
+                response.put("user_id", userDetails.getId());
+                response.put("username", userDetails.getUsername());
+                response.put("email", userDetails.getEmail());
+            }
+            
+            logger.info("Order auth test called with details: {}", response);
         } else {
             response.put("authenticated", false);
             response.put("message", "No authentication found");
@@ -94,6 +110,62 @@ public class OrderController {
         }
         
         return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 測試訂單創建 - 可用來驗證請求數據
+     * 此端點不需要認證權限，用於診斷問題
+     */
+    @PostMapping("/test-create")
+    public ResponseEntity<?> testOrderCreation(@RequestBody CartRequest cartRequest) {
+        Map<String, Object> response = new HashMap<>();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        
+        // 記錄認證信息
+        response.put("authenticated", auth != null && auth.isAuthenticated());
+        response.put("principal", auth != null ? auth.getPrincipal().toString() : "null");
+        response.put("authorities", auth != null ? auth.getAuthorities().toString() : "null");
+        
+        // 檢查請求頭
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Authorization", getHeaderValue("Authorization"));
+        response.put("headers", headers);
+        
+        // 檢查購物車數據
+        response.put("cartItems", cartRequest.getItems() != null ? cartRequest.getItems().size() : 0);
+        if (cartRequest.getItems() != null && !cartRequest.getItems().isEmpty()) {
+            List<Map<String, Object>> items = new ArrayList<>();
+            for (CartItemRequest item : cartRequest.getItems()) {
+                Map<String, Object> itemMap = new HashMap<>();
+                itemMap.put("id", item.getId());
+                itemMap.put("type", item.getType());
+                itemMap.put("quantity", item.getQuantity());
+                itemMap.put("concertId", item.getConcertId());
+                itemMap.put("price", item.getPrice());
+                items.add(itemMap);
+            }
+            response.put("items", items);
+        }
+        
+        logger.info("Test order creation: {}", response);
+        return ResponseEntity.ok(response);
+    }
+    
+    // 輔助方法，安全地取得請求頭部值
+    private String getHeaderValue(String headerName) {
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            String headerValue = request.getHeader(headerName);
+            
+            // 象遞性地遺得令牌
+            if (headerName.equalsIgnoreCase("Authorization") && headerValue != null && headerValue.length() > 15) {
+                return headerValue.substring(0, 15) + "...";
+            }
+            
+            return headerValue;
+        } catch (Exception e) {
+            return "Could not retrieve header: " + e.getMessage();
+        }
     }
     
     /**

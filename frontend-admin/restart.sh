@@ -18,4 +18,4 @@ rm -rf build
 
 # 運行應用程式，使用不同的端口避免衝突
 echo "重新啟動應用程式..."
-PORT=3002 npm start
+PORT=3001 npm start

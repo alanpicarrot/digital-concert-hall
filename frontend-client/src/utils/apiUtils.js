@@ -32,64 +32,41 @@ export const validateApiPath = (path) => {
   // 產生詳細日誌用於追蹤 API 路徑
   console.log(`原始 API 路徑: ${path}`);
   
-  // ---------- 路徑前綴處理 ----------
-  // 檢查是否已經有 /api 前綴，避免重複添加
+  // 處理路徑前綴 - 簡化邏輯，避免多重轉換
+  
+  // 1. 如果已經有 /api 前綴，直接返回
   if (path.startsWith('/api/')) {
     console.log(`路徑已有 /api 前綴，直接使用: ${path}`);
-    return path; // 已有前綴，直接返回
+    return path;
   }
   
-  // 處理沒有開頭斜線的 api 路徑
-  if (path.startsWith('api/')) {
-    const correctedPath = '/' + path;
-    console.log(`修正 api 路徑格式: ${path} -> ${correctedPath}`);
-    return correctedPath;
-  }
-  
-  // ---------- 票券路徑特殊處理 ----------
-  // 票券路徑特殊處理，確保 concerts, tickets, performances 路徑的一致性
-  const ticketsPatterns = ['/tickets/', '/concerts/', '/performances/'];
-  for (const pattern of ticketsPatterns) {
-    if (path.includes(pattern)) {
-      const ticketsPath = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
-      console.log(`標準化票券API路徑: ${path} -> ${ticketsPath}`);
-      return ticketsPath;
-    }
-  }
-  
-  // ---------- 認證路徑處理 ----------
-  // 處理認證相關路徑
-  if (path.startsWith('/signin') || path.startsWith('/register') || 
-      path.startsWith('/logout') || path.startsWith('/forgot-password') || 
-      path.startsWith('/reset-password')) {
+  // 2. 處理 auth 相關路徑
+  if (path.includes('/auth/') || path.startsWith('auth/') || 
+      path === '/signin' || path === '/login') {
     
     // 特殊處理登入路徑
-    if (path === '/signin') {
-      console.log('將 /signin 轉換為 /api/auth/signin');
+    if (path === '/signin' || path === '/login') {
+      console.log('將登入路徑統一轉換為 /api/auth/signin');
       return '/api/auth/signin';
     }
     
-    // 兼容 auth/signin 的格式
-    if (path === 'auth/signin' || path === '/auth/signin') {
-      console.log('檢測到 auth/signin 格式路徑，轉換為 /api/auth/signin');
-      return '/api/auth/signin';
+    // 標準化 auth 路徑
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    if (!cleanPath.startsWith('/auth/')) {
+      // 確保有 /auth/ 前綴
+      const authPath = cleanPath.replace('auth/', '/auth/');
+      const apiAuthPath = `/api${authPath}`;
+      console.log(`標準化認證路徑: ${path} -> ${apiAuthPath}`);
+      return apiAuthPath;
+    } else {
+      // 已有 /auth/ 前綴，只需添加 /api
+      const apiAuthPath = `/api${cleanPath}`;
+      console.log(`標準化認證路徑: ${path} -> ${apiAuthPath}`);
+      return apiAuthPath;
     }
-    
-    // 其他認證路徑處理
-    const authPath = `/api/auth${path}`;
-    console.log(`將認證路徑格式化: ${path} -> ${authPath}`);
-    return authPath;
   }
   
-  // 處理已有 auth 但沒有 api 前綴的路徑
-  if (path.includes('/auth/') || path.startsWith('auth/')) {
-    const authPath = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
-    console.log(`格式化 auth 路徑: ${path} -> ${authPath}`);
-    return authPath;
-  }
-  
-  // ---------- 標準路徑處理 ----------
-  // 添加 /api 前綴到所有其他路徑
+  // 3. 所有其他路徑，確保有 /api 前綴
   const normalizedPath = path.startsWith('/') ? `/api${path}` : `/api/${path}`;
   console.log(`標準化 API 路徑: ${path} -> ${normalizedPath}`);
   return normalizedPath;

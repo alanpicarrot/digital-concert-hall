@@ -106,6 +106,49 @@ const getOrderDetail = async (orderNumber, options = {}) => {
 const createOrder = async (cartData) => {
   try {
     console.log('開始創建訂單...');
+    
+    if (cartData && cartData.items && Array.isArray(cartData.items)) {
+      // log 所有 item 的 id
+      cartData.items.forEach((item, idx) => {
+        console.log(`訂單項目[${idx}] id:`, item.id, '完整項目:', item);
+      });
+
+      cartData.items = cartData.items.map((item, idx) => {
+        if (
+          item.id !== undefined &&
+          item.id !== null &&
+          item.id !== '' &&
+          !(typeof item.id === 'number' && isNaN(item.id))
+        ) {
+          item.id = String(item.id);
+
+          const checkoutInfoStr = sessionStorage.getItem('checkoutInfo');
+          if (checkoutInfoStr) {
+            try {
+              const checkoutInfo = JSON.parse(checkoutInfoStr);
+              if (checkoutInfo.concertId) {
+                item.concertId = checkoutInfo.concertId;
+                console.log(`已添加音樂會ID: ${checkoutInfo.concertId}到訂單項目[${idx}]`);
+              }
+            } catch (e) {
+              console.error('解析結帳信息時出錯:', e);
+            }
+          }
+        } else {
+          console.error(`訂單項目[${idx}]缺少ID:`, item);
+          throw new Error(`訂單項目[${idx}]缺少必要的ID`);
+        }
+        return item;
+      });
+
+      // 新增：送出前 log 所有 items
+      console.log('送出前所有訂單項目:', cartData.items);
+    } else {
+      console.error('創建訂單時缺少有效的購物車數據');
+      throw new Error('缺少有效的購物車數據');
+    }
+    
+    console.log('處理後的訂單數據:', JSON.stringify(cartData));
     const path = validateApiPath(API_BASE_PATH);
     const response = await axiosInstance.post(path, cartData);
     const orderData = response.data;

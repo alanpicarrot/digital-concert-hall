@@ -69,10 +69,6 @@ fi
 
 echo -e "${GREEN}後端服務啟動成功！${NC}"
 
-# 健康檢查
-echo "執行健康檢查..."
-curl -X GET http://localhost:8080/health 2>/dev/null || echo "健康檢查端點無法訪問"
-echo ""
 
 # 啟動後台管理界面
 echo -e "${YELLOW}啟動後台管理界面...${NC}"

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0;url=/">
+  <title>數位音樂廳 - 重定向中</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+    }
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <h2>登入頁面載入中...</h2>
+  <div class="loader"></div>
+  <p>如果沒有自動跳轉，請<a href="/">點擊這裡</a>返回首頁</p>
+
+  <script>
+    // 頁面載入後立即重定向到主應用
+    document.addEventListener('DOMContentLoaded', function() {
+      // 設置一個簡短的延遲以確保頁面已經完全加載
+      setTimeout(function() {
+        // 捕獲可能的錯誤
+        try {
+          window.location.replace('/');
+        } catch(e) {
+          console.error('跳轉失敗:', e);
+          // 作為備選方案，使用較傳統的方法
+          window.location.href = '/';
+        }
+      }, 100);
+    });
+  </script>
+</body>
+</html>

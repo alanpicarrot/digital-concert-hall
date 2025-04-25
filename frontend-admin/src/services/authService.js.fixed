@@ -1,0 +1,84 @@
+// 這是修改後的authService.js片段 - 需要合併到原檔案
+// 專注於修復login函數
+
+// 登入函數
+const login = async (usernameOrEmail, password) => {
+  console.log("發送管理員登入請求:", {
+    usernameOrEmail,
+    password: "[REDACTED]",
+  });
+
+  // 先清除任何舊令牌和用戶數據
+  localStorage.removeItem("adminToken");
+  localStorage.removeItem("adminUser");
+  
+  // 清除全局默認頭部
+  delete axios.defaults.headers.common['Authorization'];
+
+  // 準備登入憑證
+  const credentials = {
+    username: usernameOrEmail,
+    password: password,
+  };
+
+  try {
+    // 記錄API URL
+    console.log("使用API URL:", API_URL);
+    
+    // 直接使用axios實例，明確指定完整URL
+    const response = await axios({
+      method: 'post',
+      url: `${API_URL}/api/auth/signin`,
+      data: credentials,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000
+    });
+    
+    console.log("登入回應:", response.status);
+    
+    if (response.status === 200 && response.data) {
+      const jsonResponse = response.data;
+      
+      if (jsonResponse.accessToken) {
+        console.log("登入成功:", jsonResponse.username);
+
+        // 確認用戶具有 ADMIN 角色
+        const hasAdminRole =
+          jsonResponse.roles &&
+          Array.isArray(jsonResponse.roles) &&
+          jsonResponse.roles.includes("ROLE_ADMIN");
+
+        if (!hasAdminRole) {
+          console.error("此帳戶沒有管理員權限");
+          throw new Error("此帳戶沒有管理員權限，請使用管理員帳戶登入");
+        }
+
+        // 存入令牌與用戶資料
+        localStorage.setItem("adminToken", jsonResponse.accessToken);
+        localStorage.setItem("adminUser", JSON.stringify(jsonResponse));
+        
+        // 設置全局授權頁頭
+        axios.defaults.headers.common['Authorization'] = `Bearer ${jsonResponse.accessToken}`;
+        console.log("已設置全局授權頁頭");
+
+        // 返回成功結果
+        return { success: true, data: jsonResponse };
+      } else {
+        // 無效的回應數據
+        console.error("登入時收到的回應數據不包含 accessToken:", jsonResponse);
+        throw new Error("登入失敗，服務器回應格式錯誤");
+      }
+    } else {
+      throw new Error("登入失敗，服務器回應格式錯誤");
+    }
+  } catch (error) {
+    console.error("登入過程發生錯誤:", error.message);
+    if (error.response) {
+      console.error("服務器回應狀態:", error.response.status);
+      console.error("服務器回應數據:", error.response.data);
+    }
+    throw error;
+  }
+};

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>导航中转页</title>
+  <script>
+    // 这个页面用作导航时的中转站，确保会话状态被正确保存
+    (function() {
+      // 获取URL参数
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetPath = urlParams.get('to') || '/dashboard';
+      
+      console.log('导航中转: 目标路径 = ' + targetPath);
+      
+      // 确保认证状态保持
+      const token = localStorage.getItem('adminToken');
+      const user = localStorage.getItem('adminUser');
+      
+      if (token && user) {
+        console.log('认证状态已保存，准备跳转');
+        
+        // 使用会话存储保存状态，确保在重定向后可用
+        sessionStorage.setItem('adminToken', token);
+        sessionStorage.setItem('adminUser', user);
+        
+        // 添加一个额外的标记，表明这是从bridge页面跳转的
+        sessionStorage.setItem('fromBridge', 'true');
+      } else {
+        // 如果没有在 localStorage 中找到认证状态，
+        // 尝试从 sessionStorage 恢复
+        const sessionToken = sessionStorage.getItem('adminToken');
+        const sessionUser = sessionStorage.getItem('adminUser');
+        
+        if (sessionToken && sessionUser) {
+          console.log('从会话存储恢复认证状态');
+          localStorage.setItem('adminToken', sessionToken);
+          localStorage.setItem('adminUser', sessionUser);
+        } else {
+          // 如果没有认证状态，跳转到登录页面
+          console.log('未找到认证状态，跳转到登录页面');
+          window.location.href = '/auth/login';
+          return;
+        }
+      }
+      
+      // 导航到目标页面 - 使用 hash 路由确保正确处理
+      window.location.href = targetPath.startsWith('/') ? '/#' + targetPath : targetPath;
+    })();
+  </script>
+</head>
+<body>
+  <div style="text-align: center; font-family: Arial, sans-serif; margin-top: 100px;">
+    <h2>正在进行导航...</h2>
+    <p>请稍候，您将被自动重定向。</p>
+    <div style="width: 100px; height: 100px; margin: 20px auto; border: 10px solid #f3f3f3; border-top: 10px solid #3498db; border-radius: 50%; animation: spin 2s linear infinite;"></div>
+  </div>
+
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</body>
+</html>

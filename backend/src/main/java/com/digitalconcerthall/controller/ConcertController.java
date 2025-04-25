@@ -19,7 +19,7 @@ import com.digitalconcerthall.repository.concert.PerformanceRepository;
 
 @RestController
 @RequestMapping("/api/concerts")
-@CrossOrigin(origins = "*", maxAge = 3600)
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600)
 public class ConcertController {
 
 	@Autowired
@@ -81,6 +81,11 @@ public class ConcertController {
 			concert.setProgramDetails("第一部分: 月光奏鳴曲\n第二部分: 悲壯英雄\n第三部分: 田園交響曲");
 			concert.setPosterUrl("/api/concerts/posters/beethoven.jpg");
 			concert.setStatus("active");
+			// 設置開始和結束時間
+			LocalDateTime startTime = LocalDateTime.now().plusDays(14);
+			LocalDateTime endTime = startTime.plusHours(2);
+			concert.setStartDateTime(startTime);
+			concert.setEndDateTime(endTime);
 			concert.setCreatedAt(LocalDateTime.now());
 			concert.setUpdatedAt(LocalDateTime.now());
 

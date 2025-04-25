@@ -1,5 +1,8 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
+import ProtectedRoute from './ProtectedRoute';
+import AdminLayout from '../layouts/AdminLayout';
+import AuthLayout from '../layouts/AuthLayout';
 
 // 引入管理後台頁面
 import DashboardPage from '../pages/DashboardPage';
@@ -10,38 +13,39 @@ import TicketsPage from '../pages/TicketsPage';
 import UsersPage from '../pages/UsersPage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterAdminPage from '../pages/auth/RegisterAdminPage';
+import NotFoundPage from '../pages/NotFoundPage';
 
 // 引入佈局元件
-import AdminLayout from '../layouts/AdminLayout';
-import AuthLayout from '../layouts/AuthLayout';
+// import AdminLayout from '../layouts/AdminLayout';
+// import AuthLayout from '../layouts/AuthLayout';
+// import ProtectedRoute from './ProtectedRoute';
 
-// 權限控制HOC
-// import AdminRoute from './AdminRoute';
+const AdminRoutes = () => (
+  <Routes>
+    {/* 公開路由 */}
+    <Route path="/auth/login" element={<AuthLayout />}>
+      <Route index element={<LoginPage />} />
+    </Route>
 
-const AdminRoutes = () => {
-  return (
-    <Routes>
-      {/* 管理後台頁面 */}
-      <Route path="/" element={<AdminLayout />}>
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="concerts" element={<ConcertsPage />} />
-        <Route path="performances" element={<PerformancesPage />} />
-        <Route path="ticket-types" element={<TicketTypesPage />} />
-        <Route path="tickets" element={<TicketsPage />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route index element={<Navigate to="/dashboard" replace />} />
+    <Route path="/auth/register-admin" element={<AuthLayout />}>
+      <Route index element={<RegisterAdminPage />} />
+    </Route>
+
+    {/* 受保護的管理員路由 */}
+    <Route element={<ProtectedRoute adminOnly />}>
+      <Route element={<AdminLayout />}>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/concerts" element={<ConcertsPage />} />
+        <Route path="/performances" element={<PerformancesPage />} />
+        <Route path="/ticket-types" element={<TicketTypesPage />} />
+        <Route path="/tickets" element={<TicketsPage />} />
+        <Route path="/users" element={<UsersPage />} />
       </Route>
-      
-      {/* 登入頁面 */}
-      <Route path="/auth" element={<AuthLayout />}>
-        <Route path="login" element={<LoginPage />} />
-        <Route path="register-admin" element={<RegisterAdminPage />} />
-      </Route>
-      
-      {/* 未匹配的路由重定向到登入頁面 */}
-      <Route path="*" element={<Navigate to="/auth/login" />} />
-    </Routes>
-  );
-};
+    </Route>
+
+    <Route path="*" element={<NotFoundPage />} />
+  </Routes>
+);
 
 export default AdminRoutes;

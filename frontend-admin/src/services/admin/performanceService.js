@@ -1,24 +1,41 @@
 import AuthService from '../authService';
+import { validateApiPath } from "../../utils/apiUtils";
+import { setupAuthHeaders } from "../../utils/authPersistUtils";
 
 const axiosInstance = AuthService.axiosInstance;
 
 // 獲取所有演出場次
 const getAllPerformances = () => {
-  return axiosInstance.get('/api/admin/performances');
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
+  const path = validateApiPath('/api/admin/performances');
+  return axiosInstance.get(path);
 };
 
 // 獲取單個演出場次
 const getPerformanceById = (id) => {
-  return axiosInstance.get(`/api/admin/performances/${id}`);
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
+  const path = validateApiPath(`/api/admin/performances/${id}`);
+  return axiosInstance.get(path);
 };
 
 // 根據音樂會ID獲取演出場次
 const getPerformancesByConcertId = (concertId) => {
-  return axiosInstance.get(`/api/admin/performances/concert/${concertId}`);
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
+  const path = validateApiPath(`/api/admin/performances/concert/${concertId}`);
+  return axiosInstance.get(path);
 };
 
 // 創建新演出場次
 const createPerformance = (performanceData) => {
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
   // 將前端的資料模型轉換為後端需要的模型
   const requestData = {
     concertId: Number(performanceData.concertId), // 確保是數字
@@ -31,11 +48,15 @@ const createPerformance = (performanceData) => {
   };
   
   console.log('Sending performance creation request:', requestData);
-  return axiosInstance.post('/api/admin/performances', requestData);
+  const path = validateApiPath('/api/admin/performances');
+  return axiosInstance.post(path, requestData);
 };
 
 // 更新演出場次
 const updatePerformance = (id, performanceData) => {
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
   const requestData = {
     concertId: Number(performanceData.concertId), // 確保是數字
     startTime: performanceData.performanceDateTime,
@@ -47,17 +68,26 @@ const updatePerformance = (id, performanceData) => {
   };
   
   console.log('Sending performance update request:', requestData);
-  return axiosInstance.put(`/api/admin/performances/${id}`, requestData);
+  const path = validateApiPath(`/api/admin/performances/${id}`);
+  return axiosInstance.put(path, requestData);
 };
 
 // 刪除演出場次
 const deletePerformance = (id) => {
-  return axiosInstance.delete(`/api/admin/performances/${id}`);
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
+  const path = validateApiPath(`/api/admin/performances/${id}`);
+  return axiosInstance.delete(path);
 };
 
 // 更新演出場次狀態
 const updatePerformanceStatus = (id, status) => {
-  return axiosInstance.patch(`/api/admin/performances/${id}/status?status=${status}`);
+  // 確保授權頭部正確設置
+  setupAuthHeaders();
+  
+  const path = validateApiPath(`/api/admin/performances/${id}/status?status=${status}`);
+  return axiosInstance.patch(path);
 };
 
 const PerformanceService = {

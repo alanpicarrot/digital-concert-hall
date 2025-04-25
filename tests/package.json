@@ -1,0 +1,14 @@
+{
+  "name": "digital-concert-hall-tests",
+  "version": "1.0.0",
+  "description": "Playwright tests for Digital Concert Hall",
+  "scripts": {
+    "test": "playwright test",
+    "test:auth": "playwright test jwt-debug.js",
+    "test:api": "playwright test direct-api-test.js",
+    "test:full": "playwright test auth-order-test.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.39.0"
+  }
+}

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,10 +12,71 @@
     <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/lucide-static@latest/icons/music.svg" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     
-    <title>Digital Concert Hall - Admin Panel</title>
+    <title>數位音樂廳 - 管理後台</title>
+    
+    <!-- 防止直接訪問/auth/login路徑的靜態資源404錯誤 -->
+    <script>
+      // 檢測當前URL路徑
+      (function() {
+        // 如果直接訪問/auth/login路徑，且這是由後端返回的靜態HTML而非React路由
+        if (window.location.pathname.startsWith('/auth/login') && !window.__INITIAL_LOADED__) {
+          console.log('檢測到直接訪問登入頁面，重定向到主應用...');
+          // 標記已初始化
+          window.__INITIAL_LOADED__ = true;
+          // 重定向到根路徑，讓React Router接管
+          window.location.replace('/');
+        }
+      })();
+    </script>
+    
+    <!-- 頁面加載前設置認證狀態 -->
+    <script>
+      // 頁面加載前執行的代碼，確保認證狀態得到保持
+      (function() {
+        // 啟動時檢查本地存儲中的令牌
+        var token = localStorage.getItem('adminToken');
+        var userData = localStorage.getItem('adminUser');
+        
+        // 在游覽器控制台輸出認證狀態
+        if (token && userData) {
+          console.log('%c認證令牌存在: ' + token.substring(0, 10) + '...', 'color: green; font-weight: bold');
+          
+          // 將認證令牌添加到 sessionStorage 中以確保跨頁面導航時不會丟失
+          sessionStorage.setItem('adminToken', token);
+          sessionStorage.setItem('adminUser', userData);
+          
+          // 將當前頁面路徑存儲下來，以便頁面重新加載後可以返回
+          sessionStorage.setItem('lastPath', window.location.pathname);
+        } else {
+          console.warn('%c未找到認證令牌', 'color: red; font-weight: bold');
+          
+          // 如果 sessionStorage 中有令牌，則將其恢復到 localStorage
+          var sessionToken = sessionStorage.getItem('adminToken');
+          var sessionUserData = sessionStorage.getItem('adminUser');
+          
+          if (sessionToken && sessionUserData) {
+            console.log('%c從 sessionStorage 恢復令牌', 'color: blue; font-weight: bold');
+            localStorage.setItem('adminToken', sessionToken);
+            localStorage.setItem('adminUser', sessionUserData);
+          }
+        }
+        
+        // 在頁面導航前存儲狀態
+        window.addEventListener('beforeunload', function() {
+          var currentToken = localStorage.getItem('adminToken');
+          var currentUserData = localStorage.getItem('adminUser');
+          
+          if (currentToken && currentUserData) {
+            sessionStorage.setItem('adminToken', currentToken);
+            sessionStorage.setItem('adminUser', currentUserData);
+            sessionStorage.setItem('lastPath', window.location.pathname);
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>您需要啟用JavaScript才能運行此應用程序。</noscript>
     <div id="root"></div>
   </body>
 </html>

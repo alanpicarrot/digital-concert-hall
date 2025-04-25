@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import AuthService from '../services/authService';
+import { setupAuthHeaders, isAuthValid } from '../utils/authPersistUtils';
 import { Menu, X, LogOut, Home, Music, Calendar, Ticket, UserCheck } from 'lucide-react';
 
 const AdminLayout = () => {
@@ -12,15 +12,21 @@ const AdminLayout = () => {
 
   // 每次渲染時檢查認證狀態
   useEffect(() => {
-    // 延遲檢查，避免在路由切換過程中高頻率觸發
+    // 首次加載時就設置授權頭部
+    setupAuthHeaders();
+    
     const timer = setTimeout(() => {
       const checkAuth = () => {
-        if (!AuthService.isAdminAuthenticated()) {
+        // 確保授權頭部設置正確
+        const validLocalAuth = isAuthValid();
+        
+        // 直接檢查狀態
+        if (!isAuthenticated || !user || !validLocalAuth) {
           console.log('管理面板檢測到無效登入狀態，重定向到登入頁面');
-          logout();
-          navigate('/auth/login');
+          // 直接重定向而不呼叫登出函數，避免增加的API調用
+          navigate('/auth/login', { replace: true });
         } else {
-          console.log('管理員權限驗證通過');
+          console.log('管理員權限驗證通過，用戶：', user.username);
         }
       };
 
@@ -28,11 +34,26 @@ const AdminLayout = () => {
     }, 300); // 300ms 延遲，避免頂端重定向
 
     return () => clearTimeout(timer);
-  }, [logout, navigate, location.pathname]);
+  }, [isAuthenticated, user, navigate, location.pathname]);
 
   const handleLogout = () => {
+    console.log('執行登出操作，清除狀態並重定向至根目錄');
+    
+    // 先呼叫登出函數清除狀態
     logout();
-    navigate('/auth/login');
+    
+    // 確保本地存儲被清除 (這步已在 logout -> clearAuthState 中完成，但保留日誌)
+    // localStorage.removeItem('adminToken');
+    // localStorage.removeItem('adminUser');
+    
+    // 修改導航目標為根目錄 '/'
+    console.log('重定向到根目錄: /');
+    navigate('/', { replace: true });
+  };
+
+  // 使用 location 判斷當前活動的導航項
+  const isActive = (path) => {
+    return location.pathname === path;
   };
 
   return (
@@ -58,30 +79,30 @@ const AdminLayout = () => {
           
           <div className="mt-5 flex-1 h-0 overflow-y-auto">
             <nav className="px-2 space-y-1">
-              <a href="/dashboard" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              <Link to="/" className={`text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700 ${isActive('/') ? 'bg-teal-700' : ''}`}>
                 <Home className="mr-3 h-6 w-6" />
                 儀表板
-              </a>
-              <a href="/concerts" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </Link>
+              <Link to="/concerts" className={`text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700 ${isActive('/concerts') ? 'bg-teal-700' : ''}`}>
                 <Music className="mr-3 h-6 w-6" />
                 音樂會管理
-              </a>
-              <a href="/performances" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </Link>
+              <Link to="/performances" className={`text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700 ${isActive('/performances') ? 'bg-teal-700' : ''}`}>
                 <Calendar className="mr-3 h-6 w-6" />
                 演出場次管理
-              </a>
-              <a href="/ticket-types" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </Link>
+              <Link to="/ticket-types" className={`text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700 ${isActive('/ticket-types') ? 'bg-teal-700' : ''}`}>
                 <Ticket className="mr-3 h-6 w-6" />
                 票種管理
-              </a>
-              <a href="/tickets" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </Link>
+              <Link to="/tickets" className={`text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700 ${isActive('/tickets') ? 'bg-teal-700' : ''}`}>
                 <Ticket className="mr-3 h-6 w-6" />
                 票券管理
-              </a>
-              <a href="/users" className="text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700">
+              </Link>
+              <Link to="/users" className={`text-white group flex items-center px-2 py-2 text-base font-medium rounded-md hover:bg-teal-700 ${isActive('/users') ? 'bg-teal-700' : ''}`}>
                 <UserCheck className="mr-3 h-6 w-6" />
                 用戶管理
-              </a>
+              </Link>
             </nav>
           </div>
         </div>
@@ -98,30 +119,30 @@ const AdminLayout = () => {
             </div>
             <div className="flex-1 flex flex-col overflow-y-auto">
               <nav className="flex-1 px-2 py-4 space-y-1">
-                <a href="/dashboard" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                <Link to="/" className={`text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700 ${isActive('/') ? 'bg-teal-700' : ''}`}>
                   <Home className="mr-3 h-6 w-6" />
                   儀表板
-                </a>
-                <a href="/concerts" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </Link>
+                <Link to="/concerts" className={`text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700 ${isActive('/concerts') ? 'bg-teal-700' : ''}`}>
                   <Music className="mr-3 h-6 w-6" />
                   音樂會管理
-                </a>
-                <a href="/performances" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </Link>
+                <Link to="/performances" className={`text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700 ${isActive('/performances') ? 'bg-teal-700' : ''}`}>
                   <Calendar className="mr-3 h-6 w-6" />
                   演出場次管理
-                </a>
-                <a href="/ticket-types" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </Link>
+                <Link to="/ticket-types" className={`text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700 ${isActive('/ticket-types') ? 'bg-teal-700' : ''}`}>
                   <Ticket className="mr-3 h-6 w-6" />
                   票種管理
-                </a>
-                <a href="/tickets" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </Link>
+                <Link to="/tickets" className={`text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700 ${isActive('/tickets') ? 'bg-teal-700' : ''}`}>
                   <Ticket className="mr-3 h-6 w-6" />
                   票券管理
-                </a>
-                <a href="/users" className="text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700">
+                </Link>
+                <Link to="/users" className={`text-white group flex items-center px-2 py-2 text-sm font-medium rounded-md hover:bg-teal-700 ${isActive('/users') ? 'bg-teal-700' : ''}`}>
                   <UserCheck className="mr-3 h-6 w-6" />
                   用戶管理
-                </a>
+                </Link>
               </nav>
             </div>
           </div>
@@ -161,11 +182,11 @@ const AdminLayout = () => {
                 </div>
               ) : (
                 <div className="relative flex items-center">
-                  <a href="/auth/login"
+                  <Link to="/auth/login"
                     className="bg-teal-500 text-white p-2 rounded-md hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 flex items-center px-4 py-2 font-medium"
                   >
                     <span>登入</span>
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>

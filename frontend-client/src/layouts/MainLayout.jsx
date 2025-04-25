@@ -83,11 +83,18 @@ const MainLayout = () => {
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
     
+    // 只有在實際需要更新時（非認證狀態下有令牌）才更新
     if (token && userStr && !isAuthenticated) {
+      // 使用 ref 記錄是否已更新過認證狀態，避免重複更新
       if (process.env.NODE_ENV === 'development') {
         console.log('發現 localStorage 有認證資料但狀態未更新，嘗試更新');
       }
-      updateAuthState();
+      // 設置一個延遲，避免和其他組件的更新衝突
+      setTimeout(() => {
+        if (!isAuthenticated) {
+          updateAuthState();
+        }
+      }, 100);
     }
     
     // 監聽 storage 事件，處理在其他標籤頁登入/登出

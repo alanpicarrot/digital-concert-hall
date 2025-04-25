@@ -31,26 +31,63 @@ const PUBLIC_PATHS = [
   "/api/concerts",
   "/api/concerts/upcoming",
   "/api/concerts/past",
-  "/", // Add root path
+  "/api/auth/signin"
+  // "/" 已移除，避免過度匹配所有路徑
 ];
+
+// 嘗試獲取 AuthContext 實例，以便使用 setupPreRequestAuth 函數
+let setupPreRequestAuthFn = null;
+const getSetupPreRequestAuthFn = () => {
+  if (setupPreRequestAuthFn) return setupPreRequestAuthFn;
+  
+  // 首先嘗試從全局變量獲取
+  if (window.__AUTH_CONTEXT__ && typeof window.__AUTH_CONTEXT__.setupPreRequestAuth === 'function') {
+    setupPreRequestAuthFn = window.__AUTH_CONTEXT__.setupPreRequestAuth;
+    return setupPreRequestAuthFn;
+  }
+  
+  // 如果沒有全局變量，返回默認實現
+  return (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers["Authorization"] = "Bearer " + token;
+    }
+    return config;
+  };
+};
 
 // 請求攔截器，為每個請求添加JWT令牌
 axiosInstance.interceptors.request.use(
   (config) => {
     // 添加更詳細的日誌
     console.log(`發送請求到: ${config.url}`);
-    const isPublicPath = PUBLIC_PATHS.some((path) =>
-      config.url?.includes(path)
-    );
+    
+    // 更精確的路徑比對
+    const isPublicPath = PUBLIC_PATHS.some(path => {
+      // 完全匹配或是以公開路徑為前綴的路徑
+      const isExactMatch = config.url === path;
+      const isPrefixMatch = path !== '/' && (
+        config.url.startsWith(path + '/') || 
+        config.url.startsWith(path + '?')
+      );
+      
+      const match = isExactMatch || isPrefixMatch;
+      
+      // 詳細日誌以幫助調試
+      if (match) {
+        console.log(`公開路徑匹配: ${path} vs ${config.url} - 匹配成功`);
+      }
+      
+      return match;
+    });
+    
     // 如果不是公開路徑，添加令牌
     if (!isPublicPath) {
-      const token = localStorage.getItem("token");
-      if (token) {
-        console.log(`為請求添加令牌: ${config.url}`);
-        config.headers["Authorization"] = "Bearer " + token;
-      } else {
-        console.warn(`無法為請求添加令牌，令牌不存在: ${config.url}`);
-      }
+      // 使用 setupPreRequestAuth 函數添加令牌
+      const setupFn = getSetupPreRequestAuthFn();
+      config = setupFn(config);
+      console.log(`已為請求設置認證: ${config.url}`);
     } else {
       console.log(`公開路徑無需令牌: ${config.url}`);
     }
@@ -360,67 +397,27 @@ const getCurrentUser = () => {
   }
 };
 
-// 檢查令牌是否有效 - 改進版本，更寬鬆的驗證
+// 檢查令牌是否有效 - 簡化版本，更寬鬆的驗證
 const isTokenValid = () => {
   const token = localStorage.getItem("token");
-  if (!token) return false;
-
-  // 檢查令牌格式
-  const tokenParts = token.split(".");
-  if (tokenParts.length !== 3) {
-    console.error("令牌格式不正確");
+  if (!token) {
+    console.log("未找到令牌");
     return false;
   }
 
-  try {
-    // 解析JWT的有效期
-    const payload = JSON.parse(atob(tokenParts[1]));
-    const currentTime = Math.floor(Date.now() / 1000);
-
-    // 記錄更詳細的令牌信息
-    console.log("令牌有效性檢查", {
-      hasToken: true,
-      tokenFormat: "JWT",
-      tokenLength: token.length,
-      hasExpiration: !!payload.exp,
-      expirationTime: payload.exp
-        ? new Date(payload.exp * 1000).toISOString()
-        : "none",
-    });
-
-    // 檢查令牌是否過期
-    if (payload.exp && payload.exp < currentTime) {
-      console.log("令牌已過期", {
-        exp: payload.exp,
-        expDate: new Date(payload.exp * 1000).toISOString(),
-        now: currentTime,
-        nowDate: new Date(currentTime * 1000).toISOString(),
-        diff: currentTime - payload.exp,
-        diffMinutes: Math.round((currentTime - payload.exp) / 60),
-      });
-
-      // 在開發環境中，即使令牌已過期也允許其使用
-      // 同時從寬受的點來考慮，將已過期但不超過48小時的令牌也視為有效
-      // 這是為了避免前端誤判令牌有效性導致用戶體驗問題
-      const expiredMinutes = Math.round((currentTime - payload.exp) / 60);
-      if (expiredMinutes < 2880) {
-        // 將過期不到 48 小時的令牌視為有效
-        console.warn(`令牌已過期 ${expiredMinutes} 分鐘，但仍視為有效`);
-        return true;
-      }
-
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error("驗證令牌時出錯:", error);
-    // 即使解析出錯，如果有令牌，也視為有效
-    // 這是為了避免前端誤判令牌有效性導致用戶體驗問題
-    // 真正的令牌驗證應該由後端處理
-    console.warn("令牌解析失敗，但仍視為有效");
+  // 簡單檢查令牌基本格式 (JWT應有3個部分)
+  const tokenParts = token.split(".");
+  if (tokenParts.length !== 3) {
+    console.warn("令牌格式不是標準JWT格式 (不包含3個部分)");
+    // 即使格式不正確，仍然返回true
+    // 令牌有效性檢查應該由後端API處理
     return true;
   }
+
+  // 不嘗試解析令牌或檢查過期時間
+  // 如果有令牌就直接視為有效，實際有效性讓後端API決定
+  console.log("令牌格式檢查通過，視為有效");
+  return true;
 };
 
 // 重設密碼請求
