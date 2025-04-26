@@ -4,10 +4,10 @@ import com.digitalconcerthall.dto.request.LoginRequest;
 import com.digitalconcerthall.dto.request.AdminUserCreateRequest;
 import com.digitalconcerthall.dto.response.AdminUserLoginResponse;
 import com.digitalconcerthall.dto.response.MessageResponse;
-import com.digitalconcerthall.model.AdminUser; // Assuming you have this model
-import com.digitalconcerthall.repository.AdminUserRepository; // Assuming you have this repository
-import com.digitalconcerthall.security.jwt.JwtUtils; // Import JwtUtils
-import com.digitalconcerthall.security.services.AdminUserDetailsImpl; // Assuming you have this
+import com.digitalconcerthall.model.AdminUser;
+import com.digitalconcerthall.repository.AdminUserRepository;
+import com.digitalconcerthall.security.jwt.JwtUtils;
+import com.digitalconcerthall.security.services.AdminUserDetailsImpl;
 import com.digitalconcerthall.service.AdminAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,7 +15,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException; // Import AuthenticationException
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,13 +25,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger; // Add logger import
-import org.slf4j.LoggerFactory; // Add logger import
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Service // Ensure @Service annotation is present
-public class AdminAuthServiceImpl implements AdminAuthService { // Ensure it implements the interface
+@Service
+public class AdminAuthServiceImpl implements AdminAuthService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AdminAuthServiceImpl.class); // Add logger
+    private static final Logger logger = LoggerFactory.getLogger(AdminAuthServiceImpl.class);
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -40,10 +40,10 @@ public class AdminAuthServiceImpl implements AdminAuthService { // Ensure it imp
     private JwtUtils jwtUtils;
 
     @Autowired
-    private AdminUserRepository adminUserRepository; // Assuming you have this
+    private AdminUserRepository adminUserRepository;
 
     @Autowired
-    private PasswordEncoder passwordEncoder; // Ensure PasswordEncoder is injected
+    private PasswordEncoder passwordEncoder;
 
     @Override
     public AdminUserLoginResponse authenticateAdmin(LoginRequest loginRequest) {
@@ -53,38 +53,19 @@ public class AdminAuthServiceImpl implements AdminAuthService { // Ensure it imp
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String jwt = jwtUtils.generateJwtToken(authentication);
-
-            Object principal = authentication.getPrincipal();
-            AdminUserDetailsImpl userDetails;
-
-            // Check the type of the principal before casting
-            if (principal instanceof AdminUserDetailsImpl) {
-                userDetails = (AdminUserDetailsImpl) principal;
-            } else {
-                // Log the unexpected principal type
-                logger.error("Unexpected principal type during admin authentication for user: {}. Expected AdminUserDetailsImpl, but got {}",
-                             loginRequest.getUsername(), principal != null ? principal.getClass().getName() : "null");
-                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "管理員認證配置錯誤"); // More specific error
-            }
-
-            List<String> roles = userDetails.getAuthorities().stream()
+    
+            // 改用AdminUserDetailsImpl獲取用戶資料
+            AdminUserDetailsImpl adminUserDetails = (AdminUserDetailsImpl) authentication.getPrincipal();
+    
+            return new AdminUserLoginResponse(
+                jwt,
+                adminUserDetails.getId(),
+                adminUserDetails.getUsername(),
+                adminUserDetails.getEmail(),
+                adminUserDetails.getAuthorities().stream()
                     .map(item -> item.getAuthority())
-                    .collect(Collectors.toList());
-
-            // This check is likely redundant if authentication succeeded with the correct UserDetailsService
-            // if (!adminUserRepository.existsByUsername(userDetails.getUsername())) {
-            //      logger.warn("Admin user {} authenticated but not found in repository during final check.", userDetails.getUsername());
-            //      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "管理員不存在");
-            // }
-
-            // Assuming AdminUserLoginResponse constructor matches
-            // Corrected constructor call: added "Bearer" for tokenType
-            return new AdminUserLoginResponse(jwt,
-                    "Bearer", // Add the tokenType explicitly
-                    userDetails.getId(),
-                    userDetails.getUsername(),
-                    userDetails.getEmail(), // Assuming email is available in UserDetailsImpl
-                    roles);
+                    .collect(Collectors.toList())
+            );
         } catch (BadCredentialsException e) {
              logger.warn("Admin authentication failed for user {}: Bad credentials", loginRequest.getUsername());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "帳號或密碼錯誤", e);
@@ -100,8 +81,14 @@ public class AdminAuthServiceImpl implements AdminAuthService { // Ensure it imp
         } catch (Exception e) {
             // Log the unexpected error with stack trace
             logger.error("Unexpected error during admin authentication for user: {}", loginRequest.getUsername(), e);
-            // Keep original message for consistency, but the root cause is logged above
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "登入時發生內部錯誤", e);
+
+            // 創建更明確的錯誤訊息
+            String errorMessage = String.format("登入時發生內部錯誤: %s - %s",
+                                                e.getClass().getSimpleName(),
+                                                e.getMessage());
+
+            // 在拋出的異常中包含更明確的錯誤訊息
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage, e);
         }
     }
 

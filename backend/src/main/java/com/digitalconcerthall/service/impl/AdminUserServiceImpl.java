@@ -4,13 +4,18 @@ import com.digitalconcerthall.dto.request.AdminUserCreateRequest;
 import com.digitalconcerthall.dto.response.AdminUserLoginResponse;
 import com.digitalconcerthall.dto.response.MessageResponse;
 import com.digitalconcerthall.model.AdminUser;
+import com.digitalconcerthall.model.ERole;
+import com.digitalconcerthall.model.Role;
 import com.digitalconcerthall.repository.AdminUserRepository;
+import com.digitalconcerthall.repository.RoleRepository;
 import com.digitalconcerthall.service.AdminUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,6 +26,9 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    
+    @Autowired
+    private RoleRepository roleRepository;
 
     @Override
     public List<AdminUserLoginResponse> getAllAdmins() {
@@ -51,7 +59,41 @@ public class AdminUserServiceImpl implements AdminUserService {
         adminUser.setPassword(passwordEncoder.encode(createRequest.getPassword()));
         adminUser.setFirstName(createRequest.getFirstName());
         adminUser.setLastName(createRequest.getLastName());
-        // 角色設定請依你的需求補充
+        
+        // 處理角色設定
+        Set<String> strRoles = createRequest.getRoles();
+        Set<Role> roles = new HashSet<>();
+
+        if (strRoles == null || strRoles.isEmpty()) {
+            // 預設為 ROLE_ADMIN
+            Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                .orElseThrow(() -> new RuntimeException("錯誤: 找不到管理員角色"));
+            roles.add(adminRole);
+        } else {
+            strRoles.forEach(role -> {
+                switch (role) {
+                    case "admin":
+                        Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
+                            .orElseThrow(() -> new RuntimeException("錯誤: 找不到管理員角色"));
+                        roles.add(adminRole);
+                        break;
+                    case "mod":
+                        Role modRole = roleRepository.findByName(ERole.ROLE_MODERATOR)
+                            .orElseThrow(() -> new RuntimeException("錯誤: 找不到版主角色"));
+                        roles.add(modRole);
+                        break;
+                    case "user":
+                        Role userRole = roleRepository.findByName(ERole.ROLE_USER)
+                            .orElseThrow(() -> new RuntimeException("錯誤: 找不到用戶角色"));
+                        roles.add(userRole);
+                        break;
+                    default:
+                        throw new RuntimeException("錯誤: 不支援的角色類型 " + role);
+                }
+            });
+        }
+
+        adminUser.setRoles(roles);
         adminUserRepository.save(adminUser);
         return new MessageResponse("管理員創建成功!");
     }
@@ -66,14 +108,13 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     private AdminUserLoginResponse mapToLoginResponse(AdminUser adminUser) {
-        // 假設 AdminUser 有 getRoles() 方法，且每個 Role 有 getName().name()
+        // 獲取用戶角色
         List<String> roles = adminUser.getRoles().stream()
                 .map(role -> role.getName().name())
                 .collect(Collectors.toList());
 
         return new AdminUserLoginResponse(
                 "", // accessToken 預設空字串
-                "Bearer",
                 adminUser.getId(),
                 adminUser.getUsername(),
                 adminUser.getEmail(),

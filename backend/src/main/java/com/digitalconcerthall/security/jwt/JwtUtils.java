@@ -1,6 +1,5 @@
 package com.digitalconcerthall.security.jwt;
 
-import com.digitalconcerthall.security.services.UserDetailsImpl;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -9,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.security.Key;
 import java.util.Date;
@@ -26,25 +26,32 @@ public class JwtUtils {
     private int jwtExpirationMs;
 
     public String generateJwtToken(Authentication authentication) {
-        UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
-        
-        // 獲取用戶角色列表
-        List<String> roles = userPrincipal.getAuthorities().stream()
-                .map(item -> item.getAuthority())
-                .collect(Collectors.toList());
-        
-        // 記錄生成的令牌信息
-        logger.debug("Generating JWT token for user: {}, roles: {}, id: {}", 
-                 userPrincipal.getUsername(), roles, userPrincipal.getId());
-        
+        // 假設你的 AdminUserDetailsImpl 有 getId() 方法
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        Long userId = null;
+        List<String> roles = null;
+    
+        // 針對後台管理用戶
+        if (userDetails instanceof com.digitalconcerthall.security.services.AdminUserDetailsImpl) {
+            userId = ((com.digitalconcerthall.security.services.AdminUserDetailsImpl) userDetails).getId();
+            roles = userDetails.getAuthorities().stream()
+                    .map(auth -> auth.getAuthority())
+                    .collect(Collectors.toList());
+        }
+        // 針對一般用戶（如果有 UserDetailsImpl）
+        else if (userDetails instanceof com.digitalconcerthall.security.services.UserDetailsImpl) {
+            userId = ((com.digitalconcerthall.security.services.UserDetailsImpl) userDetails).getId();
+            roles = userDetails.getAuthorities().stream()
+                    .map(auth -> auth.getAuthority())
+                    .collect(Collectors.toList());
+        }
+    
         return Jwts.builder()
-                .setSubject((userPrincipal.getUsername()))
+                .setSubject(userDetails.getUsername())
+                .claim("userId", userId)
+                .claim("roles", roles)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                // 添加角色信息到 claims 中
-                .claim("roles", roles)
-                // 添加用戶ID到claims中，確保在令牌中包含用戶ID
-                .claim("userId", userPrincipal.getId())
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
     }
