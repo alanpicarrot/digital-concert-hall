@@ -1,8 +1,6 @@
 package com.digitalconcerthall.controller;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,14 +10,17 @@ import org.springframework.web.bind.annotation.*;
 import com.digitalconcerthall.dto.response.ApiResponse;
 import com.digitalconcerthall.dto.response.ConcertPerformanceResponse;
 import com.digitalconcerthall.dto.response.ConcertResponse;
+import com.digitalconcerthall.dto.response.ticket.TicketTypeClientResponse;
 import com.digitalconcerthall.model.concert.Concert;
 import com.digitalconcerthall.model.concert.Performance;
+import com.digitalconcerthall.model.ticket.Ticket; // Add this import
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
+import com.digitalconcerthall.repository.TicketRepository;
 
 @RestController
 @RequestMapping("/api/concerts")
-@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001", "http://localhost:3002" }, maxAge = 3600)
+@CrossOrigin(origins = { "http://localhost:3000", "http://localhost:3001"}, maxAge = 3600)
 public class ConcertController {
 
 	@Autowired
@@ -28,119 +29,8 @@ public class ConcertController {
 	@Autowired
 	private PerformanceRepository performanceRepository;
 
-	// 健康檢查端點
-	@GetMapping("/health-check")
-	public ResponseEntity<String> ping() {
-		return ResponseEntity.ok("Concerts API is working");
-	}
-	
-	// 用於確保會有資料的檢查與修復端點
-	@GetMapping("/check-and-seed")
-	public ResponseEntity<ApiResponse> checkAndSeedData() {
-		try {
-			// 查詢音樂會資料
-			List<Concert> existingConcerts = concertRepository.findByStatus("active");
-			
-			// 若無音樂會資料，則創建測試數據
-			if (existingConcerts.isEmpty()) {
-				createTestData();
-				createSpringConcert();
-				return ResponseEntity.ok(new ApiResponse(true, "數據已檢查並自動創建：無音樂會資料，已創建測試數據"));
-			}
-			
-			// 查詢春季音樂會
-			boolean hasSpringConcert = false;
-			for (Concert concert : existingConcerts) {
-				if (concert.getTitle().contains("春季交響音樂會")) {
-					hasSpringConcert = true;
-					break;
-				}
-			}
-			
-			// 若無春季音樂會，則創建
-			if (!hasSpringConcert) {
-				createSpringConcert();
-				return ResponseEntity.ok(new ApiResponse(true, "數據已檢查並自動創建：創建春季交響音樂會"));
-			}
-			
-			return ResponseEntity.ok(new ApiResponse(true, "數據已檢查：所有必要的資料都存在"));
-			
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body(new ApiResponse(false, "數據檢查失敗: " + e.getMessage()));
-		}
-	}
-
-	// 測試數據創建（開發階段）
-	@GetMapping("/test-data")
-	public ResponseEntity<ApiResponse> createTestData() {
-		try {
-			// 創建測試音樂會
-			Concert concert = new Concert();
-			concert.setTitle("貝多芬鋼琴妙境音樂會");
-			concert.setDescription("一場精彩的貝多芬鋼琴演出，展現音樂的深邃與優雅");
-			concert.setProgramDetails("第一部分: 月光奏鳴曲\n第二部分: 悲壯英雄\n第三部分: 田園交響曲");
-			concert.setPosterUrl("/api/concerts/posters/beethoven.jpg");
-			concert.setStatus("active");
-			// 設置開始和結束時間
-			LocalDateTime startTime = LocalDateTime.now().plusDays(14);
-			LocalDateTime endTime = startTime.plusHours(2);
-			concert.setStartDateTime(startTime);
-			concert.setEndDateTime(endTime);
-			concert.setCreatedAt(LocalDateTime.now());
-			concert.setUpdatedAt(LocalDateTime.now());
-
-			Concert savedConcert = concertRepository.save(concert);
-
-			// 創建演出場次
-			Performance performance = new Performance();
-			performance.setConcert(savedConcert);
-			performance.setStartTime(LocalDateTime.now().plusDays(30));
-			performance.setEndTime(LocalDateTime.now().plusDays(30).plusHours(2));
-			performance.setVenue("數位音樂廳主廳");
-			performance.setStatus("scheduled");
-
-			performanceRepository.save(performance);
-			
-			// 創建春季交響音樂會
-			createSpringConcert();
-
-			return ResponseEntity.ok(new ApiResponse(true, "測試數據創建成功"));
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body(new ApiResponse(false, "創建測試數據失敗: " + e.getMessage()));
-		}
-	}
-	
-	// 創建春季交響音樂會數據
-	@GetMapping("/create-spring-concert")
-	public ResponseEntity<ApiResponse> createSpringConcert() {
-		try {
-			// 創建春季交響音樂會
-			Concert concert = new Concert();
-			concert.setTitle("2025春季交響音樂會");
-			concert.setDescription("春季音樂盛宴，將為您帶來優美的音樂體驗。由著名指揮家帶領交響樂團，演奏經典曲目和當代作品。");
-			concert.setProgramDetails("貓與老鼠 - 幻想之舞\n柴可夫斯基 - 第五交響曲\n德布西 - 月光\n莫札特 - 小星星變奏曲");
-			concert.setPosterUrl("/api/concerts/posters/spring-concert.jpg");
-			concert.setStatus("active");
-			concert.setCreatedAt(LocalDateTime.now());
-			concert.setUpdatedAt(LocalDateTime.now());
-
-			Concert savedConcert = concertRepository.save(concert);
-
-			// 創建演出場次 - 使用固定的日期2025/5/15
-			Performance performance = new Performance();
-			performance.setConcert(savedConcert);
-			performance.setStartTime(LocalDateTime.of(2025, 5, 15, 19, 30, 0));
-			performance.setEndTime(LocalDateTime.of(2025, 5, 15, 21, 30, 0));
-			performance.setVenue("數位音樂廳主廳");
-			performance.setStatus("scheduled");
-
-			performanceRepository.save(performance);
-
-			return ResponseEntity.ok(new ApiResponse(true, "春季交響音樂會數據創建成功"));
-		} catch (Exception e) {
-			return ResponseEntity.badRequest().body(new ApiResponse(false, "創建春季交響音樂會數據失敗: " + e.getMessage()));
-		}
-	}
+	@Autowired
+	private TicketRepository ticketRepository; // Ensure this field uses the correct import
 
 	// 獲取所有活躍的音樂會列表
 	@GetMapping
@@ -153,7 +43,7 @@ public class ConcertController {
 	}
 
 	// 獲取單個音樂會詳情
-	@GetMapping("/{id}")
+	@GetMapping("/{id}") // <-- 修改這裡
 	public ResponseEntity<?> getConcertById(@PathVariable("id") Long id) {
 		Concert concert = concertRepository.findById(id)
 				.orElse(null);
@@ -192,6 +82,7 @@ public class ConcertController {
 	// 獲取所有音樂會的票券
 	@GetMapping("/tickets")
 	public ResponseEntity<ApiResponse> getAllConcertTickets() {
+		// 注意：這裡的實現目前是佔位符
 		try {
 			// 這裡應該實現獲取所有音樂會票券的邏輯
 			// 目前只返回一個成功響應作為臨時解決方案
@@ -216,13 +107,31 @@ public class ConcertController {
 		response.setPosterUrl(concert.getPosterUrl());
 		response.setStatus(concert.getStatus());
 
-		// 設置第一個場次的時間和地點
+		// 設置第一個場次的時間和地點 (放入列表中)
 		if (firstPerformance != null) {
-			response.setStartTime(firstPerformance.getStartTime());
-			response.setVenue(firstPerformance.getVenue());
+			// Assuming ConcertResponse has setStartTimes(List<LocalDateTime>) and setVenues(List<String>)
+			if (firstPerformance.getStartTime() != null) {
+				response.setStartTimes(List.of(firstPerformance.getStartTime()));
+			} else {
+				response.setStartTimes(java.util.Collections.emptyList());
+			}
+			if (firstPerformance.getVenue() != null) {
+				response.setVenues(List.of(firstPerformance.getVenue()));
+			} else {
+				response.setVenues(java.util.Collections.emptyList());
+			}
+		} else {
+			response.setStartTimes(java.util.Collections.emptyList());
+			response.setVenues(java.util.Collections.emptyList());
 		}
 
 		response.setPerformanceCount(performances.size());
+
+		// You might also need to calculate and set min/max price here
+		// similar to how it's done in ConcertService.java if this response needs it.
+		// response.setMinPrice(...);
+		// response.setMaxPrice(...);
+
 
 		return response;
 	}
@@ -256,6 +165,35 @@ public class ConcertController {
 					} else {
 						info.setDuration(120); // 默認2小時
 					}
+
+					// --- 修改：獲取並轉換票券信息為 TicketTypeClientResponse ---
+					List<Ticket> ticketsForPerformance = ticketRepository.findByPerformance_Id(p.getId());
+					List<TicketTypeClientResponse> ticketResponses = ticketsForPerformance.stream()
+						.map(ticket -> {
+							TicketTypeClientResponse ticketDto = new TicketTypeClientResponse();
+							ticketDto.setId(ticket.getId()); // 使用 Ticket 的 ID
+							ticketDto.setPerformanceId(ticket.getPerformanceId());
+							ticketDto.setAvailableQuantity(ticket.getAvailableQuantity());
+							// 從關聯的 TicketType 獲取信息
+							if (ticket.getTicketType() != null) {
+								ticketDto.setTicketTypeId(ticket.getTicketType().getId());
+								ticketDto.setName(ticket.getTicketType().getName());
+								ticketDto.setDescription(ticket.getTicketType().getDescription());
+								ticketDto.setColorCode(ticket.getTicketType().getColorCode());
+								ticketDto.setPrice(ticket.getTicketType().getPrice()); // <--- 修改：從 TicketType 讀取價格
+							} else {
+								// 處理 TicketType 為 null 的情況
+								ticketDto.setName("未知票種");
+								ticketDto.setDescription("");
+								ticketDto.setColorCode("#cccccc"); // 預設顏色
+								// 如果 TicketType 為 null，價格也設為 0 或其他預設值
+								ticketDto.setPrice(java.math.BigDecimal.ZERO); 
+							}
+							return ticketDto;
+						})
+						.collect(Collectors.toList());
+					info.setTickets(ticketResponses); // 設置票券信息
+					// --- 結束修改 ---
 
 					return info;
 				})

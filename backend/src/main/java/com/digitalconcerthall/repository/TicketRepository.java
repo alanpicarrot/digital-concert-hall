@@ -18,7 +18,15 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
      * 根據演出場次ID查詢票券
      */
     List<Ticket> findByPerformance_Id(Long performanceId);
-    
+
+    /**
+     * 根據演出場次 ID 和狀態查詢票券
+     * @param performanceId 演出場次 ID
+     * @param status 票券狀態 (e.g., "ACTIVE", "SOLD")
+     * @return 符合條件的票券列表
+     */
+    List<Ticket> findByPerformance_IdAndStatus(Long performanceId, String status);
+
     /**
      * 根據票種ID查詢票券
      */

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Calendar,
   MapPin,
   User,
   Music,
   Ticket,
-  ChevronLeft,
   Star,
   Info,
+  ShoppingCart
 } from "lucide-react";
 import concertService from "../../services/concertService";
 import authService from "../../services/authService";
@@ -19,157 +19,74 @@ import SimplePlaceholder from "../../components/ui/SimplePlaceholder";
 const ConcertDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [concert, setConcert] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedSeatingArea, setSelectedSeatingArea] = useState(null);
-  const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("tickets");
   const [error, setError] = useState(null);
+  const [ticketQuantities, setTicketQuantities] = useState({});
 
-  // 從後端獲取音樂會詳情
+  // useEffect to fetch concert details (保持不變，確保 concert.performances 被正確設置)
   useEffect(() => {
     const fetchConcertDetails = async () => {
       if (!id) {
         setError("無效的音樂會ID");
+        setLoading(false); // Set loading to false if ID is invalid
         return;
       }
 
       try {
         setLoading(true);
         console.log(`正在勾取音樂會ID=${id}的詳情資料`);
-        // 使用開發的服務獲取音樂會詳情
         const concertData = await concertService.getConcertById(id);
         console.log(`從服務獲取的音樂會資料:`, concertData);
 
         if (!concertData) {
           console.error("音樂會數據為空或無效");
           setError("找不到該音樂會");
-          // 嘗試重新獲取或記錄問題
-          console.log(`嘗試發起API測試數據創建請求`);
-          try {
-            // 嘗試創建測試數據
-            const testDataResponse = await fetch('http://localhost:8080/api/concerts/create-spring-concert');
-            console.log('測試數據創建結果:', testDataResponse.status);
-            if (testDataResponse.ok) {
-              // 如果成功創建測試數據，稍等片刻後再次嘗試獲取
-              setTimeout(async () => {
-                console.log('重新嘗試獲取音樂會數據...');
-                const retryData = await concertService.getConcertById(id);
-                if (retryData) {
-                  setConcert(retryData);
-                  setLoading(false);
-                  setError(null);
-                }
-              }, 2000);
-            }
-          } catch (testDataError) {
-            console.error('創建測試數據失敗:', testDataError);
-          }
+          setLoading(false);
           return;
         }
 
-        // 將API回傳的資料轉換為頁面需要的格式
         const concertDetails = {
           id: concertData.id,
-          title: concertData.title,
-          performer: "表演者", // 預設得表演者
-          performerTitle: "音樂家", // 預設的順位
-          date:
-            concertData.performances && concertData.performances[0]
-              ? concertData.performances[0].startTime
-              : new Date().toISOString(),
-          location:
-            concertData.performances && concertData.performances[0]
-              ? concertData.performances[0].venue
-              : "數位音樂廳",
-          address: "台北市中正區忠孝東路一段123號", // 預設的地址
-          // 使用實際圖片或null (將使用本地渲染的佔位圖片)
+          title: concertData.title || "未命名音樂會",
+          performer: concertData.performer || "未知表演者",
+          performerTitle: concertData.performerTitle || "",
+          address: concertData.address || "",
           image: concertData.posterUrl || null,
-          imageText: concertData.title, // 用於渲染佔位圖
+          imageText: concertData.title || "音樂會圖片",
           description: concertData.description || "暫無活動說明",
-          organizer: "數位音樂廳組委會", // 預設主辦單位
-          organizerContact: "02-1234-5678", // 預設聯絡電話
-          organizerEmail: "contact@digitalconcerthall.example.com", // 預設電子郵件
-          performerBio: concertData.description || "暫無表演者資料",
-
-          // 節目單，從程式細節中解析或使用預設值
+          organizer: concertData.organizer || "",
+          organizerContact: concertData.organizerContact || "",
+          organizerEmail: concertData.organizerEmail || "",
+          performerBio: concertData.performerBio || "暫無表演者資料",
           program: concertData.programDetails
             ? concertData.programDetails
                 .split("\n")
                 .filter((line) => line.trim().length > 0)
                 .map((line, index) => ({
                   name: line.trim(),
-                  duration: "15分鐘",
+                  duration: concertData.programDurations?.[index] || "",
                 }))
-            : [
-                { name: "第一樹場曲目", duration: "15分鐘" },
-                { name: "第二樹場曲目", duration: "20分鐘" },
-              ],
-
-          // 從API接口獲取票券和場次數據
-          ticketAreas: concertData.tickets
-            ? concertData.tickets.map((ticket) => ({
-                id: ticket.id,
-                name: `${ticket.ticketType.name} - ${formatDate(
-                  ticket.performance.startTime
-                )} ${formatTime(ticket.performance.startTime)} ${
-                  ticket.performance.venue || "數位音樂廳"
-                }`,
-                price: ticket.price, // 使用實際票券價格
-                available: ticket.availableQuantity, // 使用實際可用票數
-                performance: ticket.performance, // 保存場次資訊供立即購票按鈕使用
-              }))
-            : // 以下為備用數據，僅當API沒有返回票券信息時使用
-            concertData.performances
-            ? concertData.performances.map((perf, index) => ({
-                id: perf.id,
-                name: `${formatDate(perf.startTime)} ${formatTime(
-                  perf.startTime
-                )} ${perf.venue || "數位音樂廳"}`,
-                price: 1000, // 默認價格，若需手動調整
-                available: 50, // 默認可用票數
-                performance: perf, // 保存場次資訊供立即購票按鈕使用
-              }))
-            : [
-                {
-                  id: 1,
-                  name: "普通座位",
-                  price: 1000,
-                  available: 50,
-                  performance: {
-                    id: concertData.id,
-                    startTime: new Date().toISOString(),
-                  },
-                },
-                {
-                  id: 2,
-                  name: "VIP座位",
-                  price: 1500,
-                  available: 20,
-                  performance: {
-                    id: concertData.id,
-                    startTime: new Date().toISOString(),
-                  },
-                },
-              ],
-
-          // 評論和圖片庫使用預設值
-          reviews: [
-            { id: 1, user: "觀眾1", rating: 5, comment: "非常精彩的演出！" },
-            {
-              id: 2,
-              user: "觀眾2",
-              rating: 4,
-              comment: "好聽的音樂，但場地有點小。",
-            },
-          ],
-          // 使用名稱字串陣列來替代URL，會用佔位圖組件渲染
-          galleryItems: ["Gallery 1", "Gallery 2", "Gallery 3"],
+            : [],
+          performances: concertData.performances || [], // 確保 performances 被設置
+          galleryItems: concertData.galleryItems || [],
         };
 
+        console.log("格式化後的音樂會詳情:", concertDetails);
         setConcert(concertDetails);
 
-        // 將音樂會添加到瀏覽歷史
+        // Initialize ticket quantities based on fetched data (optional, but good practice)
+        const initialQuantities = {};
+        concertDetails.performances.forEach(perf => {
+          perf.tickets?.forEach(ticket => {
+            initialQuantities[ticket.id] = 1; // Default to 1 or 0 as needed
+          });
+        });
+        setTicketQuantities(initialQuantities);
+
+
         storageService.history.addConcert({
           id: concertData.id,
           title: concertData.title,
@@ -177,7 +94,7 @@ const ConcertDetailPage = () => {
         });
       } catch (error) {
         console.error("Error fetching concert details:", error);
-        setError("無法載入音樂會詳情");
+        setError(`無法載入音樂會詳情: ${error.message || '未知錯誤'}`);
       } finally {
         setLoading(false);
       }
@@ -186,498 +103,273 @@ const ConcertDetailPage = () => {
     fetchConcertDetails();
   }, [id]);
 
-  // 日期格式化
+  // formatDate and formatTime (保持不變)
   const formatDate = (dateString) => {
-    const options = {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    };
-    return new Date(dateString).toLocaleDateString("zh-TW", options);
+    if (!dateString) return "日期未知";
+    const options = { year: "numeric", month: "long", day: "numeric", weekday: "long" };
+    try {
+      return new Date(dateString).toLocaleDateString("zh-TW", options);
+    } catch (e) { return "日期無效"; }
   };
 
-  // 時間格式化
   const formatTime = (dateString) => {
-    const options = { hour: "2-digit", minute: "2-digit" };
-    return new Date(dateString).toLocaleTimeString("zh-TW", options);
+    if (!dateString) return "時間未知";
+    const options = { hour: "2-digit", minute: "2-digit", hour12: false };
+    try {
+      return new Date(dateString).toLocaleTimeString("zh-TW", options);
+    } catch (e) { return "時間無效"; }
   };
 
-  // 處理選擇座位區域
-  const handleSelectSeatingArea = (area) => {
-    setSelectedSeatingArea(area);
-    setQuantity(1); // 重置數量
+  // handleQuantityChange (保持不變)
+  const handleQuantityChange = (ticketId, newQuantityStr, availableQuantity) => {
+    // --- 修改開始 ---
+    // 將輸入值轉換為數字，如果無效則預設為 1
+    const parsedQuantity = parseInt(newQuantityStr, 10);
+    const newQuantity = isNaN(parsedQuantity) ? 1 : parsedQuantity;
+
+    // 確保數量在有效範圍內 (至少 1，最多不超過可用數量)
+    const quantity = Math.max(1, Math.min(newQuantity, availableQuantity || 1));
+    // --- 修改結束 ---
+
+    setTicketQuantities((prevQuantities) => ({
+      ...prevQuantities,
+      [ticketId]: quantity,
+    }));
   };
 
-  // 處理數量變更
-  const handleQuantityChange = (newQuantity) => {
-    if (
-      newQuantity >= 1 &&
-      newQuantity <= (selectedSeatingArea?.available || 10)
-    ) {
-      setQuantity(newQuantity);
-    }
-  };
-
-  // 計算總價
-  const calculateTotal = () => {
-    if (!selectedSeatingArea) return 0;
-    return selectedSeatingArea.price * quantity;
-  };
-
-  // 處理加入購物車
-  const handleAddToCart = () => {
-    if (!selectedSeatingArea) return;
-
-    // 清楚檢查用戶登入狀態
-    const currentUser = authService.getCurrentUser();
-    const isTokenValid = authService.isTokenValid();
-
-    console.log("購物車 - 用戶登入狀態:", {
-      user: currentUser ? currentUser.username : "未登入",
-      tokenValid: isTokenValid ? "有效" : "無效或過期",
-    });
-    
-    // 如果本地存儲中有 token但不正確，先清除
-    if (localStorage.getItem('token') && (!currentUser || !isTokenValid)) {
-      console.log('重置狀態：發現令牌有問題');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
-
-    // 檢查用戶是否已登入並且令牌有效
-    if (!currentUser || !isTokenValid) {
-      // 如果用戶未登入或令牌無效，導向登入頁面
-      console.log("用戶未登入或令牌無效，重定向到登入頁面");
-      alert("請先登入才能將商品加入購物車");
-
-      navigate("/login?redirect=" + encodeURIComponent(`/concerts/${id}`));
+  // --- 加入新的函數 ---
+  const handleAddToCartSpecific = (ticketId, performanceId, quantityToAdd) => {
+    // 檢查 concert 是否已載入
+    if (!concert) {
+      console.error("handleAddToCartSpecific called but concert state is null!");
+      alert("無法處理購物車操作，音樂會資料尚未載入。請稍後再試。");
       return;
     }
 
-    // 創建商品物件用於添加到購物車
-    const cartItem = {
-      id: concert.id,
-      type: "concert",
-      name: `${concert.title} - ${selectedSeatingArea.name}`,
-      price: selectedSeatingArea.price,
-      quantity: quantity,
-      date: concert.date,
-    };
+    // 查找目標票券和演出場次
+    let targetTicket = null;
+    let targetPerformance = null;
 
-    // 添加到購物車
-    cartService.addToCart(cartItem);
-
-    // 提示用戶加入購物車成功
-    alert(
-      `已將 ${quantity} 張 ${
-        selectedSeatingArea.name
-      } 加入購物車，總金額：NT$ ${calculateTotal()}`
-    );
-  };
-
-  // 處理立即購買
-  const handleBuyNow = () => {
-    console.log("點擊立即購票按鈕");
-    console.log("音樂會數據：", concert);
-    // 如果已選擇座位區域，直接使用當前票種進行購買流程
-    if (selectedSeatingArea) {
-      // 清楚檢查用戶登入狀態
-      const currentUser = authService.getCurrentUser();
-      const isTokenValid = authService.isTokenValid();
-
-      console.log("票券頁面 - 用戶登入狀態:", {
-        user: currentUser ? currentUser.username : "未登入",
-        tokenValid: isTokenValid ? "有效" : "無效或過期",
-      });
-      
-      // 如果本地存儲中有 token但不正確，先清除
-      if (localStorage.getItem('token') && (!currentUser || !isTokenValid)) {
-        console.log('重置狀態：發現令牌有問題');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-
-      // 檢查用戶是否已登入並且令牌有效
-      if (!currentUser || !isTokenValid) {
-        // 如果用戶未登入或令牌無效，導向登入頁面
-        console.log("用戶未登入或令牌無效，重定向到登入頁面");
-        alert("請先登入才能進行購票");
-
-        navigate("/login?redirect=" + encodeURIComponent(`/concerts/${id}`));
-        return;
-      }
-
-      // 將購票信息存入 sessionStorage，以便結帳頁面可以使用
-      const ticketInfo = {
-        concertId: concert.id,
-        concertTitle: concert.title,
-        ticketId: selectedSeatingArea.id, // 確保添加票券ID
-        ticketType: selectedSeatingArea.name,
-        ticketPrice: selectedSeatingArea.price,
-        quantity: quantity,
-        totalAmount: calculateTotal(),
-        purchaseTime: new Date().toISOString(), // 添加購買時間戳記錆跟蹤
-      };
-
-      sessionStorage.setItem("checkoutInfo", JSON.stringify(ticketInfo));
-      console.log("已將購票信息存入sessionStorage:", ticketInfo);
-
-      // 導航到結帳頁面
-      navigate("/checkout");
-    } else {
-      // 如果未選擇座位區域，導航到演出場次票券頁面
-      // 嘗試從 concert.performances 中獲取首個演出場次 ID
-      if (concert.performances && concert.performances.length > 0) {
-        const performanceId = concert.performances[0].id;
-        navigate(`/tickets/performance/${performanceId}`);
-      }
-      // 如果沒有 performances 屬性或為空陣列，嘗試從票券陣列獲取演出場次 ID
-      else if (concert.ticketAreas && concert.ticketAreas.length > 0) {
-        // 檢查票券是否已關聯場次信息
-        if (
-          concert.ticketAreas[0].performance &&
-          concert.ticketAreas[0].performance.id
-        ) {
-          // 從票券中取得場次ID
-          const performanceId = concert.ticketAreas[0].performance.id;
-          navigate(`/tickets/performance/${performanceId}`);
-        } else {
-          // 使用票券ID作為備選
-          const ticketId = concert.ticketAreas[0].id;
-          navigate(`/tickets/${ticketId}`);
+    if (concert.performances) {
+      for (const perf of concert.performances) {
+        if (perf.id === performanceId && perf.tickets) {
+          targetTicket = perf.tickets.find(t => t.id === ticketId);
+          if (targetTicket) {
+            targetPerformance = perf;
+            break;
+          }
         }
       }
-      // 如果上述方法都失敗，則彈出提示
-      else {
-        alert("此音樂會暫無可用的演出場次");
-      }
+    }
+
+    if (!targetTicket || !targetPerformance) {
+      alert("無法找到要加入購物車的票券資訊。");
+      console.error("Could not find ticket or performance for AddToCart:", { ticketId, performanceId });
+      return;
+    }
+
+    // 驗證數量
+    const numQuantityToAdd = Number(quantityToAdd);
+    if (isNaN(numQuantityToAdd) || numQuantityToAdd <= 0) {
+      alert("請選擇有效的票券數量 (至少一張)。");
+      // 重置該票券數量為 1 (可選)
+      // handleQuantityChange(ticketId, 1, targetTicket.availableQuantity);
+      return;
+    }
+
+    if (numQuantityToAdd > targetTicket.availableQuantity) {
+       alert(`抱歉，${targetTicket.ticketType?.name || '此票券'} 僅剩 ${targetTicket.availableQuantity} 張。您選擇了 ${numQuantityToAdd} 張。`);
+       // 可以選擇將數量重置為最大可用數量
+       // handleQuantityChange(ticketId, targetTicket.availableQuantity, targetTicket.availableQuantity);
+       return;
+    }
+
+    // 檢查登入狀態
+    const currentUser = authService.getCurrentUser();
+    const isTokenValid = authService.isTokenValid();
+    if (!currentUser || !isTokenValid) {
+      const confirmLogin = window.confirm("請先登入才能將商品加入購物車。要前往登入頁面嗎？");
+      if (!confirmLogin) return;
+      if (!isTokenValid && currentUser) authService.logout(); // 如果 token 無效但 user 存在，登出
+      const redirectPath = location.pathname + location.search;
+      navigate("/login?redirect=" + encodeURIComponent(redirectPath));
+      return;
+    }
+
+    // 準備購物車項目
+    const cartItem = {
+      id: targetTicket.id, // 使用票券 ID 作為購物車項目 ID
+      type: 'ticket',
+      name: targetTicket.ticketType?.name || '票券', // 使用票種名稱
+      price: targetTicket.price,
+      quantity: numQuantityToAdd,
+      concertId: concert.id, // 從 concert 狀態獲取
+      concertTitle: concert.title, // 從 concert 狀態獲取
+      performanceId: targetPerformance.id,
+      performanceTime: targetPerformance.startTime,
+      image: concert.image, // 從 concert 狀態獲取
+      ticketTypeId: targetTicket.ticketType?.id, // 包含票種 ID
+      availableQuantity: targetTicket.availableQuantity, // 將可用數量也傳遞給購物車服務可能有用
+      // 可根據購物車服務需要添加其他資訊
+    };
+
+    console.log("準備加入購物車:", cartItem);
+
+    try {
+      cartService.addToCart(cartItem);
+      alert(`${cartItem.name} x ${cartItem.quantity} 已成功加入購物車！`);
+      // 可選：加入成功後重置該票券數量為 1
+      // handleQuantityChange(ticketId, 1, targetTicket.availableQuantity);
+      // 觸發購物車更新事件，讓 Header 等組件可以更新購物車圖標數量
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
+    } catch (error) {
+      console.error("加入購物車失敗:", error);
+      alert(`加入購物車時發生錯誤: ${error.message || '請稍後再試'}`);
     }
   };
 
-  if (loading) {
-    return (
-      <div
-        id="loading-container"
-        className="container mx-auto px-4 py-16 flex justify-center items-center"
-      >
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-red-600">{error}</div>
-      </div>
-    );
-  }
-
-  if (!concert) {
-    return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">找不到音樂會</h1>
-        <p className="text-gray-600 mb-8">
-          抱歉，您要查詢的音樂會不存在或已被移除。
-        </p>
-        <Link
-          to="/concerts"
-          className="inline-flex items-center text-indigo-600 hover:text-indigo-800"
-        >
-          <ChevronLeft size={20} />
-          <span>返回音樂會列表</span>
-        </Link>
-      </div>
-    );
-  }
+  // ... existing loading, error, and render logic ...
+  // 確保渲染邏輯中的 onClick={...} 調用的是 handleAddToCartSpecific
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* 麵包屑導航 */}
-      <div className="text-sm text-gray-500 mb-6">
-        <div className="flex items-center space-x-2">
-          <Link to="/" className="hover:text-indigo-600">
-            首頁
-          </Link>
-          <span>/</span>
-          <Link to="/browse" className="hover:text-indigo-600">
-            音樂會
-          </Link>
-          <span>/</span>
-          <span className="text-gray-700">{concert?.title || "詳情"}</span>
-        </div>
-      </div>
+      {/* ... loading, error, breadcrumb, header ... */}
+       {loading && (
+         <div className="flex justify-center items-center h-64">
+           <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-600"></div>
+         </div>
+       )}
+       {error && <div className="text-center text-red-600 bg-red-100 p-4 rounded">{error}</div>}
+       {!loading && !error && !concert && (
+         <div className="text-center py-10">
+           <h1 className="text-2xl font-bold text-gray-800 mb-4">找不到音樂會</h1>
+           <p className="text-gray-600 mb-8">抱歉，您要查詢的音樂會不存在或已被移除。</p>
+           <Link to="/concerts" className="text-indigo-600 hover:underline">返回音樂會列表</Link>
+         </div>
+       )}
 
-      {/* 音樂會基本信息 */}
-      <div className="bg-white rounded-xl overflow-hidden shadow-md mb-8">
-        <div className="relative">
-          {/* 使用真實圖片或佔位圖 */}
-          {concert.image ? (
-            <img
-              src={concert.image}
-              alt={concert.title}
-              className="w-full h-96 object-cover object-center"
-            />
-          ) : (
-            <SimplePlaceholder
-              width="100%"
-              height={384}
-              text={concert.imageText || concert.title}
-              className="w-full h-96 object-cover object-center"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-            <div className="p-6 text-white">
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                {concert.title}
-              </h1>
-              <div className="flex items-center mb-1">
-                <User size={18} className="mr-2" />
-                <span className="text-lg">{concert.performer}</span>
-                <span className="mx-2">-</span>
-                <span>{concert.performerTitle}</span>
-              </div>
-              <div className="flex flex-col space-y-1 mt-3">
-                <div className="flex items-center">
-                  <Calendar size={16} className="mr-2" />
-                  <span>
-                    演出時間：{formatDate(concert.date)}{" "}
-                    {formatTime(concert.date)}
-                  </span>
-                </div>
-                <div className="flex items-center">
-                  <MapPin size={16} className="mr-2" />
-                  <span>
-                    地點：{concert.location} ({concert.address})
-                  </span>
-                </div>
-                {concert.organizer && (
-                  <div className="flex items-center">
-                    <span className="mr-2">●</span>
-                    <span>承辦單位：{concert.organizer}</span>
-                  </div>
-                )}
-                {concert.organizerContact && (
-                  <div className="flex items-center">
-                    <span className="mr-2">●</span>
-                    <span>聯絡電話：{concert.organizerContact}</span>
-                  </div>
-                )}
-                {concert.organizerEmail && (
-                  <div className="flex items-center">
-                    <span className="mr-2">●</span>
-                    <span>聯絡信箱：{concert.organizerEmail}</span>
-                  </div>
-                )}
-
-                {/* 添加主「立即購票」按鈕 */}
-                <div className="mt-4">
-                  <button
-                    onClick={handleBuyNow}
-                    className="px-8 py-3 bg-indigo-600 text-white text-lg font-semibold rounded-lg hover:bg-indigo-700 transition-colors duration-300 ease-in-out flex items-center shadow-lg hover:shadow-xl"
-                  >
-                    <Ticket size={22} className="mr-2" />
-                    立即購票
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 主要內容區 */}
-      <div className="grid grid-cols-1 lg:grid-cols-1 gap-8">
-        {/* 左側內容 */}
-        <div className="lg:col-span-1">
-          {/* 標籤頁導航 */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="flex space-x-8">
-              {[
-                { id: "tickets", label: "購票資訊", icon: Ticket },
-                { id: "description", label: "音樂會介紹", icon: Info },
-                { id: "program", label: "節目單", icon: Music },
-                { id: "performer", label: "表演者", icon: User },
-                { id: "reviews", label: "評論", icon: Star },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center pb-4 px-1 ${
-                    activeTab === tab.id
-                      ? "border-b-2 border-indigo-600 text-indigo-600"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  <tab.icon size={18} className="mr-2" />
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* 標籤頁內容 */}
-          <div className="bg-white rounded-xl p-6 shadow-md">
-            {activeTab === "tickets" && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">購票資訊</h2>
-                <div className="space-y-4">
-                  {concert.ticketAreas.map((area) => (
-                    <div
-                      key={area.id}
-                      onClick={() => handleSelectSeatingArea(area)}
-                      className={`p-4 border rounded-lg cursor-pointer transition ${
-                        selectedSeatingArea?.id === area.id
-                          ? "border-indigo-600 bg-indigo-50"
-                          : "border-gray-200 hover:border-indigo-600"
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium">{area.name}</span>
-                        <span className="text-indigo-600">
-                          NT$ {area.price}
-                        </span>
+       {concert && (
+         <>
+           {/* Header Section */}
+           <div className="bg-white rounded-xl overflow-hidden shadow-md mb-8">
+             {/* ... header content using concert data ... */}
+              <div className="relative">
+                {concert.image ? ( <img src={concert.image} alt={concert.title} className="w-full h-96 object-cover"/>) : (<SimplePlaceholder height={384} text={concert.title} />) }
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-6 text-white">
+                  <div>
+                    <h1 className="text-3xl md:text-4xl font-bold mb-2">{concert.title}</h1>
+                    <div className="flex items-center mb-1"> <User size={18} className="mr-2" /> <span className="text-lg">{concert.performer}</span> {concert.performerTitle && <><span className="mx-2">-</span><span>{concert.performerTitle}</span></>} </div>
+                    {concert.performances && concert.performances.length > 0 && (
+                      <div className="mt-3 space-y-1 text-sm">
+                        <div className="flex items-center"> <Calendar size={16} className="mr-2 opacity-80" /> <span>{formatDate(concert.performances[0].startTime)} {formatTime(concert.performances[0].startTime)}</span> </div>
+                        <div className="flex items-center"> <MapPin size={16} className="mr-2 opacity-80" /> <span>{concert.performances[0].venue}</span> </div>
                       </div>
-                      <div className="text-sm text-gray-500 mt-1">
-                        剩餘座位：{area.available}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {selectedSeatingArea && (
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="font-medium">購票數量</span>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleQuantityChange(quantity - 1)}
-                          className="w-8 h-8 flex items-center justify-center border rounded-full"
-                          disabled={quantity <= 1}
-                        >
-                          -
-                        </button>
-                        <span className="w-8 text-center">{quantity}</span>
-                        <button
-                          onClick={() => handleQuantityChange(quantity + 1)}
-                          className="w-8 h-8 flex items-center justify-center border rounded-full"
-                          disabled={quantity >= selectedSeatingArea.available}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="font-medium">總計金額</span>
-                      <span className="text-xl font-bold text-indigo-600">
-                        NT$ {calculateTotal()}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col space-y-2">
-                      <button
-                        onClick={handleAddToCart}
-                        className="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition"
-                      >
-                        加入購物車
-                      </button>
-                      <button
-                        onClick={handleBuyNow}
-                        className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
-                      >
-                        {selectedSeatingArea ? "立即購買" : "查看所有票種"}
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-            {activeTab === "description" && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">音樂會介紹</h2>
-                <p className="text-gray-700 whitespace-pre-line">
-                  {concert.description}
-                </p>
-              </div>
-            )}
-
-            {activeTab === "program" && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">節目單</h2>
-                <div className="space-y-4">
-                  {concert.program.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
-                    >
-                      <span className="font-medium">{item.name}</span>
-                      <span className="text-gray-600">{item.duration}</span>
-                    </div>
-                  ))}
                 </div>
               </div>
-            )}
+           </div>
 
-            {activeTab === "performer" && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">表演者簡介</h2>
-                <p className="text-gray-700 whitespace-pre-line">
-                  {concert.performerBio}
-                </p>
-              </div>
-            )}
+           {/* Main Content Area */}
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+             {/* Left Column: Tabs */}
+             <div className="lg:col-span-2">
+               {/* Tab Navigation */}
+               <div className="border-b border-gray-200 mb-6">
+                 <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+                   {[ { id: "tickets", label: "購票資訊", icon: Ticket }, { id: "description", label: "音樂會介紹", icon: Info }, { id: "program", label: "節目單", icon: Music }, { id: "performer", label: "表演者", icon: User }, { id: "reviews", label: "評論", icon: Star }, ].map((tab) => ( <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${ activeTab === tab.id ? "border-indigo-500 text-indigo-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" }`} > <tab.icon size={18} className="mr-2" /> {tab.label} </button> ))}
+                 </nav>
+               </div>
 
-            {activeTab === "reviews" && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">觀眾評論</h2>
-                <div className="space-y-4">
-                  {concert.reviews.map((review) => (
-                    <div
-                      key={review.id}
-                      className="border-b border-gray-200 pb-4"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">{review.user}</span>
-                        <div className="flex items-center">
-                          {[...Array(review.rating)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={16}
-                              className="text-yellow-400 fill-current"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-gray-700">{review.comment}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+               {/* Tab Content */}
+               <div className="bg-white rounded-xl p-6 shadow-md min-h-[300px]"> {/* Added min-height */}
+                 {/* Tickets Tab */}
+                 {activeTab === 'tickets' && (
+                   <div>
+                     <h2 className="text-2xl font-bold mb-6 text-gray-800">購票資訊</h2>
+                     {concert.performances && concert.performances.length > 0 ? (
+                       <div className="space-y-8">
+                         {concert.performances.map((performance) => (
+                           <div key={performance.id} className="border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                             {/* Performance Header */}
+                             <div className="bg-gray-50 p-4 border-b border-gray-200">
+                               <h3 className="text-lg font-semibold text-gray-800 flex items-center"> <Calendar size={18} className="mr-2 text-indigo-600" /> 演出場次: {formatDate(performance.startTime)} </h3>
+                               <div className="flex items-center text-sm text-gray-600 mt-1 ml-7"> <MapPin size={14} className="mr-1.5" /> {performance.venue || '地點未定'} </div>
+                             </div>
+                             {/* Tickets for this Performance */}
+                             <div className="p-4 md:p-6">
+                               {performance.tickets && performance.tickets.length > 0 ? (
+                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                   {performance.tickets.map((ticket) => {
+                                     // --- 修改開始 ---
+                                     const ticketInfo = {
+                                       id: ticket.id,
+                                       type: ticket.name || '未知票種', // 直接從 ticket.name 讀取
+                                       description: ticket.description || '', // 直接從 ticket.description 讀取
+                                       price: ticket.price, // 保持讀取 ticket.price (後端需修正 null 值)
+                                       availableQuantity: ticket.availableQuantity,
+                                       // 暫時移除或使用預設顏色，因為 API 沒有提供 colorCode
+                                       colorCode: '#cccccc', // 使用預設灰色
+                                     };
+                                     // --- 修改結束 ---
+                                     const currentQuantity = ticketQuantities[ticket.id] || 1; // Default to 1
 
-      {/* 圖片庫 */}
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4">活動照片</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* 使用內建佔位元件替代外部圖片 */}
-          {concert.galleryItems &&
-            concert.galleryItems.map((item, index) => (
-              <div key={index} className="relative aspect-w-4 aspect-h-3 h-60">
-                <SimplePlaceholder
-                  width="100%"
-                  height="100%"
-                  text={item}
-                  className="object-cover rounded-lg w-full h-full"
-                />
-              </div>
-            ))}
-        </div>
-      </div>
+                                     return (
+                                       <div key={ticket.id} className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow duration-200">
+                                         <div>
+                                           <div className="flex items-center mb-2">
+                                             {/* 使用更新後的 ticketInfo.colorCode */}
+                                             <span style={{ backgroundColor: ticketInfo.colorCode }} className="w-4 h-4 rounded-full mr-2 inline-block flex-shrink-0"></span>
+                                             {/* 使用更新後的 ticketInfo.type */}
+                                             <h4 className="font-bold text-lg text-indigo-700 break-words">{ticketInfo.type}</h4>
+                                           </div>
+                                           {/* 使用更新後的 ticketInfo.description */}
+                                           <p className="text-gray-600 text-sm mt-1 mb-3 break-words">{ticketInfo.description}</p>
+                                           {/* 價格顯示 (如果後端修正了 null，這裡就能正確顯示) */}
+                                           <p className="text-xl font-semibold mb-3">NT$ {(ticketInfo.price ?? 0).toLocaleString()}</p>
+                                           <p className={`text-sm mb-4 font-medium ${ticketInfo.availableQuantity > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                             {ticketInfo.availableQuantity > 0 ? `剩餘 ${ticketInfo.availableQuantity} 張` : '已售罄'}
+                                           </p>
+                                         </div>
+                                         {ticketInfo.availableQuantity > 0 && (
+                                           <div className="mt-auto pt-4"> {/* Push controls to bottom */}
+                                             {/* ... quantity input and add to cart button ... */}
+                                             <div className="flex items-center space-x-2 mb-4">
+                                               <label htmlFor={`qty-${ticket.id}`} className="text-sm font-medium text-gray-700">數量:</label>
+                                               <input type="number" id={`qty-${ticket.id}`} min="1" max={ticketInfo.availableQuantity} value={currentQuantity} onChange={(e) => handleQuantityChange(ticket.id, e.target.value, ticketInfo.availableQuantity)} className="w-20 p-1 border border-gray-300 rounded text-center focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" disabled={ticketInfo.availableQuantity <= 0} />
+                                             </div>
+                                             <button onClick={() => handleAddToCartSpecific(ticket.id, performance.id, currentQuantity)} disabled={ticketInfo.availableQuantity <= 0 || currentQuantity <= 0 || isNaN(currentQuantity)} className={`w-full py-2 px-4 rounded font-medium text-white flex items-center justify-center transition-colors duration-200 ${ticketInfo.availableQuantity > 0 && currentQuantity > 0 && !isNaN(currentQuantity) ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-400 cursor-not-allowed'}`} > <ShoppingCart size={16} className="mr-2"/> 加入購物車 </button>
+                                           </div>
+                                         )}
+                                       </div>
+                                     );
+                                   })}
+                                 </div>
+                               ) : ( <p className="text-gray-500 text-center py-4">此演出場次目前無可售票券。</p> )}
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     ) : (
+                       <div className="text-center py-10 px-6 bg-gray-50 rounded-lg"> <Info size={48} className="mx-auto text-gray-400 mb-4" /> <p className="text-gray-600">此音樂會目前沒有排定演出場次或無可售票券。</p> <p className="text-sm text-gray-500 mt-2">請稍後再回來查看，或聯繫主辦單位。</p> </div>
+                     )}
+                   </div>
+                 )}
+
+                 {/* Other Tabs */}
+                 {activeTab === 'description' && ( <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: concert.description || '<p>暫無詳細介紹</p>' }} /> )}
+                 {activeTab === 'program' && ( <div> <h2 className="text-2xl font-bold mb-4">節目單</h2> {concert.program && concert.program.length > 0 ? ( <ul className="list-disc pl-5 space-y-2"> {concert.program.map((item, index) => <li key={index}>{item.name} {item.duration && `(${item.duration})`}</li>)} </ul> ) : ( <p>暫無節目資訊</p> )} </div> )}
+                 {activeTab === 'performer' && ( <div> <h2 className="text-2xl font-bold mb-4">表演者介紹</h2> <p>{concert.performerBio || '暫無表演者介紹'}</p> </div> )}
+                 {activeTab === 'reviews' && ( <div> <h2 className="text-2xl font-bold mb-4">評論</h2> <p>評論功能開發中。</p> </div> )}
+               </div>
+             </div>
+
+             {/* Right Column: Sidebar (Optional) */}
+             {/* <div className="lg:col-span-1"> ... Sidebar content ... </div> */}
+           </div>
+         </>
+       )}
     </div>
   );
 };

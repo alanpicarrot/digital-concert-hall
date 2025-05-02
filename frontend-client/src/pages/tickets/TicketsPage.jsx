@@ -141,75 +141,90 @@ const TicketsPage = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTickets.map((ticket) => (
-            <div
-              key={ticket.id}
-              className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition"
-            >
-              <div className="relative">
-                {ticket.concertImage ? (
-                  <img
-                    src={ticket.concertImage}
-                    alt={ticket.concertTitle}
-                    className="w-full h-48 object-cover"
-                  />
-                ) : (
-                  <SimplePlaceholder
-                    width="100%"
-                    height={192}
-                    text={ticket.concertTitle}
-                    className="w-full h-48"
-                  />
-                )}
-                <div className="absolute top-0 right-0 bg-indigo-600 text-white py-1 px-3 m-2 rounded-full">
-                  NT$ {ticket.price}
+          {filteredTickets.map((ticket) => {
+            // Ensure performance object and its id are available
+            const performanceId = ticket.performance?.id;
+            if (!performanceId) {
+              console.error("Performance ID is missing for ticket:", ticket.id);
+               // Optionally render differently or skip this ticket
+              return (
+                <div key={ticket.id} className="bg-red-100 p-4 rounded-lg">
+                  錯誤：票券 {ticket.id} 缺少演出場次資訊。
                 </div>
-              </div>
-              
-              <div className="p-4">
-                <h3 className="text-xl font-bold mb-2 line-clamp-1">{ticket.concertTitle}</h3>
-                <p className="text-indigo-600 mb-3">{ticket.ticketType}</p>
-                
-                <div className="space-y-2 mb-4">
-                  {ticket.performance && (
-                    <>
-                      <div className="flex items-center text-gray-600">
-                        <Calendar size={16} className="mr-2" />
-                        <span>{formatDate(ticket.performance.startTime)}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <div className="w-4 h-4 mr-2"></div>
-                        <span>{formatTime(ticket.performance.startTime)}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <MapPin size={16} className="mr-2" />
-                        <span>{ticket.performance.venue || '數位音樂廳'}</span>
-                      </div>
-                    </>
+              );
+            }
+            
+            return (
+              <div
+                key={ticket.id}
+                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition"
+              >
+                <div className="relative">
+                  {ticket.concertImage ? (
+                    <img
+                      src={ticket.concertImage}
+                      alt={ticket.concertTitle}
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <SimplePlaceholder
+                      width="100%"
+                      height={192}
+                      text={ticket.concertTitle}
+                      className="w-full h-48"
+                    />
                   )}
-                  <div className="flex items-center text-gray-600">
-                    <Users size={16} className="mr-2" />
-                    <span>剩餘 {ticket.availableQuantity} 張</span>
+                  <div className="absolute top-0 right-0 bg-indigo-600 text-white py-1 px-3 m-2 rounded-full">
+                    NT$ {ticket.price}
                   </div>
                 </div>
                 
-                <div className="flex space-x-2">
-                  <Link
-                    to={`/concerts/${ticket.concertId}`}
-                    className="flex-1 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-center hover:bg-indigo-50 transition"
-                  >
-                    詳情
-                  </Link>
-                  <Link
-                    to={`/tickets/${ticket.id}`}
-                    className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-center hover:bg-indigo-700 transition"
-                  >
-                    購票
-                  </Link>
+                <div className="p-4">
+                  <h3 className="text-xl font-bold mb-2 line-clamp-1">{ticket.concertTitle}</h3>
+                  <p className="text-indigo-600 mb-3">{ticket.ticketType}</p>
+                  
+                  <div className="space-y-2 mb-4">
+                    {ticket.performance && (
+                      <>
+                        <div className="flex items-center text-gray-600">
+                          <Calendar size={16} className="mr-2" />
+                          <span>{formatDate(ticket.performance.startTime)}</span>
+                        </div>
+                        <div className="flex items-center text-gray-600">
+                          <div className="w-4 h-4 mr-2"></div>
+                          <span>{formatTime(ticket.performance.startTime)}</span>
+                        </div>
+                        <div className="flex items-center text-gray-600">
+                          <MapPin size={16} className="mr-2" />
+                          <span>{ticket.performance.venue || '數位音樂廳'}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex items-center text-gray-600">
+                      <Users size={16} className="mr-2" />
+                      <span>剩餘 {ticket.availableQuantity} 張</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <Link
+                      to={`/concerts/${ticket.concertId}`}
+                      className="flex-1 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-center hover:bg-indigo-50 transition"
+                    >
+                      詳情
+                    </Link>
+                    <Link
+                      // Update the URL format here
+                      to={`/tickets/${performanceId}/${ticket.id}`}
+                      className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-center hover:bg-indigo-700 transition"
+                    >
+                      購票
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

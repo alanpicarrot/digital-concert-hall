@@ -232,16 +232,22 @@ const CheckoutPage = () => {
               setDirectCheckout(checkoutInfo);
               setOrder(null);
 
-              // 顯示購票資訊已就緒的通知
-              toast.showInfo("準備完成", "購票資訊已就緒，請確認後進行付款");
+              toast.showInfo("準備完成", "購票資訊已就绪，請確認後進行付款");
 
-              // 為直接購買建立訂單摘要
+              // 為直接購買建立訂單摘要 - 使用健壯的數據處理方式
               const summary = {
-                totalItems: checkoutInfo.quantity,
-                subtotal: checkoutInfo.ticketPrice * checkoutInfo.quantity,
-                discount: 0,
-                totalAmount: checkoutInfo.totalAmount,
+                // 確保有默認值，避免 undefined * number = NaN
+                totalItems: checkoutInfo.quantity || 0,
+                subtotal: (checkoutInfo.ticketPrice || 0) * (checkoutInfo.quantity || 0),
+                discount: checkoutInfo.discountAmount || 0, 
+                // 總金額計算優先使用傳入的值，否則基於小計和折扣計算
+                totalAmount: checkoutInfo.totalAmount || ((checkoutInfo.ticketPrice || 0) * (checkoutInfo.quantity || 0) - (checkoutInfo.discountAmount || 0)),
               };
+              
+              // 如果存在 subtotal，優先使用它
+              if (checkoutInfo.subtotal && !isNaN(checkoutInfo.subtotal)) {
+                summary.subtotal = checkoutInfo.subtotal;
+              }
 
               // 檢查是否有折扣
               if (
@@ -254,7 +260,10 @@ const CheckoutPage = () => {
                   amount: checkoutInfo.discountAmount || 0,
                   percentage: checkoutInfo.discountPercentage || null,
                 });
+                // 如果有折扣，重新計算總金額
+                summary.totalAmount = summary.subtotal - summary.discount;
               }
+
 
               setOrderSummary(summary);
             } catch (err) {
@@ -282,7 +291,7 @@ const CheckoutPage = () => {
     return () => {
       sessionStorage.removeItem("checkoutInfoProcessed");
     };
-  }, [orderNumber, toast]);
+  }, [orderNumber, toast]); // 保持依賴項
 
   // 使用 useCallback 包裝 handlePayment
   const handlePayment = useCallback(async () => {
@@ -330,13 +339,18 @@ const CheckoutPage = () => {
           }
 
           // 建立購物車對象
+          // 建立更完整的購物車請求對象
           const cartRequest = {
             items: [
               {
                 id: directCheckout.ticketId,
-                quantity: directCheckout.quantity,
-                concertId: directCheckout.concertId, // 添加音樂會ID
-                type: directCheckout.ticketType, // 添加票券類型
+                quantity: directCheckout.quantity || 1, // 確保數量至少為1
+                concertId: directCheckout.concertId, 
+                type: "ticket", // 確保類型始終是ticket
+                ticketType: directCheckout.ticketType, // 票券類型名稱
+                ticketTypeId: directCheckout.ticketTypeId, // 如果有提供票券類型ID
+                performanceId: directCheckout.performanceId, // 演出場次ID很重要
+                price: directCheckout.ticketPrice, // 確保價格也包含在內
               },
             ],
           };
@@ -533,6 +547,14 @@ const CheckoutPage = () => {
           </div>
         ) : (
           <>
+            {/* 購票狀態提示 */}
+            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-4 flex items-start">
+              <Info size={16} className="text-indigo-600 mr-2 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-indigo-700 mb-1">購票流程提示</h3>
+                <p className="text-sm text-indigo-600">您正在進行票券購買，請確認以下訂單資訊，確認無誤後點擊「確認付款」按鈕進行支付。支付完成後，系統將自動發送電子票券到您的電子信箱。</p>
+              </div>
+            </div>
             {/* 測試模式通知 */}
             <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-3 mb-6">
               <div className="flex items-center text-yellow-800 text-sm">

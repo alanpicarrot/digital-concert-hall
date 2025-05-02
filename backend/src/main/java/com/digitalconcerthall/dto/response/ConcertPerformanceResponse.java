@@ -1,5 +1,5 @@
 package com.digitalconcerthall.dto.response;
-
+import com.digitalconcerthall.dto.response.ticket.TicketTypeClientResponse; // 新增導入
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -31,5 +31,15 @@ public class ConcertPerformanceResponse {
         private String venue;
         private String status;
         private Integer duration; // 時長（分鐘）
+        private List<TicketTypeClientResponse> tickets; // Add this field
+    
+        // Add these getter and setter methods
+        public List<TicketTypeClientResponse> getTickets() {
+            return tickets;
+        }
+    
+        public void setTickets(List<TicketTypeClientResponse> tickets) {
+            this.tickets = tickets;
+        }
     }
 }

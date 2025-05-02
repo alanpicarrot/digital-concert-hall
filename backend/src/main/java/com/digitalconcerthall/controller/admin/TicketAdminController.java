@@ -15,7 +15,7 @@ import com.digitalconcerthall.model.ticket.Ticket;
 import com.digitalconcerthall.model.ticket.TicketType;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
 import com.digitalconcerthall.repository.TicketRepository;
-import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
+import com.digitalconcerthall.repository.TicketTypeRepository;
 
 @RestController
 @RequestMapping("/api/admin/tickets")

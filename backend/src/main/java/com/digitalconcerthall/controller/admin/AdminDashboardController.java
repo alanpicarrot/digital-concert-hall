@@ -21,7 +21,7 @@ import com.digitalconcerthall.repository.UserRepository;
 import com.digitalconcerthall.repository.TicketRepository;
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
-import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
+import com.digitalconcerthall.repository.TicketTypeRepository;
 
 import java.math.BigDecimal;
 import java.util.HashSet;

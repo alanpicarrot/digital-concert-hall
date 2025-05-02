@@ -261,9 +261,14 @@ const getTicketsByPerformance = async (performanceId) => {
     // 模擬數據，服務器端API尚未實現或出錯時使用
     console.log('使用模擬演出場次票券數據');
     
-    // 為了確保日期格式正確，使用更穩定的方式創建日期
-    const date = new Date();
-    date.setDate(date.getDate() + 7); // 設置為7天後
+    // 創建更標準化的日期格式，適配 API 返回的數據結構
+    const now = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(now.getDate() + 7); // 設置為7天後
+    
+    // 轉換日期格式為 ISO 標準格式
+    const formattedStartTime = futureDate.toISOString();
+    const formattedEndTime = new Date(futureDate.getTime() + 2 * 60 * 60 * 1000).toISOString(); // 演出時長為2小時
     
     // 為演出場次提供兩種票券類型的模擬數據
     const mockTickets = [
@@ -280,8 +285,8 @@ const getTicketsByPerformance = async (performanceId) => {
         availableQuantity: 100,
         performance: {
           id: parseInt(performanceId),
-          startTime: date.toISOString(),
-          endTime: new Date(date.getTime() + 2 * 60 * 60 * 1000).toISOString(), // 2小時後
+          startTime: formattedStartTime,
+          endTime: formattedEndTime,
           venue: '數位音樂廳主廳',
           concertId: 1
         }
@@ -299,8 +304,8 @@ const getTicketsByPerformance = async (performanceId) => {
         availableQuantity: 200,
         performance: {
           id: parseInt(performanceId),
-          startTime: date.toISOString(),
-          endTime: new Date(date.getTime() + 2 * 60 * 60 * 1000).toISOString(), // 2小時後
+          startTime: formattedStartTime,
+          endTime: formattedEndTime,
           venue: '數位音樂廳主廳',
           concertId: 1
         }

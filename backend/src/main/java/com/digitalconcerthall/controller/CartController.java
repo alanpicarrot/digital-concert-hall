@@ -1,5 +1,4 @@
 package com.digitalconcerthall.controller;
-import com.digitalconcerthall.repository.TicketRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -9,7 +8,6 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,10 +28,10 @@ import com.digitalconcerthall.model.ticket.TicketType;
 import com.digitalconcerthall.repository.concert.ConcertRepository;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
 import com.digitalconcerthall.repository.order.OrderRepository;
+import com.digitalconcerthall.repository.TicketTypeRepository;
 import com.digitalconcerthall.repository.TicketRepository;
-import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
 import com.digitalconcerthall.service.UserService;
-// import com.digitalconcerthall.service.order.OrderService;  // 未使用
+
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -51,6 +49,7 @@ public class CartController {
 
     @Autowired
     private TicketRepository ticketRepository;
+
 
     @Autowired
     private OrderRepository orderRepository;
@@ -129,10 +128,13 @@ public class CartController {
                 Ticket ticket = new Ticket();
                 ticket.setTicketType(ticketType);
                 ticket.setPerformance(performance);
-                ticket.setTotalQuantity(item.getQuantity() * 10);
-                ticket.setAvailableQuantity(item.getQuantity() * 10 - item.getQuantity());
+                // Note: Consider if totalQuantity and availableQuantity logic needs adjustment
+                // based on whether Ticket represents inventory or a specific purchase batch.
+                // Assuming it's inventory for now:
+                ticket.setTotalQuantity(item.getQuantity()); // Or maybe this should be fetched/updated from existing inventory?
+                ticket.setAvailableQuantity(item.getQuantity()); // This likely needs more complex logic for inventory management
                 ticket.setCreatedAt(LocalDateTime.now());
-                ticket.setUsername(currentUser.getUsername()); // 設置username以符合欄位需求
+                // ticket.setUsername(currentUser.getUsername()); // <-- Removed this line
 
                 // 先保存票券，確保有ID
                 ticket = ticketRepository.save(ticket);

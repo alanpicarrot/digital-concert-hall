@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Calendar, User, Music, Filter } from "lucide-react";
+import { Calendar, User, Music, Filter, Tag } from "lucide-react"; // Import Tag icon
 import concertService from "../../services/concertService";
 import SimplePlaceholder from "../../components/ui/SimplePlaceholder";
 
@@ -43,16 +43,19 @@ const ConcertsPage = () => {
         }
 
         // 格式化數據用於顯示
+        // Remove mock price data
         const formattedConcerts = concertsData.map((concert) => ({
           id: concert.id,
           title: concert.title,
-          performer: concert.performer || "表演者",
-          date: concert.startTime || new Date().toISOString(),
+          performer: concert.performer || "表演者", // Keep fallback for performer if needed
+          date: concert.startTime || new Date().toISOString(), // Keep fallback for date if needed
           posterUrl: concert.posterUrl,
-          location: concert.venue || "數位音樂廳主廳",
-          genre: concert.genre || "古典音樂",
-          price: { min: 300, max: 1200 },
+          location: concert.venue || "數位音樂廳主廳", // Keep fallback for location if needed
+          genre: concert.genre || "古典音樂", // Keep fallback for genre if needed
+          // price: { min: 300, max: 1200 }, // REMOVE mock price
           description: concert.description,
+          // Add performanceId if available from the first performance for linking
+          performanceId: concert.performances?.[0]?.id,
         }));
 
         console.log("格式化後的音樂會數據:", formattedConcerts.length);
@@ -249,24 +252,15 @@ const ConcertsPage = () => {
                     <span>{concert.genre}</span>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-800">
-                      <span className="font-semibold">
-                        NT${concert.price.min} - {concert.price.max}
-                      </span>
-                    </div>
+                  {/* 票價範圍的 div 已被移除 */}
+
+                  <div className="flex justify-end items-center mt-auto pt-4"> {/* 使用 justify-end 將按鈕推到右側, mt-auto 確保在底部 */}
                     <div className="flex space-x-2">
                       <Link
-                        to={`/concerts/${concert.id}`}
-                        className="text-indigo-600 hover:text-indigo-800 font-medium"
+                        to={`/concerts/${concert.id}`} // 確保路徑正確
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm font-medium transition duration-150 ease-in-out" // 稍微調整樣式
                       >
-                        查看詳情
-                      </Link>
-                      <Link
-                        to={`/concerts/${concert.id}/tickets/standard`}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded text-sm font-medium"
-                      >
-                        購票
+                        查看與購票 {/* <--- 暫定按鈕名稱 */}
                       </Link>
                     </div>
                   </div>

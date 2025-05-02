@@ -1,84 +1,103 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-
-// 導入布局組件
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import MainLayout from '../layouts/MainLayout';
 import AuthLayout from '../layouts/AuthLayout';
 
-// 導入頁面組件
+// Page Imports
 import HomePage from '../pages/home/HomePage';
-import ConcertDetailPage from '../pages/concerts/ConcertDetailPage';
 import ConcertsPage from '../pages/concerts/ConcertsPage';
-import TicketDetailPage from '../pages/TicketDetailPage';
-import TicketsDetailPage from '../pages/tickets/TicketDetailPage';
+import ConcertDetailPage from '../pages/concerts/ConcertDetailPage';
+// Correct the import path for TicketDetailPage
+import TicketDetailPage from '../pages/tickets/TicketDetailPage.jsx'; // Renamed from TicketsDetailPage for consistency if needed, or keep as is if correct
 import PerformanceTicketsPage from '../pages/tickets/PerformanceTicketsPage';
-import CheckoutPage from '../pages/checkout/CheckoutPage';
+// Assuming TicketsDetailPage might be a typo or another component, check if it's used.
+// If TicketsDetailPage is not used or was a typo for TicketDetailPage, you might remove this line:
+// import TicketsDetailPage from '../pages/tickets/TicketsDetailPage';
 import CartPage from '../pages/cart/CartPage';
+import CheckoutPage from '../pages/checkout/CheckoutPage';
 import UserProfilePage from '../pages/user/UserProfilePage';
 import LoginPage from '../pages/auth/LoginPage';
 import RegisterPage from '../pages/auth/RegisterPage';
 
-// 導入錯誤邊界和保護路由
-import ErrorBoundary from '../components/ui/ErrorBoundary';
-import PrivateRoute from './PrivateRoute';
+// Route Components
+import PrivateRoute from './PrivateRoute'; // Ensure this path is correct
 
 function AppRoutes() {
     return (
         <ErrorBoundary>
             <Routes>
-                {/* 主頁面布局 */}
+                {/* Main Layout Routes */}
                 <Route element={<MainLayout />}>
-                    {/* 公開路由 */}
+                    {/* Public Routes */}
                     <Route path="/" element={<HomePage />} />
-                    
-                    {/* 音樂會和票券路由 */}
                     <Route path="/concerts" element={<ConcertsPage />} />
                     <Route path="/concerts/:id" element={<ConcertDetailPage />} />
-                    <Route path="/concerts/:concertId/tickets/:ticketType" element={<TicketDetailPage />} />
-                    {/* 票券演出場次路由 */}
+                    {/* Ensure this route uses the correct component and path */}
                     <Route path="/tickets/performance/:id" element={<PerformanceTicketsPage />} />
-                    <Route path="/tickets/:id" element={<TicketsDetailPage />} />
-                    {/* 定向給 ID=1 的的春季交響音樂會 */}
+                    {/* Updated route for TicketDetailPage */}
+                    <Route path="/tickets/:performanceId/:ticketId" element={<TicketDetailPage />} />
+                    {/* Redirect for spring concert */}
                     <Route path="/spring-concert" element={<Navigate to="/concerts/1" replace />} />
-                    
-                    {/* 購物車路由 */}
                     <Route path="/cart" element={<CartPage />} />
-                    
-                    {/* 需要登入的路由 */}
-                    <Route 
-                        path="/checkout/:orderNumber" 
+
+                    {/* Protected Routes */}
+                    <Route
+                        path="/checkout/:orderNumber"
                         element={
                             <PrivateRoute>
                                 <CheckoutPage />
                             </PrivateRoute>
-                        } 
+                        }
                     />
-                    {/* 直接購買路由 */}
-                    <Route 
-                        path="/checkout" 
+                    <Route
+                        path="/checkout"
                         element={
                             <PrivateRoute>
                                 <CheckoutPage />
                             </PrivateRoute>
-                        } 
+                        }
                     />
-                    <Route 
-                        path="/profile" 
+                     <Route
+                        path="/profile"
                         element={
                             <PrivateRoute>
                                 <UserProfilePage />
                             </PrivateRoute>
-                        } 
+                        }
                     />
+                     {/* Add routes for user tickets if they exist */}
+                     {/* Example:
+                     <Route
+                        path="/user/tickets"
+                        element={
+                            <PrivateRoute>
+                                <UserTicketsPage />
+                            </PrivateRoute>
+                        }
+                     />
+                     <Route
+                        path="/user/tickets/:ticketId"
+                        element={
+                            <PrivateRoute>
+                                <UserTicketDetailPage />
+                            </PrivateRoute>
+                        }
+                     />
+                     */}
                 </Route>
-                
-                {/* 認證相關頁面 */}
+
+                {/* Auth Layout Routes */}
                 <Route element={<AuthLayout />}>
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
+                    {/* Keep consistent auth paths */}
                     <Route path="/auth/login" element={<LoginPage />} />
                     <Route path="/auth/register" element={<RegisterPage />} />
                 </Route>
+
+                {/* Fallback for unmatched routes - Optional */}
+                {/* <Route path="*" element={<NotFoundPage />} /> */}
             </Routes>
         </ErrorBoundary>
     );

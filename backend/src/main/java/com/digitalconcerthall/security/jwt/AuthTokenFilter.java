@@ -1,5 +1,6 @@
 package com.digitalconcerthall.security.jwt;
 
+import com.digitalconcerthall.security.services.AdminUserDetailsServiceImpl; // <-- 導入 Admin Service
 import com.digitalconcerthall.security.services.UserDetailsImpl;
 import com.digitalconcerthall.security.services.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
@@ -8,32 +9,34 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired; // <-- 允許 Autowired
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component; // <-- 標記為 Component
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.lang.NonNull;
+
 
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.stereotype.Component;
-import org.springframework.lang.NonNull;
-
-@Component
+@Component // <-- 確保是 Component
 public class AuthTokenFilter extends OncePerRequestFilter {
 
-    private final JwtUtils jwtUtils;
-    private final UserDetailsServiceImpl userDetailsService;
+    @Autowired // <-- 使用 Autowired 注入
+    private JwtUtils jwtUtils;
+
+    @Autowired // <-- 注入 User Service
+    private UserDetailsServiceImpl userDetailsService;
+
     private static final Logger logger = LoggerFactory.getLogger(AuthTokenFilter.class);
 
-    public AuthTokenFilter(JwtUtils jwtUtils, UserDetailsServiceImpl userDetailsService) {
-        this.jwtUtils = jwtUtils;
-        this.userDetailsService = userDetailsService;
-    }
+    // 移除構造函數注入，因為我們改用 @Autowired
 
     @Override
     protected void doFilterInternal(
@@ -52,12 +55,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
             String jwt = parseJwt(request);
             logger.debug("Parsed JWT from request: {}... (truncated)", jwt != null ? jwt.substring(0, Math.min(10, jwt.length())) + "..." : "null");
             
-            if (jwt != null) {
+            if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
                 logger.debug("Request URI: {}", request.getRequestURI());
                 
                 if (jwtUtils.validateJwtToken(jwt)) {
                     logger.debug("JWT token is valid");
-                    String username = jwtUtils.getUserNameFromJwtToken(jwt);
+                    String username = jwtUtils.getUserNameFromJwtToken(jwt); // 可能需要，也可能不需要
                     Long userId = jwtUtils.getUserIdFromJwtToken(jwt);
                     logger.debug("Username from token: {}", username);
                     logger.debug("UserId from token: {}", userId);
@@ -82,20 +85,15 @@ logger.debug("User details loaded, user ID: {}, authorities: {}",
                     // 將角色轉換為GrantedAuthority
                     List<SimpleGrantedAuthority> authorities = roles.stream()
                         .map(role -> {
-                            // 轉換為字符串來確保安全
                             String roleStr = role.toString();
-                            
-                            // 確保角色名稱符合 Spring Security 的要求
                             if (!roleStr.startsWith("ROLE_")) {
                                 roleStr = "ROLE_" + roleStr.toUpperCase();
-                                logger.debug("Role name adjusted to: {}", roleStr);
                             }
                             return new SimpleGrantedAuthority(roleStr);
                         })
                         .collect(Collectors.toList());
-                    
                     logger.debug("Final authorities for authentication: {}", authorities);
-                    
+                
                     // 建立身份驗證令牌
                     UsernamePasswordAuthenticationToken authentication = 
                         new UsernamePasswordAuthenticationToken(

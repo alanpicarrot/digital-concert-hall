@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import com.digitalconcerthall.dto.request.TicketTypeRequest;
 import com.digitalconcerthall.dto.response.ApiResponse;
 import com.digitalconcerthall.model.ticket.TicketType;
-import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
+import com.digitalconcerthall.repository.TicketTypeRepository;
 
 @RestController
 @RequestMapping("/api/admin/ticket-types")

@@ -1,6 +1,8 @@
 package com.digitalconcerthall.dto.response;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,7 +18,9 @@ public class ConcertResponse {
     private String posterUrl;
     private String brochureUrl;
     private String status;
-    private LocalDateTime startTime; // 第一個場次的時間
-    private String venue; // 第一個場次的地點
-    private Integer performanceCount; // 場次數量
+    private List<LocalDateTime> startTimes;
+    private List<String> venues;
+    private Integer performanceCount;
+    private BigDecimal minPrice;
+    private BigDecimal maxPrice;
 }

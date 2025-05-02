@@ -29,7 +29,8 @@ const PerformanceTicketsPage = () => {
           setPerformance(performanceData);
         } catch (performanceError) {
           console.error('獲取演出場次數據失敗:', performanceError);
-          throw performanceError;
+          // 將錯誤向上拋出，讓外層 catch 處理
+          throw new Error(`獲取演出場次數據失敗: ${performanceError.message}`);
         }
         
         // 獲取相關聯的音樂會詳情
@@ -41,73 +42,68 @@ const PerformanceTicketsPage = () => {
             setConcert(concertData);
           } catch (concertError) {
             console.error('獲取音樂會數據失敗:', concertError);
-            // 使用模擬音樂會數據作為備用
-            console.log('使用模擬音樂會數據');
-            setConcert({
-              id: performanceData.concertId,
-              title: 'test',
-              description: '請選擇您要購買的票種',
-              posterUrl: null
-            });
+            // 不再使用模擬數據，而是拋出錯誤或設置錯誤狀態
+             setError(`無法獲取關聯的音樂會資訊(ID: ${performanceData.concertId})`);
+             // 可以選擇在這裡 return 或繼續嘗試獲取票券
+             // throw new Error(`獲取音樂會數據失敗: ${concertError.message}`);
           }
+        } else {
+           // 如果沒有 concertId，也應該處理
+           console.warn('演出場次數據中缺少 concertId');
+           setError('無法從演出場次資訊中獲取關聯的音樂會ID');
         }
         
         // 獲取該演出場次的所有可用票券
-        try {
-          console.log(`嘗試獲取演出場次ID ${id} 的票券`);
-          const ticketsData = await ticketService.getTicketsByPerformance(id);
-          console.log('成功獲取票券數據:', ticketsData);
+        // 只有在成功獲取 performanceData 後才嘗試獲取票券
+        if (performanceData) {
+          try {
+            console.log(`嘗試獲取演出場次ID ${id} 的票券`);
+            const ticketsData = await ticketService.getTicketsByPerformance(id);
+            console.log('成功獲取票券數據:', ticketsData);
           
-          // 如果票券數據中沒有完整的演出場次信息，需要進行補充
-          if (Array.isArray(ticketsData) && ticketsData.length > 0) {
-            const enhancedTickets = ticketsData.map(ticket => {
-              // 確保演出場次信息完整
-              if (ticket.performance && (!ticket.performance.startTime || !ticket.performance.venue)) {
-                // 將演出場次資訊填充到票券中
-                return {
-                  ...ticket,
-                  performance: {
-                    ...ticket.performance,
-                    startTime: performanceData.startTime,
-                    endTime: performanceData.endTime,
-                    venue: performanceData.venue,
-                    concertId: performanceData.concertId
-                  }
-                };
-              }
-              return ticket;
-            });
-            setTickets(enhancedTickets);
-          } else {
-            setTickets(ticketsData || []);
-          }
-        } catch (ticketsError) {
-          console.error('獲取票券數據失敗:', ticketsError);
-          // 使用模擬票券數據
-          console.log('使用模擬票券數據');
-          setTickets([
-            {
-              id: 1,
-              ticketType: {
-                id: 1,
-                name: '一般票',
-                description: '標準票種，良好的視聽體驗',
-                price: 1000
-              },
-              price: 1000,
-              availableQuantity: 100,
-              performance: performanceData
+            if (Array.isArray(ticketsData) && ticketsData.length > 0) {
+              const enhancedTickets = ticketsData.map(ticket => ({
+                ...ticket,
+                // 確保 performance 對象包含必要的演出信息
+                performance: {
+                  ...ticket.performance, // 保留票券原有的 performance 信息
+                  id: performanceData.id, // 確保 ID 正確
+                  startTime: performanceData.startTime,
+                  endTime: performanceData.endTime,
+                  venue: performanceData.venue,
+                  concertId: performanceData.concertId
+                }
+              }));
+              setTickets(enhancedTickets);
+            } else {
+              // 如果 API 返回空數組或非數組，設置為空數組
+              setTickets([]);
+              console.log(`演出場次 ${id} 沒有可用的票券`);
             }
-          ]);
+          } catch (ticketsError) {
+            console.error('獲取票券數據失敗:', ticketsError);
+            // 不再使用模擬數據，而是設置錯誤狀態
+            setError(`無法獲取演出場次 ${id} 的票券資訊`);
+            setTickets([]); // 清空票券
+          }
+        } else {
+           // 如果 performanceData 獲取失敗，就不需要獲取票券了
+           setTickets([]);
         }
+
       } catch (error) {
-        console.error('致命錯誤，無法獲取演出場次數據:', error);
-        setError('無法獲取演出場次資訊，請稍後再試');
+        console.error('獲取演出頁面數據時發生錯誤:', error);
+        // 統一處理頂層錯誤
+        setError(error.message || '無法載入演出資訊，請稍後再試');
+        // 清空可能已部分設置的狀態
+        setPerformance(null);
+        setConcert(null);
+        setTickets([]);
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchPerformanceData();
   }, [id]);
   
@@ -284,6 +280,14 @@ const PerformanceTicketsPage = () => {
             const ticketPrice = ticket.price;
             const availableQuantity = ticket.availableQuantity;
             
+            // Ensure performance object and its id are available
+            const currentPerformanceId = performance?.id; 
+            if (!currentPerformanceId) {
+              console.error("Performance ID is missing for ticket:", ticket.id);
+              // Optionally render differently or skip this ticket
+              return null; 
+            }
+            
             return (
               <div
                 key={ticket.id}
@@ -306,7 +310,8 @@ const PerformanceTicketsPage = () => {
                   </div>
                   
                   <Link
-                    to={`/tickets/${ticket.id}?type=${encodeURIComponent(ticketName)}`}
+                    // Update the URL format here
+                    to={`/tickets/${currentPerformanceId}/${ticket.id}?type=${encodeURIComponent(ticketName)}`}
                     className="block w-full py-2 bg-indigo-600 text-white rounded-lg text-center hover:bg-indigo-700 transition"
                   >
                     選擇此票種

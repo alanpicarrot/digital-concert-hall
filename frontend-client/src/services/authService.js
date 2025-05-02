@@ -256,12 +256,12 @@ const register = async (username, email, password, firstName, lastName) => {
     password: "[REDACTED]",
   });
 
-  // 使用validateApiPath確保路徑一致性，包含 /auth 路徑
-  const endpoint = validateApiPath("/register");
-  console.log("API URL:", API_URL);
-  console.log("完整請求 URL:", `${API_URL}${endpoint}`);
 
-  return axiosInstance.post(endpoint, requestData, {
+  const endpoint = "/api/auth/register";
+  console.log("API URL:", API_URL);
+  console.log("完整請求 URL:", `${API_URL}${endpoint}`); 
+ 
+  return axiosInstance.post(endpoint, requestData, { 
     headers: {
       "Content-Type": "application/json",
     },

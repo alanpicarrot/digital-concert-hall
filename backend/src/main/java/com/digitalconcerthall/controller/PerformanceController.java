@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.digitalconcerthall.dto.response.PerformanceDetailResponse;
-import com.digitalconcerthall.model.concert.Performance;
 import com.digitalconcerthall.repository.concert.PerformanceRepository;
 
 import java.time.Duration;

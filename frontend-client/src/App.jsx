@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import ConcertsPage from "./pages/concerts/ConcertsPage";
 import ConcertDetailPage from "./pages/concerts/ConcertDetailPage";
-import TicketingPage from "./pages/tickets/TicketingPage";
+import TicketDetailPage from "./pages/tickets/TicketDetailPage.jsx"; // 使用新的票券詳情頁
 import PrivateRoute from "./components/auth/PrivateRoute";
 import AppInitializer from "./components/AppInitializer";
 
@@ -23,14 +23,16 @@ function App() {
           <Route path="/spring-concert" element={<Navigate to="/concerts/1" replace />} />
 
           {/* Protected Routes */}
+          {/* 更新後的票券詳情頁路由 */}
           <Route
-            path="/tickets/:id"
+            path="/tickets/:performanceId/:ticketId" // 新的路由格式
             element={
               <PrivateRoute>
-                <TicketingPage />
+                <TicketDetailPage />
               </PrivateRoute>
             }
           />
+          {/* 舊的路由已被移除 */}
         </Routes>
       </Router>
     </AppInitializer>

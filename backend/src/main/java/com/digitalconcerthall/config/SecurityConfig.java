@@ -6,14 +6,11 @@ import com.digitalconcerthall.security.jwt.JwtUtils;
 import com.digitalconcerthall.security.services.AdminUserDetailsServiceImpl; // <-- 導入 AdminUserDetailsServiceImpl
 import com.digitalconcerthall.security.services.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier; // <-- 導入 Qualifier
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary; // <-- 導入 Primary
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager; // <-- 導入 ProviderManager
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -44,16 +41,12 @@ public class SecurityConfig {
     @Autowired
     private JwtUtils jwtUtils;
 
-    @Bean
-    public AuthTokenFilter authTokenFilter() {
-        // 注意：AuthTokenFilter 可能也需要區分普通用戶和管理員，
-        // 取決於您的 JWT 驗證邏輯是否需要從不同的 UserDetailsService 加載用戶。
-        // 如果 JWT payload 中包含用戶類型或角色信息，可以在 filter 中判斷調用哪個 service。
-        // 暫時保持不變，假設它能處理兩種用戶。
-        return new AuthTokenFilter(jwtUtils, userDetailsService); // 或者需要更複雜的邏輯
-    }
+    @Autowired // <-- 注入 AuthTokenFilter (因為它現在是 @Component)
+    private AuthTokenFilter authTokenFilter;
 
-    // ... CorsConfigurationSource Bean 不變 ...
+    // 不再需要 @Bean public AuthTokenFilter authTokenFilter() { ... } 這個方法
+    // Spring 會自動掃描並創建 @Component
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -117,8 +110,9 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                    "/api/auth/admin/signin", // <-- 確保管理員登入路徑也包含在內
-                    "/api/auth/admin/signup", // <-- 確保管理員註冊路徑也包含在內
+                    "/api/register", // <-- 將註冊路徑添加到這裡
+                    "/api/auth/admin/signin",
+                    "/api/auth/admin/signup",
                     "/api/auth/**",
                     "/h2-console/**",
                     "/public/**",
@@ -137,8 +131,9 @@ public class SecurityConfig {
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
 
 
-        http.addFilterBefore(authTokenFilter(), UsernamePasswordAuthenticationFilter.class);
-
+        // 直接使用注入的 authTokenFilter 實例
+        http.addFilterBefore(authTokenFilter, UsernamePasswordAuthenticationFilter.class);
+    
         return http.build();
     }
 }

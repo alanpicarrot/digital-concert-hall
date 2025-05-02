@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.digitalconcerthall.dto.response.ticket.TicketTypeClientResponse;
 import com.digitalconcerthall.repository.TicketRepository;
-import com.digitalconcerthall.repository.ticket.TicketTypeRepository;
+import com.digitalconcerthall.repository.TicketTypeRepository;
 import com.digitalconcerthall.model.ticket.Ticket;
 import com.digitalconcerthall.model.ticket.TicketType;
 
