@@ -5,38 +5,6 @@
  * @param {boolean} options.withTime - 是否包含時間，默認為true
  * @returns {string} 格式化後的日期時間字符串
  */
-export const formatDate = (dateTime, options = { withTime: true }) => {
-  if (!dateTime) return '未提供日期';
-  
-  try {
-    const date = typeof dateTime === 'string' ? new Date(dateTime) : dateTime;
-    
-    // 檢查日期是否有效
-    if (isNaN(date.getTime())) {
-      return '無效日期';
-    }
-    
-    // 格式化日期部分
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const dateStr = `${year}/${month}/${day}`;
-    
-    // 如果不需要時間部分，直接返回日期
-    if (!options.withTime) {
-      return dateStr;
-    }
-    
-    // 格式化時間部分
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    
-    return `${dateStr} ${hours}:${minutes}`;
-  } catch (error) {
-    console.error('Format date error:', error);
-    return '日期格式錯誤';
-  }
-};
 
 /**
  * 計算兩個日期之間的差距（天數）
@@ -119,8 +87,51 @@ export const formatDuration = (minutes) => {
   }
 };
 
+/**
+ * 格式化日期 (Keep this one)
+ * @param {string|Date} dateInput - 日期時間字符串或Date對象
+ * @param {string} locale - 地區設定，例如 'zh-TW'
+ * @param {Intl.DateTimeFormatOptions} options - Intl.DateTimeFormat 的選項
+ * @returns {string} 格式化後的日期字符串
+ */
+export const formatDate = (dateInput, locale = 'zh-TW', options = { year: 'numeric', month: '2-digit', day: '2-digit' }) => {
+  if (!dateInput) return '日期未知';
+  try {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(date.getTime())) {
+      return '日期無效';
+    }
+    return date.toLocaleDateString(locale, options);
+  } catch (error) {
+    console.error('Format date error:', error, { dateInput, locale, options });
+    return '日期格式錯誤';
+  }
+};
+
+/**
+ * 格式化時間 (Keep this one)
+ * @param {string|Date} dateInput - 日期時間字符串或Date對象
+ * @param {string} locale - 地區設定，例如 'zh-TW'
+ * @param {Intl.DateTimeFormatOptions} options - Intl.DateTimeFormat 的選項
+ * @returns {string} 格式化後的時間字符串
+ */
+export const formatTime = (dateInput, locale = 'zh-TW', options = { hour: '2-digit', minute: '2-digit', hour12: false }) => {
+  if (!dateInput) return '時間未知';
+  try {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(date.getTime())) {
+      return '時間無效';
+    }
+    return date.toLocaleTimeString(locale, options);
+  } catch (error) {
+    console.error('Format time error:', error, { dateInput, locale, options });
+    return '時間格式錯誤';
+  }
+};
+
 export default {
   formatDate,
+  formatTime,
   daysBetween,
   isExpired,
   getRelativeTime,

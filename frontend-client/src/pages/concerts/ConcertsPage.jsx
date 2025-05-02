@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Calendar, User, Music, Filter, Tag } from "lucide-react"; // Import Tag icon
 import concertService from "../../services/concertService";
 import SimplePlaceholder from "../../components/ui/SimplePlaceholder";
+import { formatDate } from "../../utils/dateUtils"; // 導入共享函數
 
 const ConcertsPage = () => {
   const [concerts, setConcerts] = useState([]);
@@ -19,7 +20,7 @@ const ConcertsPage = () => {
       try {
         setLoading(true);
         setError(null);
-        console.log("正在獲取音樂會數據..."); 
+        console.log("正在獲取音樂會數據...");
 
         // 根據時間範圍過濾獲取音樂會
         let concertsData;
@@ -37,7 +38,9 @@ const ConcertsPage = () => {
         if (!concertsData || concertsData.length === 0) {
           console.warn("後端返回空數據集");
           setConcerts([]);
-          setError("目前沒有音樂會數據。請確保管理後台已創建資料並正確寫入 H2 資料庫。");
+          setError(
+            "目前沒有音樂會數據。請確保管理後台已創建資料並正確寫入 H2 資料庫。"
+          );
           setLoading(false);
           return;
         }
@@ -48,13 +51,19 @@ const ConcertsPage = () => {
           id: concert.id,
           title: concert.title,
           performer: concert.performer || "表演者", // Keep fallback for performer if needed
-          date: concert.startTime || new Date().toISOString(), // Keep fallback for date if needed
+          // Use concert's main startTime, fallback to first performance's time, then current time
+          date:
+            concert.startTime ||
+            concert.performances?.[0]?.startTime ||
+            new Date().toISOString(),
           posterUrl: concert.posterUrl,
           location: concert.venue || "數位音樂廳主廳", // Keep fallback for location if needed
           genre: concert.genre || "古典音樂", // Keep fallback for genre if needed
           // price: { min: 300, max: 1200 }, // REMOVE mock price
           description: concert.description,
-          // Add performanceId if available from the first performance for linking
+          // Store the full performances array if available
+          performances: concert.performances || [],
+          // Keep performanceId for potential linking, maybe link to the first one?
           performanceId: concert.performances?.[0]?.id,
         }));
 
@@ -62,7 +71,9 @@ const ConcertsPage = () => {
         setConcerts(formattedConcerts);
       } catch (error) {
         console.error("獲取音樂會數據失敗:", error);
-        setError("無法載入音樂會資料。請確認後端服務運行正常，並且資料已正確寫入資料庫。");
+        setError(
+          "無法載入音樂會資料。請確認後端服務運行正常，並且資料已正確寫入資料庫。"
+        );
       } finally {
         setLoading(false);
       }
@@ -90,34 +101,57 @@ const ConcertsPage = () => {
 
   // 根據過濾條件過濾音樂會
   const filteredConcerts = concerts.filter((concert) => {
-    // 日期過濾
-    const concertDate = new Date(concert.date);
     const now = new Date();
-    
-    // 檢查日期有效性
-    if (isNaN(concertDate.getTime())) {
-      console.error('無效的音樂會日期:', concert.date, '音樂會ID:', concert.id);
-      return true; // 如果日期無效，默認顯示
-    }
-    
-    // 「即將上演」過濾邏輯
-    if (filters.timeframe === "upcoming") {
-      // 比較日期的年月日，忽略時間部分
-      const concertYMD = new Date(concertDate.getFullYear(), concertDate.getMonth(), concertDate.getDate());
-      const nowYMD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      if (concertYMD < nowYMD) {
-        return false;
+    const nowYMD = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Today at 00:00
+
+    // Get all valid performance dates for the concert
+    const performanceDates = (concert.performances || [])
+      .map((p) => new Date(p.startTime))
+      .filter((d) => !isNaN(d.getTime())); // Filter out invalid dates
+
+    // If no valid performance dates, use the main concert date
+    if (performanceDates.length === 0) {
+      const concertDate = new Date(concert.date);
+      if (isNaN(concertDate.getTime())) {
+        console.error(
+          "無效的主要音樂會日期:",
+          concert.date,
+          "音樂會ID:",
+          concert.id
+        );
+        // Decide how to handle concerts with no valid dates at all
+        return filters.timeframe === "all"; // Only show in 'all' if no dates are valid
       }
-      return true;
-    }
-    
-    // 「過去演出」過濾邏輯
-    if (filters.timeframe === "past" && concertDate >= now) {
-      return false;
+      performanceDates.push(concertDate); // Use the main date if no performances array
     }
 
-    // 藝術家過濾
+    // 「即將上演」過濾邏輯: Show if ANY performance is today or later
+    if (filters.timeframe === "upcoming") {
+      const isUpcoming = performanceDates.some((perfDate) => {
+        const perfYMD = new Date(
+          perfDate.getFullYear(),
+          perfDate.getMonth(),
+          perfDate.getDate()
+        );
+        return perfYMD >= nowYMD;
+      });
+      if (!isUpcoming) return false;
+    }
+
+    // 「過去演出」過濾邏輯: Show if ALL performances are before today
+    if (filters.timeframe === "past") {
+      const isPast = performanceDates.every((perfDate) => {
+        const perfYMD = new Date(
+          perfDate.getFullYear(),
+          perfDate.getMonth(),
+          perfDate.getDate()
+        );
+        return perfYMD < nowYMD;
+      });
+      if (!isPast) return false;
+    }
+
+    // 藝術家過濾 (保持不變)
     if (
       filters.artist &&
       !concert.performer.toLowerCase().includes(filters.artist.toLowerCase())
@@ -125,12 +159,12 @@ const ConcertsPage = () => {
       return false;
     }
 
-    // 類型過濾
+    // 類型過濾 (保持不變)
     if (filters.genre && concert.genre !== filters.genre) {
       return false;
     }
 
-    return true;
+    return true; // If passed all filters
   });
 
   const handleFilterChange = (name, value) => {
@@ -140,6 +174,8 @@ const ConcertsPage = () => {
     });
   };
 
+  // 移除本地的 formatDate 函數
+  /*
   const formatDate = (dateString) => {
     const options = {
       year: "numeric",
@@ -150,6 +186,7 @@ const ConcertsPage = () => {
     };
     return new Date(dateString).toLocaleDateString("zh-TW", options);
   };
+  */
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -244,7 +281,16 @@ const ConcertsPage = () => {
 
                   <div className="flex items-center text-gray-600 mb-2">
                     <Calendar size={16} className="mr-1 text-indigo-600" />
-                    <span>{formatDate(concert.date)}</span>
+                    {/* 使用導入的 formatDate */}
+                    <span>
+                      {formatDate(concert.date, 'zh-TW', { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {concert.performances &&
+                        concert.performances.length > 1 && (
+                          <span className="ml-1 text-xs text-indigo-600">
+                            (多場次)
+                          </span>
+                        )}
+                    </span>
                   </div>
 
                   <div className="flex items-center text-gray-600 mb-4">
@@ -252,9 +298,9 @@ const ConcertsPage = () => {
                     <span>{concert.genre}</span>
                   </div>
 
-                  {/* 票價範圍的 div 已被移除 */}
-
-                  <div className="flex justify-end items-center mt-auto pt-4"> {/* 使用 justify-end 將按鈕推到右側, mt-auto 確保在底部 */}
+                  <div className="flex justify-end items-center mt-auto pt-4">
+                    {" "}
+                    {/* 使用 justify-end 將按鈕推到右側, mt-auto 確保在底部 */}
                     <div className="flex space-x-2">
                       <Link
                         to={`/concerts/${concert.id}`} // 確保路徑正確

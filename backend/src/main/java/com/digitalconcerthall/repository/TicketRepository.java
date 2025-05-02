@@ -30,8 +30,8 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     /**
      * 根據票種ID查詢票券
      */
-    List<Ticket> findByTicketTypeId(Long ticketTypeId);
-    
+    List<Ticket> findByTicketType_Id(Long ticketTypeId); // Changed from findByTicketTypeId
+
     /**
      * 根據演出場次ID和票種ID查詢票券
      */

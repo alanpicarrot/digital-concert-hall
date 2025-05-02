@@ -4,6 +4,7 @@ import { Calendar, Play } from "lucide-react";
 import concertService from "../../services/concertService";
 import SimplePlaceholder from "../../components/ui/SimplePlaceholder";
 import ConcertHistory from "../../components/concert/ConcertHistory";
+import { formatDate, formatTime } from "../../utils/dateUtils"; // 導入共享函數
 
 const HomePage = () => {
   const [upcomingConcerts, setUpcomingConcerts] = useState([]);
@@ -36,22 +37,37 @@ const HomePage = () => {
         }
 
         // 將API返回的數據格式化為頁面需要的格式
-        const formattedUpcomingConcerts = activeConcerts.map((concert) => ({
-          id: concert.id,
-          title: concert.title || "未命名音樂會",
-          artist: concert.artist || "音樂會表演者",
-          date: concert.startTime
-            ? new Date(concert.startTime).toLocaleDateString()
-            : "N/A",
-          time: concert.startTime
-            ? new Date(concert.startTime).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "N/A",
-          image: concert.posterUrl || null,
-          venue: concert.venue || "數位音樂廳",
-        }));
+        const formattedUpcomingConcerts = activeConcerts.map((concert) => {
+          // 修改這裡：優先讀取 startTimes[0]，然後才是 performances 或 startTime
+          const firstStartTimeFromArray = concert.startTimes?.[0];
+          const firstPerformanceTime = concert.performances?.[0]?.startTime;
+          const displayTime = firstStartTimeFromArray || concert.startTime || firstPerformanceTime || null;
+
+          return {
+            id: concert.id,
+            title: concert.title || "未命名音樂會",
+            // 假設 performer 在 concert 對象中，如果沒有則使用 artist 或預設值
+            artist: concert.performer || concert.artist || "音樂會表演者",
+            // 使用 dateUtils 格式化日期和時間
+            date: displayTime ? formatDate(displayTime, 'zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : "日期未定",
+            time: displayTime ? formatTime(displayTime, 'zh-TW', { hour: "2-digit", minute: "2-digit", hour12: false }) : "",
+            image: concert.posterUrl || null,
+            // 假設 venue 在 concert 或第一個 performance 對象中
+            // 如果 venue 也在 venues 陣列中，可以這樣讀取：
+            venue: concert.venues?.[0] || concert.venue || concert.performances?.[0]?.venue || "數位音樂廳",
+            // 保留原始時間戳用於可能的排序或其他邏輯
+            rawDate: displayTime,
+            // performanceCount 似乎是直接提供的，如果沒有，再從 performances 算
+            performanceCount: concert.performanceCount ?? concert.performances?.length ?? 0,
+          };
+        });
+
+        // 根據 rawDate 排序即將上演的音樂會（可選）
+        formattedUpcomingConcerts.sort((a, b) => {
+          if (!a.rawDate) return 1;
+          if (!b.rawDate) return -1;
+          return new Date(a.rawDate) - new Date(b.rawDate);
+        });
 
         // 嘗試獲取過往音樂會
         try {
@@ -133,8 +149,13 @@ const HomePage = () => {
             </p>
             <p className="text-base mb-6">
               {upcomingConcerts.length > 0
+                // 顯示格式化後的日期和時間
                 ? `${upcomingConcerts[0].date} ${upcomingConcerts[0].time}`
                 : "隨時隨地，在家欣賞美妙音樂"}
+              {/* 顯示多場次提示 */}
+              {upcomingConcerts.length > 0 && upcomingConcerts[0].performanceCount > 1 && (
+                <span className="ml-2 text-xs text-indigo-300">(多場次)</span>
+              )}
             </p>
             <Link
               to={
@@ -163,7 +184,8 @@ const HomePage = () => {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {upcomingConcerts.map((concert) => (
+            {/* 只顯示前 3 場 */}
+            {upcomingConcerts.slice(0, 3).map((concert) => (
               <div
                 key={concert.id}
                 className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200"
@@ -187,7 +209,12 @@ const HomePage = () => {
                   <p className="text-gray-600 text-sm">{concert.artist}</p>
                   <div className="flex items-center text-sm text-gray-500 mt-1 mb-3">
                     <Calendar size={14} className="mr-1" />
+                    {/* 顯示格式化後的日期和時間 */}
                     {concert.date} {concert.time}
+                    {/* 顯示多場次提示 */}
+                    {concert.performanceCount > 1 && (
+                       <span className="ml-1 text-xs text-indigo-600">(多場次)</span>
+                    )}
                   </div>
                   <Link
                     to={`/concerts/${concert.id}`}
@@ -202,12 +229,10 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* 最近瀏覽的音樂會 */}
-      <section className="py-8">
-        <ConcertHistory className="max-w-6xl mx-auto px-4" />
-      </section>
+      {/* 瀏覽歷史 */}
+      <ConcertHistory className="max-w-6xl mx-auto px-4 py-8" />
 
-      {/* 精選回放 */}
+      {/* 過往演出精選 */}
       <section className="py-8 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center mb-4">
