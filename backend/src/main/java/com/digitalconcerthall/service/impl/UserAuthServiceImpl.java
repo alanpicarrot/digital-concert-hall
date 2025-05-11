@@ -46,7 +46,7 @@ public class UserAuthServiceImpl implements UserAuthService {
     public JwtResponse authenticateUser(LoginRequest loginRequest) {
         // 1. 使用 AuthenticationManager 進行身份驗證
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(loginRequest.getIdentifier(), loginRequest.getPassword())); // 修改此處
 
         // 2. 將認證信息設置到 SecurityContextHolder
         SecurityContextHolder.getContext().setAuthentication(authentication);

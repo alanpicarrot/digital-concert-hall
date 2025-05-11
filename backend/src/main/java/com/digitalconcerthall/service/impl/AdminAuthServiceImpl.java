@@ -49,38 +49,37 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     public AdminUserLoginResponse authenticateAdmin(LoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+                    new UsernamePasswordAuthenticationToken(loginRequest.getIdentifier(), loginRequest.getPassword())); // 修改此處
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String jwt = jwtUtils.generateJwtToken(authentication);
     
-            // 改用AdminUserDetailsImpl獲取用戶資料
             AdminUserDetailsImpl adminUserDetails = (AdminUserDetailsImpl) authentication.getPrincipal();
     
             return new AdminUserLoginResponse(
                 jwt,
                 adminUserDetails.getId(),
-                adminUserDetails.getUsername(),
-                adminUserDetails.getEmail(),
+                adminUserDetails.getUsername(), // AdminUserDetailsImpl 仍然使用 getUsername()
+                adminUserDetails.getEmail(),    // AdminUserDetailsImpl 仍然使用 getEmail()
                 adminUserDetails.getAuthorities().stream()
                     .map(item -> item.getAuthority())
                     .collect(Collectors.toList())
             );
         } catch (BadCredentialsException e) {
-             logger.warn("Admin authentication failed for user {}: Bad credentials", loginRequest.getUsername());
+             logger.warn("Admin authentication failed for user {}: Bad credentials", loginRequest.getIdentifier()); // 修改此處
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "帳號或密碼錯誤", e);
         } catch (UsernameNotFoundException e) {
-             logger.warn("Admin authentication failed: Username {} not found", loginRequest.getUsername());
+             logger.warn("Admin authentication failed: User identified by {} not found", loginRequest.getIdentifier()); // 修改此處，日誌訊息也調整一下
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "管理員不存在", e);
         } catch (AuthenticationException e) {
-             logger.warn("Admin authentication failed for user {}: {}", loginRequest.getUsername(), e.getMessage());
+             logger.warn("Admin authentication failed for user {}: {}", loginRequest.getIdentifier(), e.getMessage()); // 修改此處
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "認證失敗: " + e.getMessage(), e);
         } catch (ResponseStatusException rse) {
             // Re-throw specific ResponseStatusExceptions like the one added above
             throw rse;
         } catch (Exception e) {
             // Log the unexpected error with stack trace
-            logger.error("Unexpected error during admin authentication for user: {}", loginRequest.getUsername(), e);
+            logger.error("Unexpected error during admin authentication for user: {}", loginRequest.getIdentifier(), e); // 修改此處
 
             // 創建更明確的錯誤訊息
             String errorMessage = String.format("登入時發生內部錯誤: %s - %s",

@@ -196,7 +196,6 @@ axiosInstance.interceptors.response.use(
         !isTicketPath && // 避免在票券頁面重定向
         !isTicketApiError // 避免在票券API錯誤時重定向
       ) {
-        // 使用 window 全局 ToastManager（如果存在）
         // 如果全局有 ToastManager 實例，則使用它顯示通知
         if (typeof window.ToastManager !== 'undefined' && window.ToastManager) {
           window.ToastManager.showWarning('登入狀態', '您的登入已過期，需重新登入。您可以手動點擊登入按鈕或者查看控制台錯誤訊息。');
@@ -458,7 +457,12 @@ const AuthService = {
   login,
   logout,
   getCurrentUser,
-  isTokenValid,
+  isTokenValid, // 現有的，可能更複雜的驗證
+  // 可以添加一個簡單的 isAuthenticated 方法
+  isAuthenticated: () => {
+    const token = localStorage.getItem("token"); // 使用 AuthService 內部一致的 token 鍵名
+    return !!token;
+  },
   forgotPassword,
   resetPassword,
   updateProfile,

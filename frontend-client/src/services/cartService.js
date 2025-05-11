@@ -27,28 +27,41 @@ const saveCart = (cart) => {
 
 // 添加商品到購物車
 const addToCart = (item) => {
-  const cart = getCart();
-  
-  // 檢查商品是否已存在
-  const existingItemIndex = cart.items.findIndex(
-    (i) => i.id === item.id && i.type === item.type
-  );
-  
-  if (existingItemIndex >= 0) {
-    // 更新數量
-    cart.items[existingItemIndex].quantity += item.quantity || 1;
-  } else {
-    // 添加新商品
-    cart.items.push({
-      ...item,
-      quantity: item.quantity || 1
-    });
+  try {
+    const cart = getCart();
+    
+    // 確保 item.price 是數字，如果不是或 NaN，則預設為 0
+    const numericPrice = Number(item.price);
+    const validatedPrice = isNaN(numericPrice) ? 0 : numericPrice;
+
+    // 檢查商品是否已存在
+    const existingItemIndex = cart.items.findIndex(
+      (i) => i.id === item.id && i.type === item.type
+    );
+    
+    if (existingItemIndex >= 0) {
+      // 更新數量
+      cart.items[existingItemIndex].quantity += item.quantity || 1;
+      // 如果需要，也可以在這裡更新價格，但通常購物車中已存在商品的價格不會改變
+      // cart.items[existingItemIndex].price = validatedPrice; 
+    } else {
+      // 添加新商品
+      cart.items.push({
+        ...item,
+        price: validatedPrice, // 使用驗證後的價格
+        quantity: item.quantity || 1
+      });
+    }
+    
+    // 更新總金額
+    cart.total = calculateTotal(cart.items);
+    
+    const updatedCart = saveCart(cart);
+    return Promise.resolve(updatedCart); // Return a resolved promise with the updated cart
+  } catch (error) {
+    console.error("Error in addToCart:", error); // Optional: log any synchronous error
+    return Promise.reject(error); // Return a rejected promise if an error occurs
   }
-  
-  // 更新總金額
-  cart.total = calculateTotal(cart.items);
-  
-  return saveCart(cart);
 };
 
 // 從購物車中移除商品
@@ -105,20 +118,33 @@ const calculateTotal = (items) => {
   }
   
   // 確保每個項目的價格是有效的數字
-  const total = items.reduce((total, item) => {
-    const price = Number(item.price) || 0;
-    const quantity = Number(item.quantity) || 0;
-    const itemTotal = price * quantity;
+  const total = items.reduce((sum, item) => {
+    const itemPrice = Number(item.price);
+    // 如果價格不是數字 (NaN)，則視為0
+    const validatedPrice = isNaN(itemPrice) ? 0 : itemPrice;
     
-    console.log(`項目: ${item.name}, 價格: ${price}, 數量: ${quantity}, 小計: ${itemTotal}`);
-    
-    // 確保我們不會因一個項目的價格或數量不正確而使總金額計算出錯
-    if (isNaN(itemTotal)) {
-      console.warn('購物車項目計算結果非數字:', item);
-      return total;
+    const itemQuantity = Number(item.quantity);
+    // 如果數量不是數字 (NaN)，則視為0
+    const validatedQuantity = isNaN(itemQuantity) ? 0 : itemQuantity;
+
+    if (isNaN(itemPrice)) {
+      console.warn(`項目 "${item.name || item.id}" 的價格無效: ${item.price}，計算時將視為 0`);
+    }
+    if (isNaN(itemQuantity)) {
+      console.warn(`項目 "${item.name || item.id}" 的數量無效: ${item.quantity}，計算時將視為 0`);
     }
     
-    return total + itemTotal;
+    const itemTotal = validatedPrice * validatedQuantity;
+    
+    console.log(`項目: ${item.name || item.id}, 價格: ${validatedPrice}, 數量: ${validatedQuantity}, 小計: ${itemTotal}`);
+    
+    // 再次檢查 itemTotal 是否為 NaN，以防萬一
+    if (isNaN(itemTotal)) {
+      console.warn('購物車項目小計計算結果為 NaN:', item);
+      return sum; // 如果是 NaN，則不將此項目金額加入總計
+    }
+    
+    return sum + itemTotal;
   }, 0);
   
   console.log('購物車總金額:', total);
@@ -220,14 +246,16 @@ const checkout = async () => {
   }
 };
 
-const CartService = {
+// 導出所有購物車相關函數
+const cartService = {
   getCart,
   addToCart,
+  addItem: addToCart, // Add this line to alias addItem to addToCart
   removeFromCart,
   updateQuantity,
   clearCart,
   checkout,
-  calculateTotal
+  calculateTotal,
 };
 
-export default CartService;
+export default cartService;

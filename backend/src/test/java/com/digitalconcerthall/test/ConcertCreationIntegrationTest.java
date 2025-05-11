@@ -182,7 +182,7 @@ public class ConcertCreationIntegrationTest {
             testLogger.logTestStep(testId, "管理員登入", "使用管理員帳號登入系統，獲取JWT令牌");
             
             LoginRequest loginRequest = new LoginRequest();
-            loginRequest.setUsername("admin@digitalconcert.com");
+            loginRequest.setIdentifier("admin@digitalconcert.com"); // 修改此處
             loginRequest.setPassword("admin123");
             
             HttpHeaders headers = new HttpHeaders();

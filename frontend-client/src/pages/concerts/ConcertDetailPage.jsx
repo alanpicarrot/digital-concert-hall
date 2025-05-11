@@ -234,40 +234,55 @@ const ConcertDetailPage = () => {
   };
 
   // 新增：處理加入購物車的函數
-  const handleAddToCart = (performanceId, ticketType) => {
-    const quantityKey = `${performanceId}-${ticketType.id}`;
-    // *** 修改這裡：預設值改為 0 ***
+  const handleAddToCart = (performanceId, ticket) => { // 'ticketType' 參數已更名為 'ticket' 以反映其內容
+    const quantityKey = `${performanceId}-${ticket.id}`;
     const quantity = ticketQuantities[quantityKey] || 0;
 
-    // *** 新增檢查：數量為 0 時不處理 ***
     if (quantity === 0) {
       alert("請先選擇票券數量。");
       return;
     }
 
     if (!authService.isAuthenticated()) {
-      // 提示登入並儲存當前頁面路徑以便登入後跳轉回來
       storageService.setItem('redirectPath', location.pathname);
       navigate("/login", { state: { message: "請先登入才能將票券加入購物車" } });
       return;
     }
 
-    console.log(`Adding to cart: Performance ID ${performanceId}, Ticket Type ID ${ticketType.id}, Quantity ${quantity}`);
+    console.log(`Adding to cart: Performance ID ${performanceId}, Ticket ID ${ticket.id}, Quantity ${quantity}, Price ${ticket.price}`);
 
-    cartService.addItem({
-      ticketTypeId: ticketType.id,
+    // 構建傳遞給購物車服務的項目對象
+    const cartItem = {
+      id: ticket.id, // 使用票券自身的 ID
+      type: 'ticket',
+      name: ticket.name || '票券', // 從票券對象獲取名稱
+      price: ticket.price,       // 從票券對象獲取價格 (關鍵修復)
       quantity: quantity,
-    })
-    .then(() => {
-      // 可以在這裡顯示成功訊息或更新購物車圖標
-      console.log("成功加入購物車");
-      // 導航到購物車頁面或顯示提示
-      navigate('/cart');
-    })
-    .catch(err => {
-      console.error("加入購物車失敗:", err);
-      setError(err.response?.data?.message || "加入購物車時發生錯誤，請稍後再試");
-    });
+      concertId: concert?.id,    // 從 concert state 獲取
+      concertTitle: concert?.title, // 從 concert state 獲取
+      performanceId: performanceId, // 已傳入的演出場次 ID
+      image: concert?.image,       // 從 concert state 獲取
+      // ticketTypeId: ticket.id, // 如果 item.id 就是票種 ID，此欄位可選
+    };
+
+    // 建議使用 cartService.addToCart，因為它是 cartService.js 中實際返回 Promise 的函數名
+    // addItem 是您在 cartService.js 中為 addToCart 設置的別名
+    cartService.addToCart(cartItem) // 或者繼續使用 cartService.addItem(cartItem) 如果您偏好
+      .then(() => {
+        console.log("成功加入購物車:", cartItem);
+        // 可選：成功加入後重置此票券的選擇數量
+        // setTicketQuantities(prevQuantities => ({
+        //   ...prevQuantities,
+        //   [quantityKey]: 0,
+        // }));
+        alert(`${cartItem.name} x ${cartItem.quantity} 已成功加入購物車！`);
+        navigate('/cart'); // 導航到購物車頁面
+      })
+      .catch(err => {
+        console.error("加入購物車失敗:", err);
+        setError(err.response?.data?.message || "加入購物車時發生錯誤，請稍後再試");
+        alert(`加入購物車失敗: ${err.response?.data?.message || err.message || '請稍後再試'}`);
+      });
   };
 
 
