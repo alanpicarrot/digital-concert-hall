@@ -164,16 +164,14 @@ const checkout = async () => {
     // 準備訂單資料
     const orderData = {
       items: cart.items.map(item => {
-        // 嘗試提取數字部分ID (例如 "2-vip" -> "2")
-        // 如果ID是複合格式，取第一個破折號前的數字
-        const numericId = item.id.toString().split('-')[0];
-        console.log(`處理商品ID: ${item.id}, 轉換為數字ID: ${numericId}`);
+        // const numericId = item.id.toString().split('-')[0]; // Removed this line
+        // console.log(`處理商品ID: ${item.id}, 轉換為數字ID: ${numericId}`); // Removed this line
         
         return {
-          id: numericId,
+          id: item.id, // Use item.id directly
           type: item.type,
           quantity: item.quantity,
-          price: item.price,
+          price: item.price, // Backend CartController now ignores this for OrderItem.unitPrice
           name: item.name,
           image: item.image,
           date: item.date

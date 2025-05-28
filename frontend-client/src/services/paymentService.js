@@ -20,8 +20,8 @@ const createPayment = async (orderNumber) => {
     if (FeatureFlags.isEnabled('USE_REAL_PAYMENT')) {
       // 使用真實綠界支付
       console.log('使用真實支付閘道');
-      const path = `${API_BASE_PATH}/ecpay/create?orderNumber=${orderNumber}`;
-      const response = await axiosInstance.post(path);
+      const path = `${API_BASE_PATH}/ecpay/create`;
+      const response = await axiosInstance.post(path, { orderNumber }); // Send orderNumber in the request body
       return response.data;
     } else {
       // 使用模擬支付
