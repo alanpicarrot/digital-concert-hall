@@ -1,6 +1,7 @@
 package com.digitalconcerthall.controller;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.digitalconcerthall.dto.request.CartItemRequest;
 import com.digitalconcerthall.dto.request.CartRequest;
 import com.digitalconcerthall.dto.response.OrderCreationResponse;
+import com.digitalconcerthall.exception.ResourceNotFoundException;
 import com.digitalconcerthall.model.User;
 import com.digitalconcerthall.model.concert.Concert;
 import com.digitalconcerthall.model.concert.Performance;
@@ -91,7 +93,10 @@ public class CartController {
             }
 
             // ==================== 第一步：創建訂單 ====================
-            String orderNumber = "DCH" + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4);
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            String dateStr = now.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String randomNumber = String.format("%06d", (int) (Math.random() * 1000000));
+            String orderNumber = "ORD" + dateStr + randomNumber;
 
             Order order = new Order();
             order.setOrderNumber(orderNumber);
@@ -107,51 +112,27 @@ public class CartController {
             // 先保存訂單，獲取ID
             order = orderRepository.save(order);
 
-            // 創建並保存所有票券先
-            List<Ticket> savedTickets = new ArrayList<>();
-
-            // ==================== 第二步：創建並保存每個票券 ====================
+            // ==================== 第二步：為購物車中的每個項目創建訂單項 ====================
             for (CartItemRequest item : cartRequest.getItems()) {
                 System.out.println(
-                        "處理商品: " + item.getName() + ", 價格: " + item.getPrice() + ", 數量: " + item.getQuantity());
+                        "處理購物車項目: " + item.getName() + ", Ticket ID: " + item.getId() + ", 數量: " + item.getQuantity());
 
-                // 獲取/創建票券類型
-                TicketType ticketType = getOrCreateTicketType(item);
-
-                // 獲取演出場次
-                Performance performance = getFirstAvailablePerformance();
-                if (performance == null) {
-                    throw new RuntimeException("無可用的演出場次");
+                // 從請求中獲取票券ID並查找票券實體
+                if (item.getId() == null || item.getId().isEmpty()) {
+                    throw new IllegalArgumentException("Cart item ID is missing for: " + item.getName());
                 }
+                Ticket fetchedTicket = ticketRepository.findById(Long.parseLong(item.getId()))
+                        .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + item.getId()));
 
-                // 創建票券
-                Ticket ticket = new Ticket();
-                ticket.setTicketType(ticketType);
-                ticket.setPerformance(performance);
-                // Note: Consider if totalQuantity and availableQuantity logic needs adjustment
-                // based on whether Ticket represents inventory or a specific purchase batch.
-                // Assuming it's inventory for now:
-                ticket.setTotalQuantity(item.getQuantity()); // Or maybe this should be fetched/updated from existing inventory?
-                ticket.setAvailableQuantity(item.getQuantity()); // This likely needs more complex logic for inventory management
-                ticket.setCreatedAt(LocalDateTime.now());
-                // ticket.setUsername(currentUser.getUsername()); // <-- Removed this line
-
-                // 先保存票券，確保有ID
-                ticket = ticketRepository.save(ticket);
-                savedTickets.add(ticket);
-                System.out.println("票券已保存，ID: " + ticket.getId());
-            }
-
-            // ==================== 第三步：為每個票券創建訂單項 ====================
-            for (int i = 0; i < savedTickets.size(); i++) {
-                CartItemRequest item = cartRequest.getItems().get(i);
-                Ticket ticket = savedTickets.get(i);
+                // 獲取演出場次 (雖然OrderItem不直接存儲，但可以從票券中獲取上下文)
+                // Performance performance = fetchedTicket.getPerformance(); // Not directly used in OrderItem
 
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(order);
-                orderItem.setTicket(ticket);
+                orderItem.setTicket(fetchedTicket); // 使用從數據庫獲取的票券
                 orderItem.setQuantity(item.getQuantity());
-                orderItem.setUnitPrice(new BigDecimal(item.getPrice()));
+                // 使用票券類型中的價格，而不是請求中的價格
+                orderItem.setUnitPrice(fetchedTicket.getTicketType().getPrice()); 
                 orderItem.setSubtotal(orderItem.getUnitPrice().multiply(new BigDecimal(orderItem.getQuantity())));
 
                 // 將訂單項添加到訂單的集合中
@@ -184,76 +165,13 @@ public class CartController {
      * 獲取第一個可用的演出場次
      */
     private Performance getFirstAvailablePerformance() {
-        try {
-            // 先嘗試查詢所有Performance
-            List<Performance> allPerformances = performanceRepository.findAll();
+        List<Performance> allPerformances = performanceRepository.findAll();
 
-            if (allPerformances.isEmpty()) {
-                // 如果沒有演出場次，創建一個測試用的
-                return createDummyPerformance();
-            }
-
-            Optional<Performance> result = performanceRepository.findFirstByStatusNot("cancelled");
-            return result.orElse(allPerformances.get(0)); // 如果沒有非取消的，就返回第一個
-        } catch (Exception e) {
-            System.err.println("獲取演出場次時發生錯誤: " + e.getMessage());
-            e.printStackTrace();
-            // 如果發生錯誤，創建一個測試用的
-            return createDummyPerformance();
-        }
-    }
-
-    /**
-     * 創建一個測試用的演出場次
-     */
-    private Performance createDummyPerformance() {
-        System.out.println("創建臨時演出場次");
-
-        // 先創建一個臨時音樂會
-        Concert concert = new Concert();
-        concert.setTitle("臨時測試音樂會");
-        concert.setDescription("測試用音樂會說明");
-        concert.setStatus("active");
-        concert = concertRepository.save(concert);
-
-        // 再創建演出場次
-        Performance performance = new Performance();
-        performance.setConcert(concert);
-        performance.setStartTime(LocalDateTime.now().plusDays(1));
-        performance.setEndTime(LocalDateTime.now().plusDays(1).plusHours(2));
-        performance.setVenue("測試場地");
-        performance.setStatus("scheduled");
-        return performanceRepository.save(performance);
-    }
-
-    /**
-     * 獲取或創建票券類型
-     */
-    private TicketType getOrCreateTicketType(CartItemRequest item) {
-        TicketType ticketType;
-
-        // 檢查是否已存在該票券類型
-        if (item.getId() != null && !item.getId().isEmpty()) {
-            try {
-                Long id = Long.valueOf(item.getId());
-                ticketType = ticketTypeRepository.findById(id).orElse(null);
-            } catch (NumberFormatException e) {
-                System.err.println("無法將ID轉換為數字: " + item.getId());
-                ticketType = null;
-            }
-        } else {
-            ticketType = null;
+        if (allPerformances.isEmpty()) {
+            throw new ResourceNotFoundException("No available performances found.");
         }
 
-        // 如果不存在，創建新的票券類型
-        if (ticketType == null) {
-            ticketType = new TicketType();
-            ticketType.setName(item.getName());
-            ticketType.setDescription(item.getName());
-            ticketType.setPrice(new BigDecimal(item.getPrice()));
-            ticketType = ticketTypeRepository.save(ticketType);
-        }
-
-        return ticketType;
+        Optional<Performance> result = performanceRepository.findFirstByStatusNot("cancelled");
+        return result.orElseThrow(() -> new ResourceNotFoundException("No available performances found."));
     }
 }
