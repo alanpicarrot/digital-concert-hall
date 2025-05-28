@@ -46,6 +46,8 @@ public class JwtUtils {
                     .collect(Collectors.toList());
         }
     
+        logger.info("JwtUtils: Generating JWT for user '{}'. Roles to be included in 'roles' claim: {}", userDetails.getUsername(), roles);
+        
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .claim("userId", userId)
