@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import AuthService from '../services/authService';
+import { validateApiPath } from '../utils/apiUtils'; // Import validateApiPath
 
 // 創建認證上下文
 const AuthContext = createContext();
@@ -56,41 +57,35 @@ export const AuthProvider = ({ children }) => {
         // 首先確保用戶資料與令牌一致
         if (token && userStr) {
           try {
-            const userData = JSON.parse(userStr);
-            if (process.env.NODE_ENV === 'development') {
-              console.log('從 localStorage 讀取的用戶:', userData.username);
-            }
+            // Attempt to validate token with backend
+            console.log('Token and user string found in localStorage, attempting to validate with backend...');
+            const response = await AuthService.axiosInstance.get(validateApiPath('/api/user/profile'));
             
-            // 驗證令牌格式
-            const tokenParts = token.split('.');
-            if (tokenParts.length !== 3) {
-              console.error('令牌格式不正確');
+            if (response.status === 200 && response.data) {
+              const freshUserData = response.data;
+              localStorage.setItem('user', JSON.stringify(freshUserData));
+              setUser(freshUserData);
+              setIsAuthenticated(true);
+              console.log('Token validated with backend, user set:', freshUserData.username);
+            } else {
+              // Should not happen if API call is successful, but as a fallback
+              console.warn('Token validation API call successful but response was not as expected.');
               localStorage.removeItem('token');
               localStorage.removeItem('user');
               setUser(null);
               setIsAuthenticated(false);
-              setLoading(false);
-              return;
             }
-            
-            // 設置認證狀態
-            setUser(userData);
-            setIsAuthenticated(true);
-            
-            if (process.env.NODE_ENV === 'development') {
-              console.log('完成認證狀態設置', {username: userData.username, isAuthenticated: true});
-            }
-          } catch (e) {
-            console.error('解析用戶數據時出錯:', e);
-            // 清除無效數據
+          } catch (validationError) {
+            console.error('Token validation failed or API error:', validationError);
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setUser(null);
             setIsAuthenticated(false);
+            // No need to call setLoading(false) here, it's in the finally block
           }
         } else {
           if (process.env.NODE_ENV === 'development') {
-            console.log('沒有有效用戶或令牌');
+            console.log('No token or user string found in localStorage.');
           }
           // 清除可能錯誤的存儲
           localStorage.removeItem('token');
@@ -98,15 +93,18 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           setIsAuthenticated(false);
         }
-      } catch (error) {
-        console.error('初始化認證狀態失敗', error);
-        // 清除可能錯誤的存儲
+      } catch (error) { // This outer catch is for errors in the overall initAuth logic
+        console.error('Error during initAuth (outside of token validation):', error);
+        // Ensure state is cleared if any unexpected error occurs before or after validation attempt
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setUser(null);
         setIsAuthenticated(false);
       } finally {
-        setLoading(false);
+        setLoading(false); // Ensure setLoading(false) is called once after all operations
+        if (process.env.NODE_ENV === 'development') {
+          console.log('initAuth finished, loading set to false.');
+        }
       }
     };
 

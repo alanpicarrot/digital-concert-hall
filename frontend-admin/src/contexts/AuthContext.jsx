@@ -121,16 +121,26 @@ export const AuthProvider = ({ children }) => {
         const result = await AuthService.login(username, password);
 
         if (result && result.success && result.data) {
+          // Check for ROLE_ADMIN
+          if (!result.data.roles || !result.data.roles.includes("ROLE_ADMIN")) {
+            console.error("Login successful but user does not have ROLE_ADMIN. User roles:", result.data.roles);
+            clearAuthState(); // Ensure no partial state is saved if roles are incorrect
+            return { 
+              success: false, 
+              message: "登入成功，但帳戶缺乏管理員權限。" // "Login successful, but account lacks admin privileges."
+            };
+          }
           // console.log("登入成功:", result.data.username);
           saveAuthState(result.data.accessToken, result.data);
           setUser(result.data);
           setIsAuthenticated(true);
           return { success: true, data: result.data };
         } else {
-          console.error("登入失敗: 返回數據不完整");
+          console.error("登入失敗: 返回數據不完整", result); // Log the full result for better debugging
           return {
             success: false,
-            message: "登入失敗: 用戶數據不完整",
+            // Provide a more specific message if result itself is the issue vs result.data
+            message: result && result.message ? result.message : "登入失敗: 用戶數據不完整或登入服務出錯。", 
           };
         }
       } catch (error) {
