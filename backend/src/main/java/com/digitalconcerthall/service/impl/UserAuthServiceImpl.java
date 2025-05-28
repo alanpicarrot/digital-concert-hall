@@ -20,6 +20,8 @@ import org.springframework.security.core.context.SecurityContextHolder; // 導�
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional; // Ensure this import
+import org.slf4j.Logger; // Import SLF4J Logger
+import org.slf4j.LoggerFactory; // Import SLF4J LoggerFactory
 import java.util.HashSet;
 import java.util.List; // 導入 List
 import java.util.Set;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors; // 導入 Collectors
 
 @Service
 public class UserAuthServiceImpl implements UserAuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserAuthServiceImpl.class); // Define logger
 
     @Autowired
     private AuthenticationManager authenticationManager; // 注入 AuthenticationManager
@@ -54,6 +58,12 @@ public class UserAuthServiceImpl implements UserAuthService {
 
         // 3. 從認證信息中獲取 UserDetails
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        // Add this logging:
+        List<String> contextAuthorities = userDetails.getAuthorities().stream()
+                                                     .map(authority -> authority.getAuthority())
+                                                     .collect(Collectors.toList());
+        logger.info("UserAuthServiceImpl: User '{}' authenticated. Authorities from SecurityContext principal: {}", userDetails.getUsername(), contextAuthorities);
 
         // 4. 使用 JwtUtils 生成 JWT 令牌
         String jwt = jwtUtils.generateJwtToken(authentication); // 或者 jwtUtils.generateTokenFromUsername(userDetails.getUsername()); 取決於你的 JwtUtils 實現
