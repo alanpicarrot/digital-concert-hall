@@ -244,7 +244,7 @@ const ConcertDetailPage = () => {
     }
 
     if (!authService.isAuthenticated()) {
-      storageService.setItem('redirectPath', location.pathname);
+      storageService.session.set('redirectPath', location.pathname);
       navigate("/login", { state: { message: "請先登入才能將票券加入購物車" } });
       return;
     }
