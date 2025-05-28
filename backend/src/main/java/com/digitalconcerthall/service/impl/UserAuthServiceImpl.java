@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication; // 導入
 import org.springframework.security.core.context.SecurityContextHolder; // 導入
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // Ensure this import
 import java.util.HashSet;
 import java.util.List; // 導入 List
 import java.util.Set;
@@ -72,6 +73,7 @@ public class UserAuthServiceImpl implements UserAuthService {
     }
 
     @Override
+    @Transactional // Add this annotation
     public MessageResponse registerUser(SignupRequest signupRequest) {
         // Check if username already exists
         if (userRepository.existsByUsername(signupRequest.getUsername())) {
