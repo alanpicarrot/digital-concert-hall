@@ -223,7 +223,7 @@ const checkout = async () => {
         case 400:
           throw new Error('訂單資料無效');
         case 401:
-          throw new Error('認證失敗，請登入後再試');
+          throw new Error('結帳失敗：您的帳戶目前可能沒有完成購買所需的權限，或者您的登入狀態需要刷新。請嘗試完全登出後再重新登入。如果問題持續，請聯繫客服。');
         case 403:
           throw new Error('無權限訪問');
         case 500:
