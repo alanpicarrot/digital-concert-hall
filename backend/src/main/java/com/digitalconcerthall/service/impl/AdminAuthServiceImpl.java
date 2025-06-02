@@ -52,6 +52,14 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     @Override
     public AdminUserLoginResponse authenticateAdmin(LoginRequest loginRequest) {
         try {
+            logger.info("AdminAuthServiceImpl: Attempting to authenticate admin user: {}",
+                    loginRequest.getIdentifier());
+            logger.info("AdminAuthServiceImpl: LoginRequest details - identifier: {}, username: {}, password: {}",
+                    loginRequest.getIdentifier(), loginRequest.getUsername(),
+                    loginRequest.getPassword() != null ? "[PROVIDED]" : "[NULL]");
+            logger.info("AdminAuthServiceImpl: Using adminAuthenticationProvider: {}",
+                    adminAuthenticationProvider.getClass().getName());
+
             Authentication authentication = adminAuthenticationProvider.authenticate(
                     new UsernamePasswordAuthenticationToken(loginRequest.getIdentifier(), loginRequest.getPassword()));
 
@@ -59,6 +67,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
             String jwt = jwtUtils.generateJwtToken(authentication);
 
             AdminUserDetailsImpl adminUserDetails = (AdminUserDetailsImpl) authentication.getPrincipal();
+
+            logger.info("AdminAuthServiceImpl: Authentication successful for user: {}", adminUserDetails.getUsername());
 
             return new AdminUserLoginResponse(
                     jwt,
