@@ -31,7 +31,7 @@ const PUBLIC_PATHS = [
   "/api/concerts",
   "/api/concerts/upcoming",
   "/api/concerts/past",
-  "/api/auth/signin"
+  "/api/auth/signin",
   // "/" 已移除，避免過度匹配所有路徑
 ];
 
@@ -39,13 +39,16 @@ const PUBLIC_PATHS = [
 let setupPreRequestAuthFn = null;
 const getSetupPreRequestAuthFn = () => {
   if (setupPreRequestAuthFn) return setupPreRequestAuthFn;
-  
+
   // 首先嘗試從全局變量獲取
-  if (window.__AUTH_CONTEXT__ && typeof window.__AUTH_CONTEXT__.setupPreRequestAuth === 'function') {
+  if (
+    window.__AUTH_CONTEXT__ &&
+    typeof window.__AUTH_CONTEXT__.setupPreRequestAuth === "function"
+  ) {
     setupPreRequestAuthFn = window.__AUTH_CONTEXT__.setupPreRequestAuth;
     return setupPreRequestAuthFn;
   }
-  
+
   // 如果沒有全局變量，返回默認實現
   return (config) => {
     const token = localStorage.getItem("token");
@@ -62,26 +65,26 @@ axiosInstance.interceptors.request.use(
   (config) => {
     // 添加更詳細的日誌
     console.log(`發送請求到: ${config.url}`);
-    
+
     // 更精確的路徑比對
-    const isPublicPath = PUBLIC_PATHS.some(path => {
+    const isPublicPath = PUBLIC_PATHS.some((path) => {
       // 完全匹配或是以公開路徑為前綴的路徑
       const isExactMatch = config.url === path;
-      const isPrefixMatch = path !== '/' && (
-        config.url.startsWith(path + '/') || 
-        config.url.startsWith(path + '?')
-      );
-      
+      const isPrefixMatch =
+        path !== "/" &&
+        (config.url.startsWith(path + "/") ||
+          config.url.startsWith(path + "?"));
+
       const match = isExactMatch || isPrefixMatch;
-      
+
       // 詳細日誌以幫助調試
       if (match) {
         console.log(`公開路徑匹配: ${path} vs ${config.url} - 匹配成功`);
       }
-      
+
       return match;
     });
-    
+
     // 如果不是公開路徑，添加令牌
     if (!isPublicPath) {
       // 使用 setupPreRequestAuth 函數添加令牌
@@ -197,36 +200,41 @@ axiosInstance.interceptors.response.use(
         !isTicketApiError // 避免在票券API錯誤時重定向
       ) {
         // 如果全局有 ToastManager 實例，則使用它顯示通知
-        if (typeof window.ToastManager !== 'undefined' && window.ToastManager) {
-          window.ToastManager.showWarning('登入狀態', '您的登入已過期，需重新登入。您可以手動點擊登入按鈕或者查看控制台錯誤訊息。');
+        if (typeof window.ToastManager !== "undefined" && window.ToastManager) {
+          window.ToastManager.showWarning(
+            "登入狀態",
+            "您的登入已過期，需重新登入。您可以手動點擊登入按鈕或者查看控制台錯誤訊息。"
+          );
         } else {
           // 如果 ToastManager 不可用，則使用 console
           console.warn("登入已過期，將重新導向到登入頁面");
         }
 
         // 在 console 中顯示詳細的錯誤訊息，方便開發人員調試
-        console.error('401 未授權錯誤詳細資訊:', {
+        console.error("401 未授權錯誤詳細資訊:", {
           url: error.config.url,
           method: error.config.method,
           headers: JSON.stringify(error.config.headers),
           responseStatus: error.response?.status,
           responseData: error.response?.data,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
-        
+
         // 清除本地存儲，但不立即重定向
         localStorage.removeItem("token");
         localStorage.removeItem("user");
-        
+
         // 將重定向都進行記錄，但不實際執行
         const redirectPath = encodeURIComponent(currentPath);
-        console.log(`已將重定向設定為不自動執行，您可以在控制台調整測試完成後手動導向到: /login?redirect=${redirectPath}`);
-        
+        console.log(
+          `已將重定向設定為不自動執行，您可以在控制台調整測試完成後手動導向到: /login?redirect=${redirectPath}`
+        );
+
         // 將重定向網址添加到 window 上，但不實際執行重定向
         window.loginRedirectUrl = `/login?redirect=${redirectPath}`;
-        
+
         // 添加一個自動重定向的函數，但不主動調用
-        window.executeLoginRedirect = function() {
+        window.executeLoginRedirect = function () {
           if (window.loginRedirectUrl) {
             window.location.href = window.loginRedirectUrl;
           }
@@ -255,12 +263,11 @@ const register = async (username, email, password, firstName, lastName) => {
     password: "[REDACTED]",
   });
 
-
   const endpoint = "/api/auth/register";
   console.log("API URL:", API_URL);
-  console.log("完整請求 URL:", `${API_URL}${endpoint}`); 
- 
-  return axiosInstance.post(endpoint, requestData, { 
+  console.log("完整請求 URL:", `${API_URL}${endpoint}`);
+
+  return axiosInstance.post(endpoint, requestData, {
     headers: {
       "Content-Type": "application/json",
     },
@@ -293,7 +300,7 @@ const login = async (username, password) => {
     });
 
     const response = await axiosInstance.post(`/api/${endpoint}`, {
-      username,
+      identifier: username,
       password,
     });
 
