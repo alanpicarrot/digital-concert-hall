@@ -30,7 +30,7 @@ public class JwtUtils {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         Long userId = null;
         List<String> roles = null;
-    
+
         // 針對後台管理用戶
         if (userDetails instanceof com.digitalconcerthall.security.services.AdminUserDetailsImpl) {
             userId = ((com.digitalconcerthall.security.services.AdminUserDetailsImpl) userDetails).getId();
@@ -45,9 +45,10 @@ public class JwtUtils {
                     .map(auth -> auth.getAuthority())
                     .collect(Collectors.toList());
         }
-    
-        logger.info("JwtUtils: Generating JWT for user '{}'. Roles to be included in 'roles' claim: {}", userDetails.getUsername(), roles);
-        
+
+        logger.info("JwtUtils: Generating JWT for user '{}'. Roles to be included in 'roles' claim: {}",
+                userDetails.getUsername(), roles);
+
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
                 .claim("userId", userId)
@@ -57,7 +58,7 @@ public class JwtUtils {
                 .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
     }
-    
+
     private Key key() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
@@ -66,13 +67,13 @@ public class JwtUtils {
         return Jwts.parserBuilder().setSigningKey(key()).build()
                 .parseClaimsJws(token).getBody().getSubject();
     }
-    
+
     // 增加從JWT中獲取用戶ID的方法
     public Long getUserIdFromJwtToken(String token) {
         try {
             Claims claims = Jwts.parserBuilder().setSigningKey(key()).build()
                     .parseClaimsJws(token).getBody();
-    
+
             // 更通用的寫法，避免型別不一致
             Number userId = claims.get("userId", Number.class);
             if (userId != null) {
@@ -84,41 +85,25 @@ public class JwtUtils {
             return null;
         }
     }
-    
+
     @SuppressWarnings("unchecked")
     public List<String> getRolesFromJwtToken(String token) {
         try {
             Claims claims = Jwts.parserBuilder().setSigningKey(key()).build()
                     .parseClaimsJws(token).getBody();
             List<String> roles = (List<String>) claims.get("roles");
-            
+
             // 記錄提取到的角色信息
             logger.debug("Raw roles from JWT: {}", roles);
-            
+
             if (roles == null) {
                 logger.warn("No roles found in JWT token");
                 return List.of(); // 返回空列表而不是 null
             }
-            
-            // 確保角色格式正確 (Spring Security 期望 'ROLE_USER' 格式)
-            List<String> formattedRoles = roles.stream()
-                .map(role -> {
-                    // 轉換為字符串來確保安全
-                    String roleStr = role.toString();
-                    
-                    // 如果角色已經是 ROLE_ 開頭的，則保留原樣
-                    if (roleStr.startsWith("ROLE_")) {
-                        return roleStr;
-                    }
-                    // 否則，添加 ROLE_ 前綴
-                    else {
-                        return "ROLE_" + roleStr.toUpperCase();
-                    }
-                })
-                .collect(Collectors.toList());
-            
-            logger.debug("Formatted roles for Spring Security: {}", formattedRoles);
-            return formattedRoles;
+
+            // JWT中的角色已經是正確格式（ROLE_USER），直接返回，不需要再次格式化
+            logger.debug("Returning roles as-is from JWT: {}", roles);
+            return roles;
         } catch (Exception e) {
             logger.error("Error extracting roles from JWT token: {}", e.getMessage());
             e.printStackTrace(); // 打印完整堆疊跟蹤
@@ -129,17 +114,17 @@ public class JwtUtils {
     public boolean validateJwtToken(String authToken) {
         try {
             // 完整記錄令牌前20個字符
-            logger.debug("Validating JWT token: {}... (truncated)", 
-                     authToken.substring(0, Math.min(20, authToken.length())) + "...");
-            
+            logger.debug("Validating JWT token: {}... (truncated)",
+                    authToken.substring(0, Math.min(20, authToken.length())) + "...");
+
             // 嘗試解析令牌並獲取claims
             Claims claims = Jwts.parserBuilder().setSigningKey(key()).build()
                     .parseClaimsJws(authToken).getBody();
-            
+
             // 記錄令牌內容
-            logger.debug("Token claims - sub: {}, roles: {}, exp: {}", 
-                claims.getSubject(), claims.get("roles"), claims.getExpiration());
-            
+            logger.debug("Token claims - sub: {}, roles: {}, exp: {}",
+                    claims.getSubject(), claims.get("roles"), claims.getExpiration());
+
             // 如果我們到達這裡，則令牌有效
             logger.debug("JWT token validation successful");
             return true;

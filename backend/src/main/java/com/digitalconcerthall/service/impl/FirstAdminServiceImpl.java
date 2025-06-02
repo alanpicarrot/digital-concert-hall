@@ -20,9 +20,9 @@ import com.digitalconcerthall.service.FirstAdminService;
 
 @Service
 /**
- * 实现第一个管理员注册服务的类
- * 该服务允许在系统初始化时手动注册第一个管理员
- * 该管理员将绕过一些已存在的验证逻辑
+ * 實現第一位管理員註冊服務的類別
+ * 此服務允許在系統初始化時手動註冊第一位管理員
+ * 此管理員將繞過部分既有的驗證邏輯
  */
 public class FirstAdminServiceImpl implements FirstAdminService {
 
@@ -37,7 +37,7 @@ public class FirstAdminServiceImpl implements FirstAdminService {
 
     @Override
     public boolean isFirstAdmin() {
-        // 检查 admin_users 表是否有数据
+        // 檢查 admin_users 資料表是否有資料
         return adminUserRepository.count() == 0;
     }
 
@@ -45,24 +45,24 @@ public class FirstAdminServiceImpl implements FirstAdminService {
     @Transactional
     public MessageResponse registerFirstAdmin(AdminUserCreateRequest signUpRequest) {
         if (!isFirstAdmin()) {
-            return new MessageResponse("Error: System already has an admin!");
+            return new MessageResponse("錯誤：系統已經有管理員！");
         }
 
         if (adminUserRepository.existsByUsername(signUpRequest.getUsername())) {
-            return new MessageResponse("Error: Username is already taken!");
+            return new MessageResponse("錯誤：用戶名已被使用！");
         }
 
         if (adminUserRepository.existsByEmail(signUpRequest.getEmail())) {
-            return new MessageResponse("Error: Email is already in use!");
+            return new MessageResponse("錯誤：電子郵件已被使用！");
         }
 
-        // 确保角色存在
+        // 確保角色存在
         createRoleIfNotExists(ERole.ROLE_ADMIN);
 
-        // 设置管理员角色
+        // 設定管理員角色
         Set<Role> roles = new HashSet<>();
         Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN)
-                .orElseThrow(() -> new RuntimeException("Error: Admin Role is not found."));
+                .orElseThrow(() -> new RuntimeException("錯誤：找不到管理員角色。"));
         roles.add(adminRole);
 
         AdminUser adminUser = new AdminUser();
@@ -75,7 +75,7 @@ public class FirstAdminServiceImpl implements FirstAdminService {
 
         adminUserRepository.save(adminUser);
 
-        return new MessageResponse("First admin user registered successfully!");
+        return new MessageResponse("第一位管理員註冊成功！");
     }
 
     private void createRoleIfNotExists(ERole roleName) {

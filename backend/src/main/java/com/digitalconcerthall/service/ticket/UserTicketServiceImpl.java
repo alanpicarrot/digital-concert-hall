@@ -2,9 +2,11 @@ package com.digitalconcerthall.service.ticket;
 
 import com.digitalconcerthall.dto.response.ticket.UserTicketDetailResponse;
 import com.digitalconcerthall.dto.response.ticket.UserTicketSummaryResponse;
+import com.digitalconcerthall.model.User;
 import com.digitalconcerthall.model.order.Order;
 import com.digitalconcerthall.model.order.OrderItem;
 import com.digitalconcerthall.model.ticket.UserTicket;
+import com.digitalconcerthall.repository.UserRepository;
 import com.digitalconcerthall.repository.UserTicketRepository;
 import com.digitalconcerthall.service.order.OrderService;
 import org.slf4j.Logger;
@@ -12,11 +14,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional; // Import Transactional
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 // Import necessary classes for other methods if implementing them here
 // import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,6 +34,9 @@ public class UserTicketServiceImpl implements UserTicketService {
 
     @Autowired
     private UserTicketRepository userTicketRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private OrderService orderService; // Assuming OrderService can provide Order details
@@ -45,9 +53,9 @@ public class UserTicketServiceImpl implements UserTicketService {
                 throw new RuntimeException("Order not found: " + orderNumber);
             }
             if (order.getUser() == null) {
-                 logger.error("Order {} has no associated user.", orderNumber);
-                 // Consider throwing an exception
-                 throw new RuntimeException("Order has no associated user: " + orderNumber);
+                logger.error("Order {} has no associated user.", orderNumber);
+                // Consider throwing an exception
+                throw new RuntimeException("Order has no associated user: " + orderNumber);
             }
 
             List<OrderItem> orderItems = order.getOrderItems();
@@ -60,12 +68,15 @@ public class UserTicketServiceImpl implements UserTicketService {
             for (OrderItem item : orderItems) {
                 // Basic validation: Check if OrderItem has a link to the inventory Ticket
                 if (item.getTicket() == null) {
-                     logger.warn("Order item ID {} in order {} has no associated inventory ticket. Skipping generation for this item.", item.getId(), orderNumber);
-                     continue;
+                    logger.warn(
+                            "Order item ID {} in order {} has no associated inventory ticket. Skipping generation for this item.",
+                            item.getId(), orderNumber);
+                    continue;
                 }
                 // Basic validation: Check quantity
                 if (item.getQuantity() <= 0) {
-                    logger.warn("Order item ID {} in order {} has invalid quantity {}. Skipping generation.", item.getId(), orderNumber, item.getQuantity());
+                    logger.warn("Order item ID {} in order {} has invalid quantity {}. Skipping generation.",
+                            item.getId(), orderNumber, item.getQuantity());
                     continue;
                 }
 
@@ -74,18 +85,20 @@ public class UserTicketServiceImpl implements UserTicketService {
                     UserTicket userTicket = new UserTicket();
                     userTicket.setUser(order.getUser());
                     userTicket.setOrderItem(item);
-                    // ticketCode, isUsed, createdAt, updatedAt are handled by @PrePersist in UserTicket entity
+                    // ticketCode, isUsed, createdAt, updatedAt are handled by @PrePersist in
+                    // UserTicket entity
                     generatedUserTickets.add(userTicket);
                 }
-                 logger.debug("Prepared {} UserTicket(s) for OrderItem ID {}", item.getQuantity(), item.getId());
+                logger.debug("Prepared {} UserTicket(s) for OrderItem ID {}", item.getQuantity(), item.getId());
             }
 
             // Save all generated UserTickets in a batch
             if (!generatedUserTickets.isEmpty()) {
                 userTicketRepository.saveAll(generatedUserTickets);
-                logger.info("Successfully generated and saved {} user tickets for order: {}", generatedUserTickets.size(), orderNumber);
+                logger.info("Successfully generated and saved {} user tickets for order: {}",
+                        generatedUserTickets.size(), orderNumber);
             } else {
-                 logger.warn("No user tickets were generated for order: {}", orderNumber);
+                logger.warn("No user tickets were generated for order: {}", orderNumber);
             }
 
         } catch (Exception e) {
@@ -97,55 +110,83 @@ public class UserTicketServiceImpl implements UserTicketService {
 
     @Override
     public Page<UserTicketSummaryResponse> getCurrentUserTickets(Pageable pageable) {
-        // TODO: Implement logic to fetch UserTickets for the current user
-        //       and map them to UserTicketSummaryResponse.
-        // Example:
-        // Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        // String username = auth.getName();
-        // Page<UserTicket> userTicketsPage = userTicketRepository.findByUser_UsernameOrderByCreatedAtDesc(username, pageable); // Assuming repository method exists
-        // return userTicketsPage.map(this::mapToUserTicketSummaryResponse); // Need a mapping method
-        logger.warn("getCurrentUserTickets method not yet implemented.");
-        throw new UnsupportedOperationException("getCurrentUserTickets needs implementation.");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        Page<UserTicket> userTicketsPage = userTicketRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        return userTicketsPage.map(this::mapToUserTicketSummaryResponse);
     }
 
     @Override
     public UserTicketDetailResponse getUserTicketDetail(Long userTicketId) {
-        // TODO: Implement logic to fetch a specific UserTicket by its ID
-        //       and map it to UserTicketDetailResponse. Ensure user authorization if needed.
-        // Example:
-        // Authentication auth = ...; String username = auth.getName();
-        // UserTicket ut = userTicketRepository.findByIdAndUser_Username(userTicketId, username).orElseThrow(...); // Check ownership
-        // return mapToUserTicketDetailResponse(ut); // Need a mapping method
-        logger.warn("getUserTicketDetail method not yet implemented.");
-        throw new UnsupportedOperationException("getUserTicketDetail needs implementation.");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        UserTicket userTicket = userTicketRepository.findByIdAndUser(userTicketId, user)
+                .orElseThrow(() -> new NoSuchElementException("Ticket not found or not owned by user"));
+
+        return mapToUserTicketDetailResponse(userTicket);
     }
 
     @Override
-    @Transactional // Add Transactional annotation
+    @Transactional
     public void cancelTicket(Long userTicketId) {
-        // TODO: Implement logic to find the UserTicket and mark it as used/cancelled.
-        //       Ensure user authorization.
-        // Example:
-        // Authentication auth = ...; String username = auth.getName();
-        // UserTicket ut = userTicketRepository.findByIdAndUser_Username(userTicketId, username).orElseThrow(...); // Check ownership
-        // if (ut.getIsUsed()) { throw new IllegalStateException("Ticket already used/cancelled."); }
-        // ut.setIsUsed(true); // Mark as used
-        // // Optionally add a 'status' field for more granular control (e.g., CANCELLED)
-        // userTicketRepository.save(ut);
-        logger.warn("cancelTicket method not yet implemented.");
-        throw new UnsupportedOperationException("cancelTicket needs implementation.");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String username = auth.getName();
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        UserTicket userTicket = userTicketRepository.findByIdAndUser(userTicketId, user)
+                .orElseThrow(() -> new NoSuchElementException("Ticket not found or not owned by user"));
+
+        if (userTicket.getIsUsed()) {
+            throw new IllegalStateException("Ticket already used/cancelled");
+        }
+
+        userTicket.setIsUsed(true);
+        userTicketRepository.save(userTicket);
+        logger.info("Ticket {} cancelled successfully", userTicketId);
     }
 
-    // --- Helper mapping methods (Example structure) ---
-    /*
-    private UserTicketSummaryResponse mapToUserTicketSummaryResponse(UserTicket ut) {
-        // Mapping logic here... access ut.getOrderItem(), ut.getOrderItem().getTicket(), etc.
-        return new UserTicketSummaryResponse(...);
+    private UserTicketSummaryResponse mapToUserTicketSummaryResponse(UserTicket userTicket) {
+        OrderItem orderItem = userTicket.getOrderItem();
+        return new UserTicketSummaryResponse(
+                userTicket.getId(),
+                userTicket.getTicketCode(),
+                orderItem.getTicket().getPerformanceName(),
+                orderItem.getTicket().getPerformance().getVenue(),
+                orderItem.getTicket().getPerformanceDate(),
+                orderItem.getTicket().getPerformance().getEndTime(),
+                orderItem.getTicket().getTicketTypeName(),
+                userTicket.getIsUsed(),
+                orderItem.getOrder().getOrderNumber(),
+                userTicket.getCreatedAt());
     }
 
-    private UserTicketDetailResponse mapToUserTicketDetailResponse(UserTicket ut) {
-        // Mapping logic here...
-        return new UserTicketDetailResponse(...);
+    private UserTicketDetailResponse mapToUserTicketDetailResponse(UserTicket userTicket) {
+        OrderItem orderItem = userTicket.getOrderItem();
+        return new UserTicketDetailResponse(
+                userTicket.getId(),
+                userTicket.getTicketCode(),
+                orderItem.getTicket().getPerformanceName(),
+                orderItem.getTicket().getPerformance().getVenue(),
+                orderItem.getTicket().getPerformanceDate(),
+                orderItem.getTicket().getPerformance().getEndTime(),
+                orderItem.getTicket().getTicketTypeName(),
+                userTicket.getIsUsed(),
+                orderItem.getOrder().getOrderNumber(),
+                userTicket.getCreatedAt(),
+                null, // qrCodeBase64
+                null, // posterUrl
+                null, // concertDescription
+                null // programDetails
+        );
     }
-    */
 }

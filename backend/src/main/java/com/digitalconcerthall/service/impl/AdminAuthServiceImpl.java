@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 
 @Service
 public class AdminAuthServiceImpl implements AdminAuthService {
@@ -45,48 +46,44 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private DaoAuthenticationProvider adminAuthenticationProvider;
+
     @Override
     public AdminUserLoginResponse authenticateAdmin(LoginRequest loginRequest) {
         try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(loginRequest.getIdentifier(), loginRequest.getPassword())); // 修改此處
+            Authentication authentication = adminAuthenticationProvider.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getIdentifier(), loginRequest.getPassword()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String jwt = jwtUtils.generateJwtToken(authentication);
-    
+
             AdminUserDetailsImpl adminUserDetails = (AdminUserDetailsImpl) authentication.getPrincipal();
-    
+
             return new AdminUserLoginResponse(
-                jwt,
-                adminUserDetails.getId(),
-                adminUserDetails.getUsername(), // AdminUserDetailsImpl 仍然使用 getUsername()
-                adminUserDetails.getEmail(),    // AdminUserDetailsImpl 仍然使用 getEmail()
-                adminUserDetails.getAuthorities().stream()
-                    .map(item -> item.getAuthority())
-                    .collect(Collectors.toList())
-            );
+                    jwt,
+                    adminUserDetails.getId(),
+                    adminUserDetails.getUsername(),
+                    adminUserDetails.getEmail(),
+                    adminUserDetails.getAuthorities().stream()
+                            .map(item -> item.getAuthority())
+                            .collect(Collectors.toList()));
         } catch (BadCredentialsException e) {
-             logger.warn("Admin authentication failed for user {}: Bad credentials", loginRequest.getIdentifier()); // 修改此處
+            logger.warn("Admin authentication failed for user {}: Bad credentials", loginRequest.getIdentifier());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "帳號或密碼錯誤", e);
         } catch (UsernameNotFoundException e) {
-             logger.warn("Admin authentication failed: User identified by {} not found", loginRequest.getIdentifier()); // 修改此處，日誌訊息也調整一下
+            logger.warn("Admin authentication failed: User identified by {} not found", loginRequest.getIdentifier());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "管理員不存在", e);
         } catch (AuthenticationException e) {
-             logger.warn("Admin authentication failed for user {}: {}", loginRequest.getIdentifier(), e.getMessage()); // 修改此處
+            logger.warn("Admin authentication failed for user {}: {}", loginRequest.getIdentifier(), e.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "認證失敗: " + e.getMessage(), e);
         } catch (ResponseStatusException rse) {
-            // Re-throw specific ResponseStatusExceptions like the one added above
             throw rse;
         } catch (Exception e) {
-            // Log the unexpected error with stack trace
-            logger.error("Unexpected error during admin authentication for user: {}", loginRequest.getIdentifier(), e); // 修改此處
-
-            // 創建更明確的錯誤訊息
+            logger.error("Unexpected error during admin authentication for user: {}", loginRequest.getIdentifier(), e);
             String errorMessage = String.format("登入時發生內部錯誤: %s - %s",
-                                                e.getClass().getSimpleName(),
-                                                e.getMessage());
-
-            // 在拋出的異常中包含更明確的錯誤訊息
+                    e.getClass().getSimpleName(),
+                    e.getMessage());
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMessage, e);
         }
     }
@@ -106,7 +103,8 @@ public class AdminAuthServiceImpl implements AdminAuthService {
         adminUser.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
         // Set roles as needed, e.g., fetch ROLE_ADMIN from RoleRepository and assign
         // Set<Role> roles = new HashSet<>();
-        // Role adminRole = roleRepository.findByName(ERole.ROLE_ADMIN).orElseThrow(...);
+        // Role adminRole =
+        // roleRepository.findByName(ERole.ROLE_ADMIN).orElseThrow(...);
         // roles.add(adminRole);
         // adminUser.setRoles(roles);
         adminUserRepository.save(adminUser);

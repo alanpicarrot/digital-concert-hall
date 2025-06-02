@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 
 public class LoginRequest {
     @NotBlank
-    @JsonProperty("username") // 確保從 JSON 的 "username" 欄位映射
+    @JsonProperty("identifier") // 修復：確保從 JSON 的 "identifier" 欄位映射
     private String identifier; // 將 Java 欄位名更改為 identifier
 
     @NotBlank
