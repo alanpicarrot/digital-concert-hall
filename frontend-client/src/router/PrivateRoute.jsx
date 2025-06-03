@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import authService from '../services/authService';
+import React, { useEffect, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 /**
  * 私有路由元件，用於保護需要登入的頁面
@@ -14,82 +13,75 @@ const PrivateRoute = ({ children }) => {
   const stateAuthenticated = location.state?.authenticated;
 
   // 使用useState跟踪認證驗證狀態
-  const [verifiedAuth, setVerifiedAuth] = useState(false);
-  const [verifying, setVerifying] = useState(true);
-  
+  const [authCheckComplete, setAuthCheckComplete] = useState(false);
+
   // 直接檢查localStorage中的令牌和用户數據
-  const token = localStorage.getItem('token');
-  const userStr = localStorage.getItem('user');
+  const token = localStorage.getItem("token");
+  const userStr = localStorage.getItem("user");
   const hasLocalAuth = !!(token && userStr);
 
-  // 處理非認證狀態下的認證更新
   useEffect(() => {
-    if (!isAuthenticated && hasLocalAuth && !verifiedAuth) {
-      updateAuthState();
-    }
-  }, [isAuthenticated, hasLocalAuth, updateAuthState, verifiedAuth]);
+    const verifyAuthentication = () => {
+      // 簡化的認證檢查邏輯
+      console.log("PrivateRoute - 認證檢查:", {
+        contextAuth: isAuthenticated,
+        stateAuth: stateAuthenticated,
+        hasLocalAuth: hasLocalAuth,
+        pathname: location.pathname,
+      });
 
-  useEffect(() => {
-    const verifyAuthentication = async () => {
-      try {
-        setVerifying(true);
-        // 輸出更詳細的狀態信息
-        console.log('PrivateRoute - 認證檢查:', { 
-          contextAuth: isAuthenticated,
-          stateAuth: stateAuthenticated,
-          hasLocalAuth: hasLocalAuth,
-          pathname: location.pathname
-        });
-        
-        // 簡化認證邏輯
-        // 1. 如果項目的狀態樹動認證成功，直接認為有效
-        if (stateAuthenticated) {
-          console.log('從頁面狀態應得認證成功資訊');
-          setVerifiedAuth(true);
-          setVerifying(false);
-          return;
-        }
-        
-        // 2. 如果在 AuthContext 中已證實認證，直接認為有效
-        if (isAuthenticated) {
-          console.log('從 AuthContext 中檢測到認證成功狀態');
-          setVerifiedAuth(true);
-          setVerifying(false);
-          return;
-        }
-        
-        // 3. 如果 localStorage 有認證資訊，將其視為有效
-        // 這是最簡單的驗證方法，將實際的令牌有效性驗證交給後端
-        if (token && userStr) {
-          try {
-            const userData = JSON.parse(userStr);
-            console.log('從 localStorage 讀取的用戶資訊:', userData.username);
-            
-            // 更新認證狀態
-            updateAuthState();
-            setVerifiedAuth(true);
-            console.log('本地驗證成功，允許訪問受保護路由');
-          } catch (e) {
-            console.error('解析用戶數據時出錯:', e);
-            setVerifiedAuth(false);
-          }
-        } else {
-          console.log('驗證失敗，用戶未登入或登入資料缺失');
-          setVerifiedAuth(false);
-        }
-      } catch (err) {
-        console.error('驗證過程中發生錯誤:', err);
-        setVerifiedAuth(false);
-      } finally {
-        setVerifying(false);
+      // 如果AuthContext中已經是認證狀態，直接允許
+      if (isAuthenticated) {
+        console.log("AuthContext 中已認證，允許訪問");
+        setAuthCheckComplete(true);
+        return;
       }
+
+      // 如果頁面狀態中標記為已認證，直接允許
+      if (stateAuthenticated) {
+        console.log("頁面狀態標記已認證，允許訪問");
+        setAuthCheckComplete(true);
+        return;
+      }
+
+      // 如果localStorage中有認證數據，嘗試恢復認證狀態
+      if (hasLocalAuth) {
+        try {
+          const userData = JSON.parse(userStr);
+          if (userData && userData.username) {
+            console.log("從localStorage恢復認證狀態:", userData.username);
+            // 更新AuthContext狀態
+            updateAuthState();
+            setAuthCheckComplete(true);
+            return;
+          }
+        } catch (e) {
+          console.error("解析localStorage用戶數據失敗:", e);
+        }
+      }
+
+      // 如果都沒有認證數據，標記檢查完成（將被重定向）
+      console.log("未找到有效認證，將重定向到登入頁面");
+      setAuthCheckComplete(true);
     };
 
-    verifyAuthentication();
-  }, [isAuthenticated, stateAuthenticated, hasLocalAuth, updateAuthState, location.pathname, token, userStr]);
+    // 如果AuthContext還在加載中，等待加載完成
+    if (!loading) {
+      verifyAuthentication();
+    }
+  }, [
+    isAuthenticated,
+    stateAuthenticated,
+    hasLocalAuth,
+    updateAuthState,
+    location.pathname,
+    loading,
+    token,
+    userStr,
+  ]);
 
-  // 如果正在驗證，顯示載入指示器
-  if (verifying || loading) {
+  // 如果AuthContext正在加載或認證檢查未完成，顯示載入指示器
+  if (loading || !authCheckComplete) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
@@ -97,14 +89,19 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  // 如果已驗證認證狀態、狀態認證、全局認證或本地存儲有效，則允許訪問
-  if (verifiedAuth || stateAuthenticated || isAuthenticated || hasLocalAuth) {
-    console.log('認證成功，允許訪問受保護路由');
+  // 檢查是否有任何形式的認證
+  const isAuthorized = isAuthenticated || stateAuthenticated || hasLocalAuth;
+
+  if (isAuthorized) {
+    console.log("認證檢查通過，允許訪問受保護路由");
     return children;
   }
 
   // 如果用戶未登入，重定向到登入頁面，並保存原始頁面位置
-  return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />;
+  console.log("認證檢查失敗，重定向到登入頁面");
+  return (
+    <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
+  );
 };
 
 export default PrivateRoute;

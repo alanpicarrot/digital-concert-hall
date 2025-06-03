@@ -145,102 +145,49 @@ axiosInstance.interceptors.response.use(
       console.log("錯誤發生的請求:", {
         url: error.config.url,
         method: error.config.method,
-        headers: error.config.headers,
       });
 
-      // 檢查當前路徑是否為結帳相關頁面、購物車頁面或票券頁面
+      // 檢查當前路徑
       const currentPath = window.location.pathname;
-      const isCheckoutPath = currentPath.includes("/checkout/");
-      const isCartPath = currentPath.includes("/cart");
-      const isTicketPath = currentPath.includes("/tickets/");
       const isLoginPath =
         currentPath.includes("/login") || currentPath.includes("/register");
+      const isProtectedPath =
+        currentPath.includes("/checkout/") ||
+        currentPath.includes("/cart") ||
+        currentPath.includes("/tickets/");
 
-      // 如果是登入相關頁面收到401，可能是登入失敗的預期錯誤，直接顯示錯誤
+      // 如果是登入相關頁面或受保護頁面收到401，通常是正常的業務邏輯
       if (isLoginPath) {
-        console.log("在登入相關頁面收到401錯誤，可能是資訊錯誤");
+        console.log("在登入相關頁面收到401錯誤，這是正常的登入失敗回應");
         return Promise.reject(error);
       }
 
-      // 檢查是否為票券API錯誤，特別處理
-      const isTicketApiError =
-        error.config.url.includes("/api/concerts") ||
-        error.config.url.includes("/api/tickets") ||
-        error.config.url.includes("/api/performances");
-
-      // 在票券頁面或票券API錯誤時特殊處理
-      if (isTicketPath || isTicketApiError) {
-        console.log("票券相關操作收到401錯誤，但不清除登入狀態或重定向");
-        // 在收到票券相關401錯誤時，不立即清除登入狀態或重定向
-        // 這是因為某些票券信息可能不需要登入即可查看
+      // 對於受保護的頁面，不立即清除認證狀態
+      // 讓組件自己處理認證錯誤
+      if (isProtectedPath) {
+        console.log("在受保護頁面收到401錯誤，組件會自行處理");
         return Promise.reject(error);
       }
 
-      // 在結帳或購物車頁面先不處理登出或重定向
-      if (isCheckoutPath || isCartPath) {
-        console.log("在結帳或購物車頁面收到401錯誤，但不清除登入狀態或重定向");
-        // 在結帳或購物車頁面收到401錯誤時，不清除登入狀態或重定向
-        // 這是為了避免結帳流程中的認證問題導致用戶被重定向到登入頁面
-        return Promise.reject(error);
-      }
-
-      // 如果不是在結帳頁面，則正常處理401錯誤
-      console.log("清除本地存儲中的無效令牌");
-      // 先清除本地存儲中的無效令牌
+      // 只有在非受保護頁面收到401錯誤時才清除認證狀態
+      console.log("在非受保護頁面收到401錯誤，清除認證狀態");
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 
-      // 如果收到401錯誤且不是在登入或註冊頁面或付款結果頁面，則進行重定向
-      if (
-        !currentPath.includes("/login") &&
-        !currentPath.includes("/register") &&
-        !currentPath.includes("/reset-password") &&
-        !currentPath.includes("/payment") &&
-        !isTicketPath && // 避免在票券頁面重定向
-        !isTicketApiError // 避免在票券API錯誤時重定向
-      ) {
-        // 如果全局有 ToastManager 實例，則使用它顯示通知
-        if (typeof window.ToastManager !== "undefined" && window.ToastManager) {
-          window.ToastManager.showWarning(
-            "登入狀態",
-            "您的登入已過期，需重新登入。您可以手動點擊登入按鈕或者查看控制台錯誤訊息。"
-          );
-        } else {
-          // 如果 ToastManager 不可用，則使用 console
-          console.warn("登入已過期，將重新導向到登入頁面");
+      // 避免在已經是認證相關頁面時進行重定向
+      if (!isLoginPath && !currentPath.includes("/reset-password")) {
+        try {
+          const currentPathname = window.location.pathname;
+          console.log(`從 ${currentPathname} 重定向到登入頁面`);
+          window.location.href = `/auth/login?redirect=${encodeURIComponent(
+            currentPathname
+          )}`;
+        } catch (redirectError) {
+          console.error("重定向過程中發生錯誤:", redirectError);
         }
-
-        // 在 console 中顯示詳細的錯誤訊息，方便開發人員調試
-        console.error("401 未授權錯誤詳細資訊:", {
-          url: error.config.url,
-          method: error.config.method,
-          headers: JSON.stringify(error.config.headers),
-          responseStatus: error.response?.status,
-          responseData: error.response?.data,
-          timestamp: new Date().toISOString(),
-        });
-
-        // 清除本地存儲，但不立即重定向
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-
-        // 將重定向都進行記錄，但不實際執行
-        const redirectPath = encodeURIComponent(currentPath);
-        console.log(
-          `已將重定向設定為不自動執行，您可以在控制台調整測試完成後手動導向到: /login?redirect=${redirectPath}`
-        );
-
-        // 將重定向網址添加到 window 上，但不實際執行重定向
-        window.loginRedirectUrl = `/login?redirect=${redirectPath}`;
-
-        // 添加一個自動重定向的函數，但不主動調用
-        window.executeLoginRedirect = function () {
-          if (window.loginRedirectUrl) {
-            window.location.href = window.loginRedirectUrl;
-          }
-        };
       }
     }
+
     return Promise.reject(error);
   }
 );

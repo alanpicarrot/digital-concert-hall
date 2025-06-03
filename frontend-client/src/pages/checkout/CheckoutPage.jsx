@@ -69,51 +69,33 @@ const CheckoutPage = () => {
     };
   }, [orderNumber, navigate, order, directCheckout]);
 
-  // 添加額外的認證驗證邏輯和專用於結帳頁面的強化驗證
+  // 簡化的認證檢查
   useEffect(() => {
-    // 在首次載入時進行認證狀態檢查和日誌記錄
     const verifyAuth = () => {
       const token = localStorage.getItem("token");
       const userStr = localStorage.getItem("user");
 
-      // 僅在開發模式下記錄詳細狀態
-      if (process.env.NODE_ENV === "development") {
-        console.log("結帳頁面載入時詳細認證狀態:", {
-          tokenExists: !!token,
-          userExists: !!userStr,
-          tokenLength: token?.length,
-          locationState: JSON.stringify(location.state),
-          locationPathname: location.pathname,
-          fromDirect: location.state?.direct === true,
-          authenticated: location.state?.authenticated === true,
-        });
-      }
+      console.log("結帳頁面認證檢查:", {
+        hasToken: !!token,
+        hasUser: !!userStr,
+        fromState: location.state?.authenticated,
+      });
 
-      // 如果從路由狀態中檢測到authenticated=true且token存在，強制確認認證狀態
-      if (location.state?.authenticated === true && token && userStr) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("檢測到明確的認證狀態標記，跳過額外驗證");
-        }
+      // 如果有基本認證數據或從狀態中標記為已認證，則通過
+      if ((token && userStr) || location.state?.authenticated) {
+        console.log("認證檢查通過");
         return;
       }
 
-      // 如果有token和用戶數據，強制重新寫入以確保數據一致性
-      if (token && userStr) {
-        try {
-          // 嘗試從已經存在的資料中讀取，但不重新寫入，避免觸發其他元件的更新
-          const userData = JSON.parse(userStr);
-          if (process.env.NODE_ENV === "development") {
-            console.log("用戶資料正常，無需重新寫入");
-          }
-        } catch (e) {
-          console.error("解析用戶數據失敗:", e);
-        }
-      }
+      // 否則重定向到登入
+      console.log("認證檢查失敗，重定向到登入");
+      navigate("/auth/login", {
+        state: { from: location.pathname },
+      });
     };
 
-    // 僅執行一次驗證
     verifyAuth();
-  }, []); // 空依賴數組確保只在组件掛載時驗證一次
+  }, [location, navigate]);
 
   // 確保獲取結帳數據並在卸載時清理全局函數
   useEffect(() => {
@@ -238,12 +220,18 @@ const CheckoutPage = () => {
               const summary = {
                 // 確保有默認值，避免 undefined * number = NaN
                 totalItems: checkoutInfo.quantity || 0,
-                subtotal: (checkoutInfo.ticketPrice || 0) * (checkoutInfo.quantity || 0),
-                discount: checkoutInfo.discountAmount || 0, 
+                subtotal:
+                  (checkoutInfo.ticketPrice || 0) *
+                  (checkoutInfo.quantity || 0),
+                discount: checkoutInfo.discountAmount || 0,
                 // 總金額計算優先使用傳入的值，否則基於小計和折扣計算
-                totalAmount: checkoutInfo.totalAmount || ((checkoutInfo.ticketPrice || 0) * (checkoutInfo.quantity || 0) - (checkoutInfo.discountAmount || 0)),
+                totalAmount:
+                  checkoutInfo.totalAmount ||
+                  (checkoutInfo.ticketPrice || 0) *
+                    (checkoutInfo.quantity || 0) -
+                    (checkoutInfo.discountAmount || 0),
               };
-              
+
               // 如果存在 subtotal，優先使用它
               if (checkoutInfo.subtotal && !isNaN(checkoutInfo.subtotal)) {
                 summary.subtotal = checkoutInfo.subtotal;
@@ -263,7 +251,6 @@ const CheckoutPage = () => {
                 // 如果有折扣，重新計算總金額
                 summary.totalAmount = summary.subtotal - summary.discount;
               }
-
 
               setOrderSummary(summary);
             } catch (err) {
@@ -345,7 +332,7 @@ const CheckoutPage = () => {
               {
                 id: directCheckout.ticketId,
                 quantity: directCheckout.quantity || 1, // 確保數量至少為1
-                concertId: directCheckout.concertId, 
+                concertId: directCheckout.concertId,
                 type: "ticket", // 確保類型始終是ticket
                 ticketType: directCheckout.ticketType, // 票券類型名稱
                 ticketTypeId: directCheckout.ticketTypeId, // 如果有提供票券類型ID
@@ -551,8 +538,12 @@ const CheckoutPage = () => {
             <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-4 flex items-start">
               <Info size={16} className="text-indigo-600 mr-2 mt-0.5" />
               <div>
-                <h3 className="font-medium text-indigo-700 mb-1">購票流程提示</h3>
-                <p className="text-sm text-indigo-600">您正在進行票券購買，請確認以下訂單資訊，確認無誤後點擊「確認付款」按鈕進行支付。支付完成後，系統將自動發送電子票券到您的電子信箱。</p>
+                <h3 className="font-medium text-indigo-700 mb-1">
+                  購票流程提示
+                </h3>
+                <p className="text-sm text-indigo-600">
+                  您正在進行票券購買，請確認以下訂單資訊，確認無誤後點擊「確認付款」按鈕進行支付。支付完成後，系統將自動發送電子票券到您的電子信箱。
+                </p>
               </div>
             </div>
             {/* 測試模式通知 */}
