@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   Loader2,
@@ -30,6 +30,12 @@ const CheckoutPage = () => {
   const [appliedDiscount, setAppliedDiscount] = useState(null);
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
 
+  // 使用useRef追踪數據載入狀態，避免useEffect重複執行
+  const dataLoadedRef = useRef(false);
+  const lastOrderNumberRef = useRef(null);
+  // 追踪Toast是否已經顯示過
+  const toastShownRef = useRef(false);
+
   // 全局暴露支付模擬函數，確保在開發環境中按鈕可以正常工作
   // 這個函數將在組件卸載時被清理
   useEffect(() => {
@@ -42,11 +48,13 @@ const CheckoutPage = () => {
 
         // 創建新的模擬支付函數
         window.simulatePayment = () => {
-          // 使用新的分步模式支付流程
+          // 使用新的分步模式支付流程，延遲獲取金額以避免循環依賴
+          const getCurrentAmount = () => {
+            return order?.totalAmount || directCheckout?.totalAmount || 1000;
+          };
+
           navigate(
-            `/payment/steps/order?orderNumber=${orderNumber}&amount=${
-              order?.totalAmount || directCheckout?.totalAmount || 1000
-            }`
+            `/payment/steps/order?orderNumber=${orderNumber}&amount=${getCurrentAmount()}`
           );
         };
 
@@ -67,7 +75,7 @@ const CheckoutPage = () => {
         }
       }
     };
-  }, [orderNumber, navigate, order, directCheckout]);
+  }, [orderNumber, navigate]); // 移除order和directCheckout依賴項
 
   // 簡化的認證檢查
   useEffect(() => {
@@ -99,12 +107,27 @@ const CheckoutPage = () => {
 
   // 確保獲取結帳數據並在卸載時清理全局函數
   useEffect(() => {
-    // 為避免無窮迴圈，在組件初次載入或訂單號變更時才執行
-    const hasDataLoaded = Boolean(order || directCheckout);
-    const isFirstLoad = loading && !error && !hasDataLoaded;
+    // 檢查是否需要載入數據
+    const shouldLoadData = () => {
+      // 如果訂單號變更了，需要重新載入
+      if (lastOrderNumberRef.current !== orderNumber) {
+        lastOrderNumberRef.current = orderNumber;
+        dataLoadedRef.current = false;
+        toastShownRef.current = false; // 重置Toast狀態
+        return true;
+      }
 
-    // 如果已經有數據且訂單號未變更，則跳過重複加載
-    if (!isFirstLoad && !orderNumber) {
+      // 如果已經載入過且訂單號沒變，跳過
+      if (dataLoadedRef.current) {
+        return false;
+      }
+
+      // 初次載入
+      return true;
+    };
+
+    if (!shouldLoadData()) {
+      console.log("Skip loading - data already loaded for current order");
       return;
     }
 
@@ -125,10 +148,13 @@ const CheckoutPage = () => {
             }
 
             // 顯示訂單加載成功的通知
-            toast.showSuccess(
-              "訂單已就緒",
-              `訂單 #${orderNumber} 已成功加載，請確認資訊後進行付款`
-            );
+            if (!toastShownRef.current) {
+              toast.showSuccess(
+                "訂單已就緒",
+                `訂單 #${orderNumber} 已成功加載，請確認資訊後進行付款`
+              );
+              toastShownRef.current = true; // 標記Toast已顯示
+            }
 
             // 處理訂單摘要信息
             const summary = {
@@ -158,31 +184,19 @@ const CheckoutPage = () => {
 
             // 驗證訂單總價是否正確
             if (orderData && orderData.items) {
-              // 使用購物車服務中的相同計算方法重新計算總價
-              const cartService = await import("../../services/cartService");
-              const calculatedTotal = cartService.default.calculateTotal(
-                orderData.items
-              );
-
-              // 比較計算出的總價與API回傳的總價
-              if (Math.abs(calculatedTotal - orderData.totalAmount) > 1) {
-                // 允許 1 元誤差
-                if (process.env.NODE_ENV === "development") {
-                  console.warn(
-                    "訂單總價不一致，重新計算:",
-                    calculatedTotal,
-                    "但從API返回:",
-                    orderData.totalAmount
-                  );
-                }
-
-                // 使用前端計算的總價(注意，在實際環境中可能需要將差異報告給後端)
-                orderData.calculatedTotal = calculatedTotal;
+              // 修復：直接使用後端返回的總額，不進行前端重新計算
+              // 因為前端計算邏輯與後端可能不一致（price vs unitPrice等）
+              if (process.env.NODE_ENV === "development") {
+                console.log("使用後端返回的訂單總額:", orderData.totalAmount);
               }
+
+              // 不再進行前端重新計算，直接使用後端數據
+              // 這樣可以避免 calculateTotal 函數中 price vs unitPrice 的問題
             }
 
             setOrder(orderData);
             setDirectCheckout(null);
+            dataLoadedRef.current = true; // 標記數據已載入
           } catch (err) {
             console.error("Error fetching order:", err);
             setError("無法獲取訂單資訊，請返回重試");
@@ -214,7 +228,10 @@ const CheckoutPage = () => {
               setDirectCheckout(checkoutInfo);
               setOrder(null);
 
-              toast.showInfo("準備完成", "購票資訊已就绪，請確認後進行付款");
+              if (!toastShownRef.current) {
+                toast.showInfo("準備完成", "購票資訊已就绪，請確認後進行付款");
+                toastShownRef.current = true; // 標記Toast已顯示
+              }
 
               // 為直接購買建立訂單摘要 - 使用健壯的數據處理方式
               const summary = {
@@ -253,6 +270,7 @@ const CheckoutPage = () => {
               }
 
               setOrderSummary(summary);
+              dataLoadedRef.current = true; // 標記數據已載入
             } catch (err) {
               console.error("Error parsing checkout info:", err);
               setError("購票資訊無效，請返回重新選擇");
@@ -278,7 +296,7 @@ const CheckoutPage = () => {
     return () => {
       sessionStorage.removeItem("checkoutInfoProcessed");
     };
-  }, [orderNumber, toast]); // 保持依賴項
+  }, [orderNumber]); // 移除toast依賴項，只依賴orderNumber
 
   // 使用 useCallback 包裝 handlePayment
   const handlePayment = useCallback(async () => {
@@ -364,8 +382,18 @@ const CheckoutPage = () => {
           setTimeout(() => {
             // 在開發環境中使用模擬支付
             if (process.env.NODE_ENV === "development") {
+              // 構建商品名稱
+              const productName =
+                directCheckout.ticketType && directCheckout.quantity
+                  ? `${directCheckout.ticketType} x ${directCheckout.quantity}`
+                  : `${directCheckout.concertTitle} x ${
+                      directCheckout.quantity || 1
+                    }`;
+
               navigate(
-                `/payment/steps/order?orderNumber=${realOrderNumber}&amount=${createdOrder.totalAmount}`
+                `/payment/steps/order?orderNumber=${realOrderNumber}&amount=${
+                  createdOrder.totalAmount
+                }&productName=${encodeURIComponent(productName)}`
               );
               setPaymentLoading(false);
               return;
@@ -402,9 +430,6 @@ const CheckoutPage = () => {
       // 原本訂單支付部分
       if (orderNumber) {
         try {
-          // 確保認證頭部設置正確
-          authService.setupPreRequestAuth();
-
           // 創建表單請求，返回HTML
           const response = await authService.axiosInstance.post(
             "/api/payment/ecpay/create",
@@ -421,26 +446,32 @@ const CheckoutPage = () => {
 
           // 如果測試環境, 直接跳轉到模擬支付頁面
           if (process.env.NODE_ENV === "development") {
-            // 在開發環境中直接跳轉到模擬綠界支付頁面，簡化整個流程
-            if (process.env.NODE_ENV === "development") {
-              console.log("開發環境中，直接跳轉到模擬綠界支付頁面");
-            }
+            // 在開發環境中直接跳轉到模擬支付頁面
+            console.log("開發環境：直接跳轉到模擬支付頁面");
+            console.log("訂單號:", orderNumber, "金額:", order?.totalAmount);
 
-            // 短暫延遲以提供用戶視覺反饋
+            // 簡化邏輯：直接跳轉到分步支付頁面
             setTimeout(() => {
-              // 使用已經定義好的全局simulatePayment函數跳轉
-              if (typeof window.simulatePayment === "function") {
-                window.simulatePayment();
-              } else {
-                // 如果函數不存在，就直接跳轉到分步支付頁面
-                navigate(
-                  `/payment/steps/order?orderNumber=${orderNumber}&amount=${
-                    order?.totalAmount || 1000
-                  }`
+              // 構建商品名稱（從訂單資料中獲取）
+              let productName = "票券 x 1"; // 預設值
+              if (order && order.items && order.items.length > 0) {
+                const firstItem = order.items[0];
+                const itemName =
+                  firstItem.concertTitle || firstItem.description || "票券";
+                const totalQuantity = order.items.reduce(
+                  (sum, item) => sum + (item.quantity || 1),
+                  0
                 );
+                productName = `${itemName} x ${totalQuantity}`;
               }
+
+              const paymentUrl = `/payment/steps/order?orderNumber=${orderNumber}&amount=${
+                order?.totalAmount || 1000
+              }&productName=${encodeURIComponent(productName)}`;
+              console.log("跳轉到付款頁面:", paymentUrl);
+              navigate(paymentUrl);
               setPaymentLoading(false);
-            }, 1000);
+            }, 500); // 縮短延遲時間
 
             return;
           }

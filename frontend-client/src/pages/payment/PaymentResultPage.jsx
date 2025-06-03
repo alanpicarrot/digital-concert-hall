@@ -9,6 +9,10 @@ import {
   ShoppingCart,
   User,
   AlertTriangle,
+  RefreshCw,
+  Clock,
+  CreditCard,
+  Receipt,
 } from "lucide-react";
 import orderService from "../../services/orderService";
 import authService from "../../services/authService";
@@ -21,6 +25,8 @@ const PaymentResultPage = () => {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [paymentNotified, setPaymentNotified] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [autoRedirectCountdown, setAutoRedirectCountdown] = useState(10);
 
   // 從URL參數獲取支付結果
   const queryParams = new URLSearchParams(location.search);
@@ -34,123 +40,90 @@ const PaymentResultPage = () => {
   const isCancelled = rtnCode === "0" || rtnMsg === "使用者取消交易";
   const isSimulated = queryParams.get("simulatedPayment") === "true";
 
+  // 自動重定向倒計時
+  useEffect(() => {
+    if (isSuccess && !loading && orderDetails && autoRedirectCountdown > 0) {
+      const timer = setTimeout(() => {
+        setAutoRedirectCountdown((prev) => prev - 1);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    } else if (isSuccess && autoRedirectCountdown === 0) {
+      navigate("/profile"); // 或者導向到訂單列表頁面
+    }
+  }, [isSuccess, loading, orderDetails, autoRedirectCountdown, navigate]);
+
   // 更可靠的訂單獲取函數，包含重試邏輯和多種訂單號格式嘗試
-  const fetchOrderDetails = async () => {
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    console.log(`嘗試獲取訂單詳情: ${merchantTradeNo}`);
-
-    const tryFetch = async () => {
-      try {
-        // 檢查登入狀態
-        if (!authService.isTokenValid()) {
-          console.log("用戶未登入或令牌已過期，嘗試刷新登入狀態");
-        }
-
-        // 定義可能的訂單號格式
-        let orderFormats = [merchantTradeNo];
-        
-        // 優先使用 ORD 格式
-        // 如果是DCH格式，嘗試轉換為 ORD 格式 (更精確的轉換邏輯)
-        if (merchantTradeNo && merchantTradeNo.startsWith("DCH-")) {
-          const dchPart = merchantTradeNo.substring(4);
-          if (dchPart.length == 8) { // DCH-格式通常是8位字母數字組合
-            // 生成一個類似的 ORD 格式訂單號（日期加上隨機數）
-            // 嘗試使用当天和前一天的日期
-            const today = new Date();
-            
-            // 嘗試今天的日期
-            const getDateString = (date) => {
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-              return `${year}${month}${day}`;
-            };
-            
-            // 今天的日期
-            const todayStr = getDateString(today);
-            
-            // 嘗試今天的日期
-            orderFormats.push(`ORD${todayStr}${dchPart}`);
-            console.log(`嘗試轉換 DCH 訂單號 ${merchantTradeNo} 為今天的 ORD 格式: ORD${todayStr}${dchPart}`);
-            
-            // 嘗試前一天的日期
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = getDateString(yesterday);
-            orderFormats.push(`ORD${yesterdayStr}${dchPart}`);
-            console.log(`嘗試轉換 DCH 訂單號 ${merchantTradeNo} 為昨天的 ORD 格式: ORD${yesterdayStr}${dchPart}`);
-          }
-        }
-
-        // 嘗試所有可能的訂單號格式
-        let data = null;
-        let lastError = null;
-        let allOrdersNotFound = true;
-        
-        for (const orderFormat of orderFormats) {
-          console.log(`嘗試使用訂單號格式: ${orderFormat}`);
-          try {
-            data = await orderService.getOrderByNumber(orderFormat);
-            console.log(`成功使用訂單號格式 ${orderFormat} 獲取訂單詳情`, data);
-            allOrdersNotFound = false;
-            break;
-          } catch (error) {
-            console.log(`使用訂單號格式 ${orderFormat} 獲取失敗:`, error.message);
-            // 檢查是否為「找不到訂單」的錯誤
-            if (!error.isOrderNotFound) {
-              allOrdersNotFound = false; // 某個體是其他錯誤，非找不到訂單
-            }
-            lastError = error;
-          }
-        }
-        
-        if (data) {
-          console.log('成功獲取訂單詳情:', data);
-          setOrderDetails(data);
-          setFetchError(null);
-          return true;
-        } else {
-          // 如果所有訂單無法獲取是因為「訂單不存在」，則設置一個特定的錯誤
-          if (allOrdersNotFound) {
-            const notFoundError = new Error('找不到訂單編號，請稍後刷新頁面或繼續等待訂單處理');
-            notFoundError.isOrderNotFound = true;
-            throw notFoundError;
-          } else {
-            throw lastError || new Error('所有格式的訂單號均無法獲取成功');
-          }
-        }
-      } catch (error) {
-        console.error(
-          `嘗試獲取訂單詳情失敗 (第 ${retryCount + 1}/${maxRetries} 次):`,
-          error
-        );
-
-        if (retryCount < maxRetries - 1) {
-          retryCount++;
-          console.log(`${retryCount}秒後重試... (${retryCount}/${maxRetries})`);
-          await new Promise((resolve) =>
-            setTimeout(resolve, retryCount * 1000)
-          );
-          return false;
-        } else {
-          setFetchError(error);
-          return false;
-        }
-      }
-    };
-
-    let success = await tryFetch();
-
-    // 重試循環
-    while (!success && retryCount < maxRetries) {
-      success = await tryFetch();
+  const fetchOrderDetails = async (retryAttempt = 0) => {
+    if (!merchantTradeNo) {
+      setFetchError("找不到訂單編號");
+      setLoading(false);
+      return false;
     }
 
-    // 無論成功與否，都設置loading為false
-    setLoading(false);
-    return success;
+    try {
+      console.log(
+        `嘗試獲取訂單詳情: ${merchantTradeNo} (第${retryAttempt + 1}次嘗試)`
+      );
+
+      let orderData = null;
+
+      // 首先嘗試使用原始訂單號
+      try {
+        orderData = await orderService.getOrderByNumber(merchantTradeNo);
+        console.log("成功獲取訂單詳情:", orderData);
+      } catch (error) {
+        console.log("使用原始訂單號失敗，嘗試其他格式...");
+
+        // 如果是 DCH- 格式，嘗試轉換為 ORD 格式
+        if (merchantTradeNo.startsWith("DCH-")) {
+          const ordFormatNumber = merchantTradeNo.replace("DCH-", "ORD");
+          try {
+            orderData = await orderService.getOrderByNumber(ordFormatNumber);
+            console.log("使用 ORD 格式成功獲取訂單詳情:", orderData);
+          } catch (ordError) {
+            console.log("ORD 格式也失敗，嘗試其他方法...");
+            throw error; // 使用原始錯誤
+          }
+        } else {
+          throw error;
+        }
+      }
+
+      if (orderData) {
+        setOrderDetails(orderData);
+        setFetchError(null);
+        setLoading(false);
+        return true;
+      }
+    } catch (error) {
+      console.error(`第${retryAttempt + 1}次嘗試獲取訂單失敗:`, error);
+
+      if (retryAttempt < 2) {
+        // 最多重試3次
+        console.log(`等待2秒後進行第${retryAttempt + 2}次嘗試...`);
+        setTimeout(() => {
+          fetchOrderDetails(retryAttempt + 1);
+        }, 2000);
+        return false;
+      } else {
+        setFetchError(
+          error.response?.data?.message ||
+            error.message ||
+            "無法獲取訂單詳情，但您的付款可能已經成功處理"
+        );
+        setLoading(false);
+        return false;
+      }
+    }
+  };
+
+  // 手動重試獲取訂單
+  const handleRetryFetch = () => {
+    setRetryCount((prev) => prev + 1);
+    setLoading(true);
+    setFetchError(null);
+    fetchOrderDetails(0);
   };
 
   // 更可靠的支付通知函數，包含重試邏輯和多種訂單號格式
@@ -159,141 +132,32 @@ const PaymentResultPage = () => {
       return;
     }
 
-    let retryCount = 0;
-    const maxRetries = 3;
+    try {
+      console.log(
+        `嘗試通知後端支付結果: ${merchantTradeNo}, 成功: ${isSuccess}`
+      );
 
-    const tryNotify = async () => {
-      try {
-        console.log(
-          `嘗試通知後端支付結果: ${merchantTradeNo}, 成功: ${isSuccess}`
-        );
-
-        // 使用fetch替代axios，避免可能的令牌問題
-        const apiBaseUrl =
-          process.env.REACT_APP_API_BASE_URL || "http://localhost:8081";
-        const response = await fetch(
-          `${apiBaseUrl}/api/payment/ecpay/test-notify?orderNumber=${merchantTradeNo}&success=true`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-
-        if (response.ok) {
-          console.log("支付結果通知成功");
-          setPaymentNotified(true);
-          return true;
-        } else {
-          console.error(
-            "支付結果通知失敗:",
-            response.status,
-            response.statusText
-          );
-          const errorText = await response.text();
-          console.error("錯誤詳情:", errorText);
-          
-          // 如果是原始訂單號失敗，嘗試使用其他格式的訂單號
-          // 如果是 DCH 格式，嘗試轉換為 ORD 格式
-          if (merchantTradeNo && merchantTradeNo.startsWith("DCH-")) {
-            const dchPart = merchantTradeNo.substring(4);
-            if (dchPart.length == 8) { // DCH-格式通常是8位字母數字組合
-              // 嘗試使用当天和前一天的日期
-              const today = new Date();
-              
-              // 產生日期字串的輔助函數
-              const getDateString = (date) => {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}${month}${day}`;
-              };
-              
-              // 嘗試今天的日期
-              const todayStr = getDateString(today);
-              const todayOrderNumber = `ORD${todayStr}${dchPart}`;
-              
-              console.log(`嘗試使用今天的 ORD 格式訂單號通知: ${todayOrderNumber}`);
-              try {
-                const todayResponse = await fetch(
-                  `${apiBaseUrl}/api/payment/ecpay/test-notify?orderNumber=${todayOrderNumber}&success=true`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                  }
-                );
-                
-                if (todayResponse.ok) {
-                  console.log(`使用今天的 ORD 格式 ${todayOrderNumber} 通知成功`);
-                  setPaymentNotified(true);
-                  return true;
-                }
-              } catch (notifyError) {
-                console.error(`使用今天的 ORD 格式通知失敗:`, notifyError);
-              }
-              
-              // 嘗試前一天的日期
-              const yesterday = new Date(today);
-              yesterday.setDate(yesterday.getDate() - 1);
-              const yesterdayStr = getDateString(yesterday);
-              const yesterdayOrderNumber = `ORD${yesterdayStr}${dchPart}`;
-              
-              console.log(`嘗試使用昨天的 ORD 格式訂單號通知: ${yesterdayOrderNumber}`);
-              try {
-                const yesterdayResponse = await fetch(
-                  `${apiBaseUrl}/api/payment/ecpay/test-notify?orderNumber=${yesterdayOrderNumber}&success=true`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                  }
-                );
-                
-                if (yesterdayResponse.ok) {
-                  console.log(`使用昨天的 ORD 格式 ${yesterdayOrderNumber} 通知成功`);
-                  setPaymentNotified(true);
-                  return true;
-                }
-              } catch (notifyError) {
-                console.error(`使用昨天的 ORD 格式通知失敗:`, notifyError);
-              }
-            }
-          }
-          
-          return false;
+      // 使用fetch替代axios，避免可能的令牌問題
+      const apiBaseUrl =
+        process.env.REACT_APP_API_BASE_URL || "http://localhost:8081";
+      const response = await fetch(
+        `${apiBaseUrl}/api/payment/ecpay/test-notify?orderNumber=${merchantTradeNo}&success=true`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
         }
-      } catch (error) {
-        console.error(
-          `支付結果通知錯誤 (第 ${retryCount + 1}/${maxRetries} 次):`,
-          error
-        );
+      );
 
-        if (retryCount < maxRetries - 1) {
-          retryCount++;
-          console.log(
-            `${retryCount}秒後重試通知... (${retryCount}/${maxRetries})`
-          );
-          await new Promise((resolve) =>
-            setTimeout(resolve, retryCount * 1000)
-          );
-          return false;
-        } else {
-          return false;
-        }
+      if (response.ok) {
+        console.log("支付結果通知成功");
+        setPaymentNotified(true);
+        // 通知成功後，重新獲取訂單詳情
+        setTimeout(() => {
+          fetchOrderDetails();
+        }, 1000);
       }
-    };
-
-    let success = await tryNotify();
-
-    // 重試循環
-    while (!success && retryCount < maxRetries) {
-      success = await tryNotify();
-    }
-
-    // 通知完成後，嘗試再次獲取訂單詳情
-    if (success) {
-      console.log("支付通知成功，2秒後重新獲取訂單詳情");
-      setTimeout(() => {
-        fetchOrderDetails();
-      }, 2000);
+    } catch (error) {
+      console.error("支付結果通知失敗:", error);
     }
   };
 
@@ -312,76 +176,58 @@ const PaymentResultPage = () => {
       return;
     }
 
-    // 創建重試函數，使用升級版的重試邏輯
-    const fetchWithRetries = async () => {
-      // 設置指數退避策略的延遲
-      let delay = 1000; // 初始1秒
-      let attempts = 0;
-      const maxAttempts = 10; // 增加最大嘗試次數
-      
-      while (attempts < maxAttempts) {
-        const success = await fetchOrderDetails();
-        if (success) {
-          console.log(`在第 ${attempts+1} 次嘗試時成功獲取訂單詳情`);
-          // 成功獲取訂單後，嘗試通知支付結果
-          notifyPaymentResult();
-          return true;
-        }
-        
-        // 如果還未達到最大嘗試次數，等待後再次嘗試
-        if (attempts < maxAttempts - 1) {
-          console.log(`第 ${attempts+1} 次嘗試失敗，將在 ${delay/1000} 秒後再次嘗試...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // 使用指數退避策略增加延遲，但最大不超過8秒
-          delay = Math.min(delay * 1.5, 8000);
-        }
-        
-        attempts++;
-      }
-      
-      console.warn(`經過 ${maxAttempts} 次嘗試後仍無法獲取訂單詳情`);
-      // 即使獲取失敗，仍然嘗試通知支付結果
-      notifyPaymentResult();
-      return false;
-    };
-    
-    // 啟動重試流程
-    fetchWithRetries();
+    // 開始獲取訂單詳情
+    fetchOrderDetails();
 
-    // 如果支付成功，設置10秒後自動跳轉到我的訂單頁面
+    // 如果支付成功，嘗試通知後端
     if (isSuccess) {
-      const timer = setTimeout(() => {
-        // 增加時間戳作為查詢參數，確保不使用緩存
-        navigate(`/user/orders?refresh=${Date.now()}`);
-      }, 10000);
-
-      return () => clearTimeout(timer);
+      notifyPaymentResult();
     }
-  }, [merchantTradeNo, isSuccess, isSimulated, navigate, isCancelled]);
+  }, [merchantTradeNo, isSuccess, isCancelled, navigate]);
 
-  // 顯示加載中狀態
+  // 載入中狀態
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex justify-center items-center">
-        <div className="text-center">
-          <Loader2
-            size={48}
-            className="mx-auto text-indigo-600 animate-spin mb-4"
-          />
-          <p className="text-xl text-gray-600">正在處理您的付款結果...</p>
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-lg mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+          <div className="w-full h-2 bg-blue-500 animate-pulse"></div>
+
+          <div className="p-8 text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-100 mb-6">
+              <Loader2 size={40} className="text-blue-600 animate-spin" />
+            </div>
+
+            <h2 className="text-2xl font-bold mb-3">處理中...</h2>
+            <p className="text-gray-600 mb-4">正在確認您的付款狀態，請稍候</p>
+
+            {retryCount > 0 && (
+              <p className="text-sm text-amber-600 mb-4">
+                正在重試獲取訂單詳情... (第 {retryCount + 1} 次嘗試)
+              </p>
+            )}
+
+            <div className="flex items-center justify-center text-sm text-gray-500">
+              <Clock size={16} className="mr-2" />
+              這可能需要幾秒鐘的時間
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 即使獲取訂單細節失敗，也顯示支付結果頁面
-  // 但會在頁面中顯示警告訊息
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-lg mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         {/* 頂部狀態條 */}
         <div
-          className={`w-full h-2 ${isSuccess ? "bg-green-500" : "bg-red-500"}`}
+          className={`w-full h-2 ${
+            isSuccess
+              ? "bg-green-500"
+              : isCancelled
+              ? "bg-yellow-500"
+              : "bg-red-500"
+          }`}
         ></div>
 
         <div className="p-8">
@@ -412,122 +258,163 @@ const PaymentResultPage = () => {
                     <p className="mt-1">
                       您的付款已成功處理，但我們無法載入訂單詳情。請稍後在「我的訂單」中查看。
                     </p>
+                    <button
+                      onClick={handleRetryFetch}
+                      className="mt-2 text-yellow-800 hover:text-yellow-900 font-medium flex items-center"
+                    >
+                      <RefreshCw size={14} className="mr-1" />
+                      重新獲取
+                    </button>
                   </div>
                 </div>
               )}
 
               {orderDetails && (
                 <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-100">
-                  <h3 className="text-left font-medium text-gray-900 mb-3">
+                  <h3 className="text-left font-medium text-gray-900 mb-3 flex items-center">
+                    <Receipt size={18} className="mr-2" />
                     訂單資訊
                   </h3>
-                  <div className="flex justify-between mb-2 pb-2 border-b border-gray-100">
-                    <span className="text-gray-500">訂單編號</span>
-                    <span className="font-medium">
-                      {orderDetails.orderNumber}
-                      {orderDetails.orderNumber && orderDetails.orderNumber.startsWith("DCH-") && (
-                        <span className="ml-2 text-xs text-amber-600">(舊格式，系統已升級為 ORD 格式)</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between mb-2 pb-2 border-b border-gray-100">
-                    <span className="text-gray-500">訂單狀態</span>
-                    <span className="font-medium text-green-600">
-                      {orderDetails.status === "paid"
-                        ? "已付款"
-                        : orderDetails.paymentStatus === "paid"
-                        ? "已付款"
-                        : "處理中"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between pt-1">
-                    <span className="text-gray-500">總金額</span>
-                    <span className="font-bold text-lg">
-                      NT$ {orderDetails.totalAmount}
-                    </span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                      <span className="text-gray-500">訂單編號</span>
+                      <span className="font-medium font-mono">
+                        {orderDetails.orderNumber}
+                        {orderDetails.orderNumber &&
+                          orderDetails.orderNumber.startsWith("DCH-") && (
+                            <span className="ml-2 text-xs text-amber-600">
+                              (舊格式，系統已升級為 ORD 格式)
+                            </span>
+                          )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                      <span className="text-gray-500">訂單狀態</span>
+                      <span className="font-medium text-green-600 flex items-center">
+                        <CheckCircle size={16} className="mr-1" />
+                        {orderDetails.status === "paid"
+                          ? "已付款"
+                          : orderDetails.paymentStatus === "paid"
+                          ? "已付款"
+                          : "處理中"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="text-gray-500">總金額</span>
+                      <span className="font-bold text-lg text-green-600">
+                        NT$ {orderDetails.totalAmount?.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
 
               {!orderDetails && !fetchError && (
                 <div className="mb-8 p-5 bg-gray-50 rounded-lg border border-gray-100">
-                  <h3 className="text-left font-medium text-gray-900 mb-3">
+                  <h3 className="text-left font-medium text-gray-900 mb-3 flex items-center">
+                    <Receipt size={18} className="mr-2" />
                     訂單資訊
                   </h3>
-                  <div className="flex justify-between mb-2 pb-2 border-b border-gray-100">
-                    <span className="text-gray-500">訂單編號</span>
-                    <span className="font-medium">
-                      {merchantTradeNo}
-                      {merchantTradeNo && merchantTradeNo.startsWith("DCH-") && (
-                        <span className="ml-2 text-xs text-amber-600">(舊格式，系統已升級為 ORD 格式)</span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between mb-2 pb-2 border-b border-gray-100">
-                    <span className="text-gray-500">訂單狀態</span>
-                    <span className="font-medium text-green-600">已付款</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                      <span className="text-gray-500">訂單編號</span>
+                      <span className="font-medium font-mono">
+                        {merchantTradeNo}
+                        {merchantTradeNo &&
+                          merchantTradeNo.startsWith("DCH-") && (
+                            <span className="ml-2 text-xs text-amber-600">
+                              (舊格式，系統已升級為 ORD 格式)
+                            </span>
+                          )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                      <span className="text-gray-500">訂單狀態</span>
+                      <span className="font-medium text-green-600 flex items-center">
+                        <CheckCircle size={16} className="mr-1" />
+                        已付款
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
 
-              <p className="text-sm text-gray-500 mb-6">
-                頁面將在10秒後自動跳轉至訂單詳情...
-              </p>
+              {/* 自動重定向提示 */}
+              <div className="mb-6 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800 flex items-center justify-center">
+                  <Clock size={16} className="mr-2" />
+                  {autoRedirectCountdown > 0
+                    ? `頁面將在 ${autoRedirectCountdown} 秒後自動跳轉至個人中心...`
+                    : "正在跳轉..."}
+                </p>
+              </div>
 
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
+              {/* 操作按鈕 */}
+              <div className="space-y-3">
                 <Link
-                  to="/"
-                  className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  to="/profile"
+                  className="block w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors text-center"
                 >
-                  <Home size={18} />
-                  <span>返回首頁</span>
+                  <User size={20} className="inline mr-2" />
+                  查看我的訂單
                 </Link>
 
-                <Link
-                  to="/user/orders"
-                  className="flex items-center justify-center gap-2 py-2 px-4 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-colors"
-                >
-                  <User size={18} />
-                  <span>我的訂單</span>
-                </Link>
+                <div className="grid grid-cols-2 gap-3">
+                  <Link
+                    to="/concerts"
+                    className="block bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-center text-sm"
+                  >
+                    <ShoppingCart size={16} className="inline mr-1" />
+                    繼續購票
+                  </Link>
+                  <Link
+                    to="/"
+                    className="block bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-center text-sm"
+                  >
+                    <Home size={16} className="inline mr-1" />
+                    返回首頁
+                  </Link>
+                </div>
               </div>
             </div>
           ) : isCancelled ? (
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-100 mb-6">
-                <XCircle size={40} className="text-amber-600" />
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-100 mb-6">
+                <XCircle size={40} className="text-yellow-600" />
               </div>
 
-              <h2 className="text-2xl font-bold mb-3">交易已取消</h2>
+              <h2 className="text-2xl font-bold mb-3">付款已取消</h2>
               <p className="text-gray-600 mb-6">
-                您已取消這筆交易，訂單未能完成。
+                您已取消此次付款，未產生任何費用。您可以隨時重新進行購票。
               </p>
 
-              <div className="mb-8 p-5 bg-amber-50 rounded-lg border border-amber-100">
-                <h3 className="text-left font-medium text-amber-800 mb-2">
-                  取消訊息
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 className="text-sm font-medium text-blue-800 mb-2 flex items-center">
+                  <CreditCard size={16} className="mr-1" />
+                  重新購票說明：
                 </h3>
-                <p className="text-amber-700">
-                  {rtnMsg || "您已取消付款處理，未進行收費。"}
-                </p>
-                <p className="text-xs text-amber-600 mt-2">訂單編號: {merchantTradeNo}</p>
+                <ul className="text-sm text-blue-700 text-left space-y-1">
+                  <li>• 您的購物車內容已保留</li>
+                  <li>• 可以隨時重新選購票券</li>
+                  <li>• 熱門演出票券有限，建議盡快完成購買</li>
+                </ul>
               </div>
 
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <div className="space-y-3">
                 <Link
-                  to="/"
-                  className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  to="/concerts"
+                  className="block w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors text-center"
                 >
-                  <Home size={18} />
-                  <span>返回首頁</span>
+                  <ShoppingCart size={20} className="inline mr-2" />
+                  重新選購票券
                 </Link>
 
                 <Link
-                  to="/cart"
-                  className="flex items-center justify-center gap-2 py-2 px-4 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-colors"
+                  to="/"
+                  className="block w-full bg-gray-200 text-gray-700 py-2 px-6 rounded-lg hover:bg-gray-300 transition-colors text-center"
                 >
-                  <ShoppingCart size={18} />
-                  <span>返回購物車</span>
+                  <Home size={20} className="inline mr-2" />
+                  返回首頁
                 </Link>
               </div>
             </div>
@@ -537,39 +424,53 @@ const PaymentResultPage = () => {
                 <XCircle size={40} className="text-red-600" />
               </div>
 
-              <h2 className="text-2xl font-bold mb-3">付款未完成</h2>
+              <h2 className="text-2xl font-bold mb-3">付款失敗</h2>
               <p className="text-gray-600 mb-6">
-                很抱歉，您的付款處理未能完成。
+                很抱歉，您的付款未能成功處理。請重新嘗試或聯繫客服協助。
               </p>
 
-              <div className="mb-8 p-5 bg-red-50 rounded-lg border border-red-100">
-                <h3 className="text-left font-medium text-red-800 mb-2">
-                  錯誤資訊
-                </h3>
-                <p className="text-red-600">
-                  {rtnMsg || "處理您的付款時發生錯誤，請稍後再試。"}
-                </p>
-              </div>
+              {rtnMsg && (
+                <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-700">
+                    <strong>錯誤訊息：</strong> {rtnMsg}
+                  </p>
+                </div>
+              )}
 
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Link
-                  to="/cart"
-                  className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              <div className="space-y-3">
+                <button
+                  onClick={() => navigate(-1)}
+                  className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition-colors"
                 >
-                  <ShoppingCart size={18} />
-                  <span>返回購物車</span>
-                </Link>
+                  <RefreshCw size={20} className="inline mr-2" />
+                  重新嘗試付款
+                </button>
 
-                <Link
-                  to={`/checkout/${merchantTradeNo}`}
-                  className="flex items-center justify-center gap-2 py-2 px-4 bg-indigo-600 rounded-lg text-white hover:bg-indigo-700 transition-colors"
-                >
-                  <ArrowRight size={18} />
-                  <span>重新付款</span>
-                </Link>
+                <div className="grid grid-cols-2 gap-3">
+                  <Link
+                    to="/concerts"
+                    className="block bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-center text-sm"
+                  >
+                    重新選購
+                  </Link>
+                  <Link
+                    to="/"
+                    className="block bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors text-center text-sm"
+                  >
+                    返回首頁
+                  </Link>
+                </div>
               </div>
             </div>
           )}
+        </div>
+
+        {/* 頁腳資訊 */}
+        <div className="bg-gray-50 px-8 py-4 border-t border-gray-100">
+          <div className="text-center text-xs text-gray-500 space-y-1">
+            <p>交易時間：{new Date().toLocaleString("zh-TW")}</p>
+            <p>© 2025 數位音樂廳 | 客服專線：02-2655-0115</p>
+          </div>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import React, {
   useState,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import Toast from "../components/ui/Toast";
 import ToastManager from "../utils/ToastManager"; // 引入 ToastManager
@@ -20,17 +21,27 @@ export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
   const [recentToasts, setRecentToasts] = useState(new Set()); // 用於防止重複顯示
 
+  // 使用useRef保存最新的回調函數引用
+  const callbacksRef = useRef({});
+  // 使用useRef保存最新的recentToasts引用，避免useCallback依賴項問題
+  const recentToastsRef = useRef(new Set());
+
+  // 更新recentToastsRef
+  useEffect(() => {
+    recentToastsRef.current = recentToasts;
+  }, [recentToasts]);
+
   // 檢查是否為重複的Toast（基於type、title和message）
   const isDuplicateToast = useCallback(
     (newToast) => {
       const toastKey = `${newToast.type}-${newToast.title}-${newToast.message}`;
 
-      if (recentToasts.has(toastKey)) {
+      if (recentToastsRef.current.has(toastKey)) {
         console.log("發現重複的Toast，跳過顯示:", toastKey);
         return true;
       }
 
-      // 將新Toast加入最近顯示的集合，並設置3秒後自動移除
+      // 將新Toast加入最近顯示的集合，並設置5秒後自動移除
       setRecentToasts((prev) => new Set([...prev, toastKey]));
       setTimeout(() => {
         setRecentToasts((prev) => {
@@ -38,11 +49,11 @@ export const ToastProvider = ({ children }) => {
           newSet.delete(toastKey);
           return newSet;
         });
-      }, 3000);
+      }, 5000); // 延長到5秒，避免快速重複操作時的問題
 
       return false;
     },
-    [recentToasts]
+    [] // 移除recentToasts依賴項
   );
 
   // 添加通知
@@ -133,6 +144,16 @@ export const ToastProvider = ({ children }) => {
     setRecentToasts(new Set()); // 同時清除重複檢查記錄
   }, []);
 
+  // 更新回調函數引用
+  useEffect(() => {
+    callbacksRef.current = {
+      success: showSuccess,
+      error: showError,
+      warning: showWarning,
+      info: showInfo,
+    };
+  });
+
   // 提供的上下文值
   const value = {
     addToast,
@@ -146,13 +167,18 @@ export const ToastProvider = ({ children }) => {
 
   // 將 Toast 回調註冊到 ToastManager，使非組件環境也能顯示通知
   useEffect(() => {
-    // 將 React 組件的 Toast 函數註冊到全局 ToastManager 中
-    ToastManager.registerCallbacks({
-      success: showSuccess,
-      error: showError,
-      warning: showWarning,
-      info: showInfo,
-    });
+    console.log("Toast 回調已註冊");
+
+    // 創建包裝函數，使用最新的回調引用
+    const wrappedCallbacks = {
+      success: (...args) => callbacksRef.current.success?.(...args),
+      error: (...args) => callbacksRef.current.error?.(...args),
+      warning: (...args) => callbacksRef.current.warning?.(...args),
+      info: (...args) => callbacksRef.current.info?.(...args),
+    };
+
+    // 將包裝的回調函數註冊到全局 ToastManager 中
+    ToastManager.registerCallbacks(wrappedCallbacks);
 
     // 將 ToastManager 實例設置到全局窗口對象
     window.ToastManager = ToastManager;
@@ -170,7 +196,7 @@ export const ToastProvider = ({ children }) => {
         });
       }
     };
-  }, [showSuccess, showError, showWarning, showInfo]);
+  }, []); // 移除所有依賴項，讓此effect只在組件掛載時執行一次
 
   return (
     <ToastContext.Provider value={value}>
